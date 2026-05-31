@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Layout;
@@ -11,6 +12,40 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class InventoryRuleTests
 {
+    private static readonly AttributeKey<int> Weight = new("weight");
+    private static readonly AttributeKey<int> Damage = new("damage");
+    private static readonly AttributeKey<string> Slot = new("slot");
+
+    private sealed class RuleEquipmentDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> EquipmentSchema =
+            ItemSchema<string>.Create("rule-equipment")
+                .RequireAttribute(Weight, inherited: true);
+
+        public RuleEquipmentDefinition(string id, int weight)
+            : base(id, EquipmentSchema)
+        {
+            DefineAttribute(Weight, weight);
+        }
+    }
+
+    private sealed class RuleWeaponDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> WeaponSchema =
+            ItemSchema<string>.Create("rule-weapon")
+                .RequireAttribute(Weight, inherited: true)
+                .RequireAttribute(Damage, inherited: true)
+                .RequireAttribute(Slot, inherited: true);
+
+        public RuleWeaponDefinition(string id, int weight, int damage, string slot)
+            : base(id, WeaponSchema)
+        {
+            DefineAttribute(Weight, weight);
+            DefineAttribute(Damage, damage);
+            DefineAttribute(Slot, slot);
+        }
+    }
+
     private static Inventory<string> CreateInventoryWithRules(
         IRulePolicy<string> rule,
         params ItemDefinition<string>[] definitions)
@@ -25,6 +60,15 @@ public class InventoryRuleTests
             new EntryLayout<string>(),
             ruleContainer
         );
+
+        foreach (var def in definitions)
+        {
+            foreach (var tag in def.Tags.All())
+            {
+                if (tag.IsNamespaced)
+                    manager.Catalog.Tags.Define(tag);
+            }
+        }
 
         foreach (var def in definitions)
             manager.Registry.Register(def);
@@ -75,10 +119,10 @@ public class InventoryRuleTests
     }
 
     [Test]
-    public void RequireTagRule_PassesWhenAllRequiredTagsExist_AndFailsWhenMissing()
+    public void RequireAllTagsRule_PassesWhenAllRequiredTagsExist_AndFailsWhenMissing()
     {
-        var food = new TagKey("Food");
-        var sweet = new TagKey("Sweet");
+        var food = TagKey.Parse("core:food");
+        var sweet = TagKey.Parse("core:food.sweet");
 
         var apple = new ItemDefinition<string>("apple");
         apple.Tags.Add(food);
@@ -87,7 +131,7 @@ public class InventoryRuleTests
         var berry = new ItemDefinition<string>("berry");
         berry.Tags.Add(food);
 
-        var rule = new RequireTagRule<string>(food, sweet);
+        var rule = new RequireAllTagsRule<string>(food, sweet);
         var inventory = CreateInventoryWithRules(rule, apple, berry);
 
         // Succeeds: has both tags.
@@ -102,8 +146,8 @@ public class InventoryRuleTests
     [Test]
     public void RequireAnyTagRule_PassesWhenAtLeastOneRequiredTagExists_AndFailsWhenNone()
     {
-        var food = new TagKey("Food");
-        var healing = new TagKey("Healing");
+        var food = TagKey.Parse("core:food");
+        var healing = TagKey.Parse("core:effects.healing");
 
         var apple = new ItemDefinition<string>("apple");
         apple.Tags.Add(healing);
@@ -119,6 +163,91 @@ public class InventoryRuleTests
 
         Assert.That(TryApplyAdd(inventory, berry, metadata: null, amount: 1, out var error2), Is.False);
         Assert.That(error2, Is.Not.Null);
+    }
+
+    [Test]
+    public void RequireAttributeRule_PassesWhenPresent_AndFailsWhenMissing()
+    {
+        var rule = new RequireAttributeRule<string, int>(Damage);
+        var knife = new RuleWeaponDefinition("knife", weight: 2, damage: 10, slot: "hand");
+        var chestplate = new RuleEquipmentDefinition("chestplate", weight: 8);
+        var inventory = CreateInventoryWithRules(rule, knife, chestplate);
+
+        Assert.That(TryApplyAdd(inventory, knife, metadata: null, amount: 1, out var error1), Is.True);
+        Assert.That(error1, Is.Null);
+
+        Assert.That(TryApplyAdd(inventory, chestplate, metadata: null, amount: 1, out var error2), Is.False);
+        Assert.That(error2, Is.Not.Null);
+    }
+
+    [Test]
+    public void AttributeEqualsRule_PassesWhenEqual_AndFailsWhenDifferentOrMissing()
+    {
+        var rule = new AttributeEqualsRule<string, string>(Slot, "hand");
+        var knife = new RuleWeaponDefinition("knife", weight: 2, damage: 10, slot: "hand");
+        var bow = new RuleWeaponDefinition("bow", weight: 3, damage: 8, slot: "ranged");
+        var chestplate = new RuleEquipmentDefinition("chestplate", weight: 8);
+        var inventory = CreateInventoryWithRules(rule, knife, bow, chestplate);
+
+        Assert.That(TryApplyAdd(inventory, knife, metadata: null, amount: 1, out var error1), Is.True);
+        Assert.That(error1, Is.Null);
+
+        Assert.That(TryApplyAdd(inventory, bow, metadata: null, amount: 1, out var error2), Is.False);
+        Assert.That(error2, Is.Not.Null);
+
+        Assert.That(TryApplyAdd(inventory, chestplate, metadata: null, amount: 1, out var error3), Is.False);
+        Assert.That(error3, Is.Not.Null);
+    }
+
+    [Test]
+    public void AttributeOneOfValuesRule_PassesWhenAllowed_AndFailsWhenNotAllowedOrMissing()
+    {
+        var rule = new AttributeOneOfValuesRule<string, string>(Slot, "hand", "offhand");
+        var knife = new RuleWeaponDefinition("knife", weight: 2, damage: 10, slot: "hand");
+        var bow = new RuleWeaponDefinition("bow", weight: 3, damage: 8, slot: "ranged");
+        var chestplate = new RuleEquipmentDefinition("chestplate", weight: 8);
+        var inventory = CreateInventoryWithRules(rule, knife, bow, chestplate);
+
+        Assert.That(TryApplyAdd(inventory, knife, metadata: null, amount: 1, out var error1), Is.True);
+        Assert.That(error1, Is.Null);
+
+        Assert.That(TryApplyAdd(inventory, bow, metadata: null, amount: 1, out var error2), Is.False);
+        Assert.That(error2, Is.Not.Null);
+
+        Assert.That(TryApplyAdd(inventory, chestplate, metadata: null, amount: 1, out var error3), Is.False);
+        Assert.That(error3, Is.Not.Null);
+    }
+
+    [Test]
+    public void AttributePredicateRule_PassesWhenPredicateMatches_AndFailsWhenNotOrMissing()
+    {
+        var rule = new AttributePredicateRule<string, int>(
+            Weight,
+            weight => weight <= 5,
+            "Expected lightweight item");
+        var knife = new RuleWeaponDefinition("knife", weight: 2, damage: 10, slot: "hand");
+        var chestplate = new RuleEquipmentDefinition("chestplate", weight: 8);
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventoryWithRules(rule, knife, chestplate, coin);
+
+        Assert.That(TryApplyAdd(inventory, knife, metadata: null, amount: 1, out var error1), Is.True);
+        Assert.That(error1, Is.Null);
+
+        Assert.That(TryApplyAdd(inventory, chestplate, metadata: null, amount: 1, out var error2), Is.False);
+        Assert.That(error2, Is.Not.Null);
+
+        Assert.That(TryApplyAdd(inventory, coin, metadata: null, amount: 1, out var error3), Is.False);
+        Assert.That(error3, Is.Not.Null);
+    }
+
+    [Test]
+    public void AttributeRules_ValidateConstructorArguments()
+    {
+        Assert.Throws<ArgumentException>(() => new RequireAllTagsRule<string>());
+        Assert.Throws<ArgumentNullException>(() => new RequireAttributeRule<string, int>(null!));
+        Assert.Throws<ArgumentNullException>(() => new AttributeEqualsRule<string, int>(null!, 1));
+        Assert.Throws<ArgumentException>(() => new AttributeOneOfValuesRule<string, int>(Weight));
+        Assert.Throws<ArgumentNullException>(() => new AttributePredicateRule<string, int>(Weight, null!));
     }
 
     [Test]
@@ -284,7 +413,7 @@ public class InventoryRuleTests
     {
         var food = new TagKey("Food");
 
-        var requireFood = new RequireTagRule<string>(food);
+        var requireFood = new RequireAllTagsRule<string>(food);
         var unique = new UniqueItemRule<string>(maxInstancesPerItem: 1);
         var rule = new OrRule<string>(requireFood, unique);
 
