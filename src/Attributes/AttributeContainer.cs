@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 namespace Workes.InventorySystem.Attributes;
 
-public sealed class AttributeContainer
+public sealed class AttributeContainer : IAttributeView
 {
     private readonly Dictionary<object, object?> _values = new();
 

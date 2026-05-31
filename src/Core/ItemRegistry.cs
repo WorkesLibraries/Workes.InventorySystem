@@ -7,12 +7,24 @@ public class ItemRegistry<TKey>
 {
     private readonly Dictionary<TKey, ItemDefinition<TKey>> _definitions = new();
     private readonly Dictionary<TKey, TKey> _migrations = new();
+    private readonly Action<ItemDefinition<TKey>>? _onDefinitionRegistered;
+    private readonly Action? _onFreeze;
 
     private bool _frozen = false;
 
     public bool Frozen => _frozen;
 
     public IEnumerable<ItemDefinition<TKey>> Definitions => _definitions.Values;
+
+    public ItemRegistry()
+    {
+    }
+
+    internal ItemRegistry(Action<ItemDefinition<TKey>> onDefinitionRegistered, Action onFreeze)
+    {
+        _onDefinitionRegistered = onDefinitionRegistered;
+        _onFreeze = onFreeze;
+    }
 
     public void Register(ItemDefinition<TKey> definition)
     {
@@ -25,7 +37,10 @@ public class ItemRegistry<TKey>
         if (_definitions.ContainsKey(definition.Id))
             throw new InvalidOperationException("Duplicate item ID.");
 
-        definition.Validate();
+        if (_onDefinitionRegistered == null)
+            definition.Validate();
+        else
+            _onDefinitionRegistered.Invoke(definition);
 
         _definitions.Add(definition.Id, definition);
     }
@@ -82,5 +97,12 @@ public class ItemRegistry<TKey>
         return definition;
     }
 
-    public void Freeze() { _frozen = true; }
+    public void Freeze()
+    {
+        if (_frozen)
+            return;
+
+        _onFreeze?.Invoke();
+        _frozen = true;
+    }
 }

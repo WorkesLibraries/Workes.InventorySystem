@@ -12,8 +12,6 @@ namespace Workes.InventorySystem.Core;
 
 public class Inventory<TKey>
 {
-    private InventoryManager<TKey> _manager;
-
     private readonly List<ItemInstance<TKey>> _items = new();
 
     private readonly IStackResolver<TKey> _stackResolver;
@@ -22,6 +20,8 @@ public class Inventory<TKey>
     private readonly RuleContainer<TKey> _rules;
 
     public AttributeContainer Attributes { get; } = new();
+    public InventoryManager<TKey> Manager { get; }
+    public ItemCatalog<TKey> Catalog => Manager.Catalog;
 
     public event EventHandler<InventoryChangedEventArgs<TKey>>? Changed;
 
@@ -34,7 +34,7 @@ public class Inventory<TKey>
     {
         if (manager == null)
             throw new ArgumentNullException("Manager cannot be null");
-        _manager = manager;
+        Manager = manager;
         _stackResolver = stackResolver;
         _capacityPolicy = capacityPolicy;
         _layout = layout;
@@ -116,7 +116,7 @@ public class Inventory<TKey>
     internal static Inventory<TKey> CreateSimulationClone(Inventory<TKey> source)
     {
         var clonedLayout = source._layout.Clone();
-        var clone = new Inventory<TKey>(source._manager, source._stackResolver, source._capacityPolicy, clonedLayout, source._rules);
+        var clone = new Inventory<TKey>(source.Manager, source._stackResolver, source._capacityPolicy, clonedLayout, source._rules);
 
         foreach (var item in source._items)
         {
@@ -731,7 +731,7 @@ public class Inventory<TKey>
         var builder = CreateTransactionBuilder();
         foreach (var serializedItem in data.Items)
         {
-            var definition = _manager.Registry.Resolve(serializedItem.DefinitionId);
+            var definition = Manager.Registry.Resolve(serializedItem.DefinitionId);
 
             InstanceMetadata? metadata = null;
             if (serializedItem.Metadata != null && serializedItem.Metadata.Count > 0)

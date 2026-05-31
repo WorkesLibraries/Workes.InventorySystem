@@ -11,16 +11,21 @@ public class InventoryManager<TKey>
     public ICapacityPolicy<TKey> DefaultCapacityPolicy { get; set; }
     public IInventoryLayout<TKey> DefaultLayout { get; set; }
     public RuleContainer<TKey> DefaultRules { get; set; }
+    public ItemCatalog<TKey> Catalog { get; }
 
-    private readonly ItemRegistry<TKey> _registry = new();
+    public ItemRegistry<TKey> Registry => Catalog.Registry;
 
-    public ItemRegistry<TKey> Registry => _registry;
-
-    public InventoryManager(IStackResolver<TKey> defaultStackResolver, ICapacityPolicy<TKey> defaultCapacityPolicy, IInventoryLayout<TKey> defaultLayout, RuleContainer<TKey>? defaultRules = null)
+    public InventoryManager(
+        IStackResolver<TKey> defaultStackResolver,
+        ICapacityPolicy<TKey> defaultCapacityPolicy,
+        IInventoryLayout<TKey> defaultLayout,
+        RuleContainer<TKey>? defaultRules = null,
+        ItemCatalog<TKey>? catalog = null)
     {
         DefaultStackResolver = defaultStackResolver;
         DefaultCapacityPolicy = defaultCapacityPolicy;
         DefaultLayout = defaultLayout;
+        Catalog = catalog ?? new ItemCatalog<TKey>();
         if (defaultRules != null)
             DefaultRules = defaultRules;
         else
