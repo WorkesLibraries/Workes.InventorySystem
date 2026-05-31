@@ -1,0 +1,5 @@
+{
+    "dotnet.defaultSolution": "Workes.InventorySystem.sln",
+    "dotnet.backgroundAnalysis.compilerDiagnosticsScope": "fullSolution",
+    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution"
+}
