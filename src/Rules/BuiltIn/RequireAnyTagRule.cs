@@ -15,6 +15,13 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
     {
         if (tags == null || tags.Length == 0)
             throw new ArgumentException("At least one tag is required.", nameof(tags));
+
+        foreach (var tag in tags)
+        {
+            if (tag == null)
+                throw new ArgumentException("Required tags cannot contain null.", nameof(tags));
+        }
+
         var tagsDescription = string.Join(", ", Array.ConvertAll(tags, t => t.ToString()));
         _tags = tags;
         Id = $"RequireAnyTag[{tagsDescription}]";
@@ -31,7 +38,7 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
             bool hasAny = false;
             foreach (var tag in _tags)
             {
-                if (definition.HasTag(tag))
+                if (inventory.Catalog.Satisfies(definition, tag))
                 {
                     hasAny = true;
                     break;

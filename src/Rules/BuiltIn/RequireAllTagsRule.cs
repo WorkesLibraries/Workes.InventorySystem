@@ -1,20 +1,28 @@
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Tags;
 using System;
+
 namespace Workes.InventorySystem.Rules;
 
-public class RequireTagRule<TKey> : IRulePolicy<TKey>
+public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
 {
     private readonly TagKey[] _tags;
     public string Id { get; }
 
-    public RequireTagRule(params TagKey[] tags)
+    public RequireAllTagsRule(params TagKey[] tags)
     {
         if (tags == null || tags.Length == 0)
             throw new ArgumentException("At least one tag is required.", nameof(tags));
+
+        foreach (var tag in tags)
+        {
+            if (tag == null)
+                throw new ArgumentException("Required tags cannot contain null.", nameof(tags));
+        }
+
         var tagsDescription = string.Join(", ", Array.ConvertAll(tags, t => t.ToString()));
         _tags = tags;
-        Id = $"RequireTag[{tagsDescription}]";
+        Id = $"RequireAllTags[{tagsDescription}]";
     }
 
     public bool CanApply(
@@ -27,7 +35,7 @@ public class RequireTagRule<TKey> : IRulePolicy<TKey>
         {
             foreach (var tag in _tags)
             {
-                if (!definition.HasTag(tag))
+                if (!inventory.Catalog.Satisfies(definition, tag))
                 {
                     error = $"Expected item to have all required tags ({requiredTagsDescription}), but it was missing '{tag}'.";
                     return false;
