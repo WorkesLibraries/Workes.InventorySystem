@@ -4,6 +4,14 @@ using System.Linq;
 using Workes.InventorySystem.Core;
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Stores and evaluates inventory rules by id, priority, and enabled state.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// Enabled rules run in descending priority order. Rules with equal priority run in insertion order. When a structural
+/// transaction is supplied, structural rules are evaluated after semantic and snapshot-capable rules.
+/// </remarks>
 public class RuleContainer<TKey>
 {
     private sealed class RuleEntry
@@ -25,6 +33,9 @@ public class RuleContainer<TKey>
     private readonly Dictionary<string, RuleEntry> _rules = new Dictionary<string, RuleEntry>(StringComparer.Ordinal);
     private long _sequence;
 
+    /// <summary>
+    /// Creates an empty rule container.
+    /// </summary>
     public RuleContainer() { }
 
     /*
@@ -44,6 +55,13 @@ public class RuleContainer<TKey>
         }
     }*/
 
+    /// <summary>
+    /// Evaluates enabled rules against a normalized transaction.
+    /// </summary>
+    /// <param name="inventory">The inventory that would receive the transaction.</param>
+    /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
+    /// <param name="error">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when every enabled rule allows the transaction; otherwise, <see langword="false"/>.</returns>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -52,6 +70,14 @@ public class RuleContainer<TKey>
         return CanApply(inventory, transaction, structuralTransaction: null, out error);
     }
 
+    /// <summary>
+    /// Evaluates enabled rules against semantic and optional structural transaction data.
+    /// </summary>
+    /// <param name="inventory">The inventory that would receive the transaction.</param>
+    /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
+    /// <param name="structuralTransaction">Optional structural transaction containing storage-index changes.</param>
+    /// <param name="error">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when every enabled rule allows the transaction; otherwise, <see langword="false"/>.</returns>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -115,15 +141,30 @@ public class RuleContainer<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Gets the current rules by rule id.
+    /// </summary>
     public IReadOnlyDictionary<string, IRulePolicy<TKey>> Rules =>
         _rules.ToDictionary(kv => kv.Key, kv => kv.Value.Rule, StringComparer.Ordinal);
 
+    /// <summary>
+    /// Gets or replaces a rule by id.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <returns>The rule associated with <paramref name="id"/>.</returns>
     public IRulePolicy<TKey> this[string id]
     {
         get => _rules[id].Rule;
         set => Set(id, value);
     }
 
+    /// <summary>
+    /// Adds or replaces a rule using default priority and enabled state.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to store.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Set(string id, IRulePolicy<TKey> rule)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -140,6 +181,15 @@ public class RuleContainer<TKey>
         _rules[id] = new RuleEntry(WrapRule(id, rule), 0, true, _sequence++);
     }
 
+    /// <summary>
+    /// Adds or replaces a rule with explicit priority and enabled state.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to store.</param>
+    /// <param name="priority">The rule priority. Higher values run first.</param>
+    /// <param name="enabled">Whether the rule participates in validation.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Set(string id, IRulePolicy<TKey> rule, int priority, bool enabled)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -153,6 +203,11 @@ public class RuleContainer<TKey>
             _rules[id] = new RuleEntry(WrapRule(id, rule), priority, enabled, _sequence++);
     }
 
+    /// <summary>
+    /// Removes a rule by id.
+    /// </summary>
+    /// <param name="id">The rule id to remove.</param>
+    /// <returns><see langword="true"/> when a rule was removed; otherwise, <see langword="false"/>.</returns>
     public bool Remove(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -160,6 +215,12 @@ public class RuleContainer<TKey>
         return _rules.Remove(id);
     }
 
+    /// <summary>
+    /// Changes whether a rule participates in validation.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="enabled">The new enabled state.</param>
+    /// <returns><see langword="true"/> when the rule exists and was updated; otherwise, <see langword="false"/>.</returns>
     public bool TrySetEnabled(string id, bool enabled)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -172,6 +233,12 @@ public class RuleContainer<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Changes a rule priority.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="priority">The new priority. Higher values run first.</param>
+    /// <returns><see langword="true"/> when the rule exists and was updated; otherwise, <see langword="false"/>.</returns>
     public bool TrySetPriority(string id, int priority)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -185,21 +252,53 @@ public class RuleContainer<TKey>
     }
 
     // Collection-initializer friendly overload.
+    /// <summary>
+    /// Adds a rule using default priority and enabled state.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is invalid or the id already exists.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Add(string id, IRulePolicy<TKey> rule)
     {
         Add(id, rule, priority: 0, enabled: true);
     }
 
+    /// <summary>
+    /// Adds an enabled rule with explicit priority.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add.</param>
+    /// <param name="priority">The rule priority. Higher values run first.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is invalid or the id already exists.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Add(string id, IRulePolicy<TKey> rule, int priority)
     {
         Add(id, rule, priority, enabled: true);
     }
 
+    /// <summary>
+    /// Adds a rule with explicit enabled state and default priority.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add.</param>
+    /// <param name="enabled">Whether the rule participates in validation.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is invalid or the id already exists.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Add(string id, IRulePolicy<TKey> rule, bool enabled)
     {
         Add(id, rule, priority: 0, enabled);
     }
 
+    /// <summary>
+    /// Adds a rule with explicit priority and enabled state.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add.</param>
+    /// <param name="priority">The rule priority. Higher values run first.</param>
+    /// <param name="enabled">Whether the rule participates in validation.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is invalid or the id already exists.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public void Add(string id, IRulePolicy<TKey> rule, int priority, bool enabled)
     {
         if (string.IsNullOrWhiteSpace(id))

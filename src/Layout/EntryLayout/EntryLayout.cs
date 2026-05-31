@@ -8,15 +8,18 @@ namespace Workes.InventorySystem.Layout;
 /// Structure (ordering) is tracked via an internal index mapping and never by mutating
 /// the inventory's <c>_items</c> list.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class EntryLayout<TKey> : IInventoryLayout<TKey>
 {
     private readonly List<int> _order = new();
 
+    /// <inheritdoc />
     public int GetSlotCount(Inventory<TKey> inventory)
     {
         return _order.Count;
     }
 
+    /// <inheritdoc />
     public ItemInstance<TKey>? GetAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not EntryLayoutContext<TKey> entryContext)
@@ -32,6 +35,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return inventory.Items[itemIndex];
     }
 
+    /// <inheritdoc />
     public int? GetSlotOfItem(ILayoutContext<TKey> context)
     {
         if (context is not EntryLayoutContext<TKey> entryContext)
@@ -46,6 +50,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return null;
     }
 
+    /// <inheritdoc />
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         // If we have an entry layout context, the only valid merge candidate is the
@@ -69,6 +74,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
             yield return _order[i];
     }
 
+    /// <inheritdoc />
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -117,6 +123,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -135,6 +142,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -169,6 +177,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -201,6 +210,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         if (context is EntryLayoutContext<TKey> entryContext)
@@ -212,6 +222,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         _order.Add(index);
     }
 
+    /// <inheritdoc />
     public void OnItemRemoved(Inventory<TKey> inventory, int index)
     {
         for (int i = 0; i < _order.Count; i++)
@@ -228,13 +239,16 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         }
     }
 
+    /// <inheritdoc />
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         _order.Clear();
     }
 
+    /// <inheritdoc />
     public ILayoutPersistentData GetPersistentData() => new EntryLayoutPersistentData { Order = new List<int>(_order) };
 
+    /// <inheritdoc />
     public void RestorePersistentData(ILayoutPersistentData? data)
     {
         if (data is not EntryLayoutPersistentData entryData)
@@ -244,6 +258,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         _order.AddRange(entryData.Order);
     }
 
+    /// <inheritdoc />
     public IInventoryLayout<TKey> Clone()
     {
         var data = (EntryLayoutPersistentData)GetPersistentData();

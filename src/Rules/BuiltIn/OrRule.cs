@@ -6,11 +6,18 @@ namespace Workes.InventorySystem.Rules;
 /// <summary>
 /// Succeeds when any nested rule succeeds.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey>, IInventoryStructuralRulePolicy<TKey>
 {
     private readonly IRulePolicy<TKey>[] _rules;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates a disjunction rule.
+    /// </summary>
+    /// <param name="rules">The nested rules. At least one must allow the transaction.</param>
+    /// <exception cref="ArgumentException"><paramref name="rules"/> is null or empty.</exception>
     public OrRule(params IRulePolicy<TKey>[] rules)
     {
         if (rules == null || rules.Length == 0)
@@ -19,6 +26,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
         Id = $"Or[{string.Join("|", Array.ConvertAll(rules, r => r.Id))}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -71,6 +79,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
         return false;
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -120,6 +129,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
         return false;
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

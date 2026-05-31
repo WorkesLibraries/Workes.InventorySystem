@@ -4,11 +4,21 @@ using System;
 
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Requires added items to satisfy every specified tag.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
 {
     private readonly TagKey[] _tags;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an all-tags rule.
+    /// </summary>
+    /// <param name="tags">The tags every added item must satisfy.</param>
+    /// <exception cref="ArgumentException"><paramref name="tags"/> is null, empty, or contains <see langword="null"/>.</exception>
     public RequireAllTagsRule(params TagKey[] tags)
     {
         if (tags == null || tags.Length == 0)
@@ -25,6 +35,7 @@ public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
         Id = $"RequireAllTags[{tagsDescription}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

@@ -5,13 +5,26 @@ using System.Collections.Generic;
 
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Requires added item definitions to have an attribute matching one of the allowed values.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <typeparam name="TValue">The attribute value type.</typeparam>
 public class AttributeOneOfValuesRule<TKey, TValue> : IRulePolicy<TKey>
 {
     private readonly AttributeKey<TValue> _attribute;
     private readonly HashSet<TValue> _allowedValues;
     private readonly string _allowedValuesDescription;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an attribute allowed-values rule.
+    /// </summary>
+    /// <param name="attribute">The required attribute key.</param>
+    /// <param name="allowedValues">The allowed attribute values.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="attribute"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="allowedValues"/> is null or empty.</exception>
     public AttributeOneOfValuesRule(AttributeKey<TValue> attribute, params TValue[] allowedValues)
     {
         _attribute = attribute ?? throw new ArgumentNullException(nameof(attribute));
@@ -23,6 +36,7 @@ public class AttributeOneOfValuesRule<TKey, TValue> : IRulePolicy<TKey>
         Id = $"AttributeOneOf[{_attribute}:{_allowedValuesDescription}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

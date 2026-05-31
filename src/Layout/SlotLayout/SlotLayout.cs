@@ -3,10 +3,19 @@ using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 namespace Workes.InventorySystem.Layout;
 
+/// <summary>
+/// Fixed-size layout that places inventory items into numbered slots.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>Slot contexts must be <see cref="SlotLayoutContext{TKey}"/> instances. Invalid or empty slots return <see langword="null"/> from lookups.</remarks>
 public class SlotLayout<TKey> : IInventoryLayout<TKey>
 {
     private readonly List<int?> _slotMap;
 
+    /// <summary>
+    /// Creates a slot layout with a fixed number of slots.
+    /// </summary>
+    /// <param name="slotCount">The number of slots to create.</param>
     public SlotLayout(int slotCount)
     {
         _slotMap = new List<int?>(slotCount);
@@ -14,13 +23,19 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
             _slotMap.Add(null);
     }
 
+    /// <summary>
+    /// Creates a slot layout from persistent slot-map context.
+    /// </summary>
+    /// <param name="persistentContext">A <see cref="List{T}"/> of nullable storage indices.</param>
     public SlotLayout(object? persistentContext)
     {
         _slotMap = (List<int?>)persistentContext!;
     }
 
+    /// <inheritdoc />
     public int GetSlotCount(Inventory<TKey> inventory) => _slotMap.Count;
 
+    /// <inheritdoc />
     public ItemInstance<TKey>? GetAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not SlotLayoutContext<TKey> slotContext)
@@ -36,6 +51,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return inventory.Items[itemIndex.Value];
     }
 
+    /// <inheritdoc />
     public int? GetSlotOfItem(ILayoutContext<TKey> context)
     {
         if (context is not SlotLayoutContext<TKey> slotContext)
@@ -50,6 +66,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return null;
     }
 
+    /// <inheritdoc />
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         if (context is SlotLayoutContext<TKey> slotContext)
@@ -71,6 +88,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         }
     }
 
+    /// <inheritdoc />
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -164,6 +182,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -207,6 +226,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return -1;
     }
 
+    /// <inheritdoc />
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -250,6 +270,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -288,6 +309,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         return true;
     }
 
+    /// <inheritdoc />
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         int slot = context is SlotLayoutContext<TKey> slotContext
@@ -296,6 +318,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         _slotMap[slot] = index;
     }
 
+    /// <inheritdoc />
     public void OnItemRemoved(Inventory<TKey> inventory, int removedIndex)
     {
         for (int i = 0; i < _slotMap.Count; i++)
@@ -307,12 +330,14 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         }
     }
 
+    /// <inheritdoc />
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         for (int i = 0; i < _slotMap.Count; i++)
             _slotMap[i] = null;
     }
 
+    /// <inheritdoc />
     public ILayoutPersistentData GetPersistentData()
     {
         return new SlotLayoutPersistentData
@@ -321,6 +346,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         };
     }
 
+    /// <inheritdoc />
     public void RestorePersistentData(ILayoutPersistentData? data)
     {
         if (data is not SlotLayoutPersistentData slotData)
@@ -330,6 +356,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         _slotMap.AddRange(slotData.SlotMap);
     }
 
+    /// <inheritdoc />
     public IInventoryLayout<TKey> Clone()
     {
         var data = (SlotLayoutPersistentData)GetPersistentData();

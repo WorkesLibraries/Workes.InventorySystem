@@ -5,12 +5,24 @@ using System.Collections.Generic;
 
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Requires added item definitions to have an attribute equal to an expected value.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <typeparam name="TValue">The attribute value type.</typeparam>
 public class AttributeEqualsRule<TKey, TValue> : IRulePolicy<TKey>
 {
     private readonly AttributeKey<TValue> _attribute;
     private readonly TValue _expectedValue;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an attribute equality rule.
+    /// </summary>
+    /// <param name="attribute">The required attribute key.</param>
+    /// <param name="expectedValue">The required attribute value.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="attribute"/> is <see langword="null"/>.</exception>
     public AttributeEqualsRule(AttributeKey<TValue> attribute, TValue expectedValue)
     {
         _attribute = attribute ?? throw new ArgumentNullException(nameof(attribute));
@@ -18,6 +30,7 @@ public class AttributeEqualsRule<TKey, TValue> : IRulePolicy<TKey>
         Id = $"AttributeEquals[{_attribute}={_expectedValue}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

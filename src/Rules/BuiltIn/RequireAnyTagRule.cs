@@ -6,11 +6,18 @@ namespace Workes.InventorySystem.Rules;
 /// <summary>
 /// Requires that added items have at least one of the provided tags.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
 {
     private readonly TagKey[] _tags;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an any-tag rule.
+    /// </summary>
+    /// <param name="tags">The tags of which each added item must satisfy at least one.</param>
+    /// <exception cref="ArgumentException"><paramref name="tags"/> is null, empty, or contains <see langword="null"/>.</exception>
     public RequireAnyTagRule(params TagKey[] tags)
     {
         if (tags == null || tags.Length == 0)
@@ -27,6 +34,7 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
         Id = $"RequireAnyTag[{tagsDescription}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

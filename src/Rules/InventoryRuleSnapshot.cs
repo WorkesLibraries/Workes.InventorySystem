@@ -7,6 +7,7 @@ namespace Workes.InventorySystem.Rules;
 /// Lazy projected inventory view after applying a normalized transaction.
 /// Expensive projection work only happens if a rule asks for state queries.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public sealed class InventoryRuleSnapshot<TKey>
 {
     private readonly Inventory<TKey> _inventory;
@@ -26,6 +27,12 @@ public sealed class InventoryRuleSnapshot<TKey>
         }
     }
 
+    /// <summary>
+    /// Creates a lazy projected inventory snapshot.
+    /// </summary>
+    /// <param name="inventory">The inventory to project from.</param>
+    /// <param name="transaction">The normalized transaction to project.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="inventory"/> or <paramref name="transaction"/> is <see langword="null"/>.</exception>
     public InventoryRuleSnapshot(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction)
@@ -34,6 +41,12 @@ public sealed class InventoryRuleSnapshot<TKey>
         _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
     }
 
+    /// <summary>
+    /// Gets the projected quantity for an item definition.
+    /// </summary>
+    /// <param name="definition">The item definition to query.</param>
+    /// <returns>The projected quantity, never less than zero.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
     public int GetQuantity(ItemDefinition<TKey> definition)
     {
         if (definition == null)
@@ -45,6 +58,11 @@ public sealed class InventoryRuleSnapshot<TKey>
             : 0;
     }
 
+    /// <summary>
+    /// Gets the projected quantity for an item definition id.
+    /// </summary>
+    /// <param name="definitionId">The item definition id to query.</param>
+    /// <returns>The projected quantity, never less than zero.</returns>
     public int GetQuantity(TKey definitionId)
     {
         EnsureProjected();
@@ -53,6 +71,9 @@ public sealed class InventoryRuleSnapshot<TKey>
             : 0;
     }
 
+    /// <summary>
+    /// Gets the number of item definitions with a projected quantity greater than zero.
+    /// </summary>
     public int UniqueDefinitionCount
     {
         get
@@ -69,6 +90,10 @@ public sealed class InventoryRuleSnapshot<TKey>
         }
     }
 
+    /// <summary>
+    /// Returns projected definitions with positive quantities.
+    /// </summary>
+    /// <returns>Definitions and their projected amounts.</returns>
     public IEnumerable<(ItemDefinition<TKey> definition, int amount)> GetDefinitions()
     {
         EnsureProjected();

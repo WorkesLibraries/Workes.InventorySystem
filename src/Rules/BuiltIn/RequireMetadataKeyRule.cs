@@ -6,11 +6,19 @@ namespace Workes.InventorySystem.Rules;
 /// Requires that added items have a metadata entry with the given key,
 /// regardless of its value.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class RequireMetadataKeyRule<TKey> : IRulePolicy<TKey>
 {
     private readonly string _key;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates a metadata-key rule.
+    /// </summary>
+    /// <param name="key">The metadata key that must exist.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty or whitespace.</exception>
     public RequireMetadataKeyRule(string key)
     {
         _key = key ?? throw new ArgumentNullException(nameof(key));
@@ -19,6 +27,7 @@ public class RequireMetadataKeyRule<TKey> : IRulePolicy<TKey>
         Id = $"RequireMetadataKey[{_key}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

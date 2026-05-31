@@ -4,13 +4,27 @@ using System;
 
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Requires added item definitions to have an attribute accepted by a consumer-provided predicate.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <typeparam name="TValue">The attribute value type.</typeparam>
 public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
 {
     private readonly AttributeKey<TValue> _attribute;
     private readonly Func<TValue, bool> _predicate;
     private readonly string _errorMessage;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an attribute predicate rule.
+    /// </summary>
+    /// <param name="attribute">The required attribute key.</param>
+    /// <param name="predicate">The predicate that must accept the attribute value.</param>
+    /// <param name="errorMessage">The error message prefix used when validation fails.</param>
+    /// <param name="id">Optional rule id override.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="attribute"/> or <paramref name="predicate"/> is <see langword="null"/>.</exception>
     public AttributePredicateRule(
         AttributeKey<TValue> attribute,
         Func<TValue, bool> predicate,
@@ -23,6 +37,7 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
         Id = id ?? $"AttributePredicate[{_attribute}:{_errorMessage}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

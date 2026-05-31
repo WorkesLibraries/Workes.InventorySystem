@@ -4,5 +4,6 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>10.0</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 </Project>

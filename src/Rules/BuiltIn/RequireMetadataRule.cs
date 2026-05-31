@@ -2,12 +2,22 @@ using Workes.InventorySystem.Core;
 using System;
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Requires added items to contain a metadata value equal to an expected value.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class RequireMetadataRule<TKey> : IRulePolicy<TKey>
 {
     private readonly string _key;
     private readonly object? _value;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates a metadata equality rule.
+    /// </summary>
+    /// <param name="key">The metadata key that must exist.</param>
+    /// <param name="value">The expected metadata value.</param>
     public RequireMetadataRule(string key, object? value)
     {
         _key = key;
@@ -15,6 +25,7 @@ public class RequireMetadataRule<TKey> : IRulePolicy<TKey>
         Id = $"RequireMetadata[{_key}={_value?.ToString()}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

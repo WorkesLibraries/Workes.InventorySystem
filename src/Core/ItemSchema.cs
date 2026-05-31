@@ -5,18 +5,43 @@ using Workes.InventorySystem.Tags;
 
 namespace Workes.InventorySystem.Core;
 
+/// <summary>
+/// Defines attribute and tag requirements shared by item definitions.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class ItemSchema<TKey>
 {
     private readonly Dictionary<object, SchemaAttribute> _attributes = new();
     private readonly List<TagKey> _directTags = new();
 
+    /// <summary>
+    /// Gets the default schema used when no explicit schema is supplied.
+    /// </summary>
     public static ItemSchema<TKey> Default { get; } = new ItemSchema<TKey>("default");
 
+    /// <summary>
+    /// Gets the stable schema identifier.
+    /// </summary>
     public string Id { get; }
+
+    /// <summary>
+    /// Gets the parent schema whose inheritable attributes and tags are inherited by this schema.
+    /// </summary>
     public ItemSchema<TKey>? Parent { get; private set; }
+
+    /// <summary>
+    /// Gets whether this schema is frozen and can no longer be modified.
+    /// </summary>
     public bool Frozen { get; private set; }
 
+    /// <summary>
+    /// Gets tags declared directly on this schema.
+    /// </summary>
     public IReadOnlyCollection<TagKey> DirectTags => _directTags.AsReadOnly();
+
+    /// <summary>
+    /// Gets attributes required directly by this schema.
+    /// </summary>
     public IReadOnlyCollection<SchemaAttribute> DirectAttributes => _attributes.Values;
 
     private ItemSchema(string id)
@@ -27,11 +52,24 @@ public sealed class ItemSchema<TKey>
         Id = id;
     }
 
+    /// <summary>
+    /// Creates a mutable schema with the specified id.
+    /// </summary>
+    /// <param name="id">The schema identifier.</param>
+    /// <returns>The created schema.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
     public static ItemSchema<TKey> Create(string id)
     {
         return new ItemSchema<TKey>(id);
     }
 
+    /// <summary>
+    /// Sets the parent schema.
+    /// </summary>
+    /// <param name="parent">The parent schema.</param>
+    /// <returns>This schema for fluent configuration.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="parent"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The schema is frozen.</exception>
     public ItemSchema<TKey> WithParent(ItemSchema<TKey> parent)
     {
         EnsureMutable();
@@ -39,6 +77,15 @@ public sealed class ItemSchema<TKey>
         return this;
     }
 
+    /// <summary>
+    /// Requires a typed attribute on definitions using this schema.
+    /// </summary>
+    /// <typeparam name="T">The required attribute value type.</typeparam>
+    /// <param name="key">The required attribute key.</param>
+    /// <param name="inherited">Whether child schemas inherit this requirement.</param>
+    /// <returns>This schema for fluent configuration.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The schema is frozen or already defines the attribute.</exception>
     public ItemSchema<TKey> RequireAttribute<T>(AttributeKey<T> key, bool inherited = true)
     {
         if (key == null)
@@ -52,11 +99,24 @@ public sealed class ItemSchema<TKey>
         return this;
     }
 
+    /// <summary>
+    /// Requires a typed attribute on definitions using this schema.
+    /// </summary>
+    /// <typeparam name="T">The required attribute value type.</typeparam>
+    /// <param name="key">The required attribute key.</param>
+    /// <returns>This schema for fluent configuration.</returns>
     public ItemSchema<TKey> Require<T>(AttributeKey<T> key)
     {
         return RequireAttribute(key);
     }
 
+    /// <summary>
+    /// Adds a direct tag requirement to this schema.
+    /// </summary>
+    /// <param name="tag">The tag to add.</param>
+    /// <returns>This schema for fluent configuration.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The schema is frozen.</exception>
     public ItemSchema<TKey> AddTag(TagKey tag)
     {
         if (tag == null)

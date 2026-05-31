@@ -4,19 +4,44 @@ using Workes.InventorySystem.Tags;
 
 namespace Workes.InventorySystem.Core;
 
+/// <summary>
+/// Owns item definitions, schemas, and tags for a family of inventories.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class ItemCatalog<TKey>
 {
+    /// <summary>
+    /// Gets the registry of item definitions.
+    /// </summary>
     public ItemRegistry<TKey> Registry { get; }
+
+    /// <summary>
+    /// Gets the registry of item schemas referenced by definitions.
+    /// </summary>
     public ItemSchemaRegistry<TKey> Schemas { get; } = new();
+
+    /// <summary>
+    /// Gets the catalog of declared tags.
+    /// </summary>
     public TagCatalog Tags { get; } = new();
 
+    /// <summary>
+    /// Gets whether the item registry and schema catalog are frozen.
+    /// </summary>
     public bool Frozen => Registry.Frozen;
 
+    /// <summary>
+    /// Creates an item catalog.
+    /// </summary>
     public ItemCatalog()
     {
         Registry = new ItemRegistry<TKey>(RegisterDefinitionSchemas, FreezeCatalogState);
     }
 
+    /// <summary>
+    /// Freezes the catalog after validating definitions, schemas, and referenced tags.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The catalog contains invalid definitions, schemas, or undeclared tag references.</exception>
     public void Freeze()
     {
         if (!Registry.Frozen)
@@ -66,6 +91,12 @@ public sealed class ItemCatalog<TKey>
         Schemas.Freeze();
     }
 
+    /// <summary>
+    /// Resolves all tags satisfied by a definition, including schema tags and generated parent tags.
+    /// </summary>
+    /// <param name="definition">The definition whose tags should be resolved.</param>
+    /// <returns>The resolved tags with source information.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
     public IReadOnlyCollection<ResolvedTag> ResolveTags(ItemDefinition<TKey> definition)
     {
         if (definition == null)
@@ -82,6 +113,13 @@ public sealed class ItemCatalog<TKey>
         return new List<ResolvedTag>(resolved.Values);
     }
 
+    /// <summary>
+    /// Determines whether a definition satisfies a tag directly, through its schema, or through a generated parent tag.
+    /// </summary>
+    /// <param name="definition">The definition to evaluate.</param>
+    /// <param name="tag">The tag to search for.</param>
+    /// <returns><see langword="true"/> when the definition satisfies the tag; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
     public bool Satisfies(ItemDefinition<TKey> definition, TagKey tag)
     {
         if (tag == null)

@@ -7,10 +7,16 @@ namespace Workes.InventorySystem.Rules;
 /// Limits how many instances of each item definition may exist in the inventory.
 /// For example, maxInstancesPerItem = 1 enforces classic "unique item" semantics.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventoryStructuralRulePolicy<TKey>
 {
     private readonly int _maxInstancesPerItem;
 
+    /// <summary>
+    /// Creates a per-definition instance-count rule.
+    /// </summary>
+    /// <param name="maxInstancesPerItem">The maximum number of item instances allowed for each definition.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxInstancesPerItem"/> is less than or equal to zero.</exception>
     public UniqueItemRule(int maxInstancesPerItem)
     {
         if (maxInstancesPerItem <= 0)
@@ -19,6 +25,7 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
         Id = $"UniqueItemRule[{_maxInstancesPerItem}]";
     }
 
+    /// <inheritdoc />
     protected override bool CanApplyWithSnapshot(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -29,6 +36,7 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
         return true;
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

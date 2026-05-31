@@ -9,6 +9,7 @@ namespace Workes.InventorySystem.Core;
 /// Add/remove operations update the simulated state; call <see cref="ToInventoryTransaction"/>
 /// to get the merged transaction, then <see cref="Inventory{TKey}.CommitTransaction"/> on the original inventory.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class InventoryTransactionBuilder<TKey>
 {
     private readonly Inventory<TKey> _targetInventory;
@@ -36,13 +37,28 @@ public class InventoryTransactionBuilder<TKey>
             _simulationEntries.Add(new SimulationEntry(i, null));
     }
 
-    /// <summary>Adds items to the simulated state. Returns false if the operation would fail.</summary>
+    /// <summary>
+    /// Adds items to the simulated state.
+    /// </summary>
+    /// <param name="definition">The item definition to add.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
     public bool TryAdd(ItemDefinition<TKey> definition, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         return TryAdd(definition, amount, context, null, out error);
     }
 
-    /// <summary>Adds items with optional metadata. Returns false if the operation would fail.</summary>
+    /// <summary>
+    /// Adds items with optional metadata to the simulated state.
+    /// </summary>
+    /// <param name="definition">The item definition to add.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <param name="metadata">Optional per-instance metadata for the added items.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
     public bool TryAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out string? error)
     {
         error = null;
@@ -53,8 +69,14 @@ public class InventoryTransactionBuilder<TKey>
         return true;
     }
 
-    /// <summary>Removes items from the simulated state. Returns false if the operation would fail.
-    /// The instance may be from the original inventory; it will be resolved to the matching instance in the simulation.</summary>
+    /// <summary>
+    /// Removes items from the simulated state.
+    /// </summary>
+    /// <param name="instance">The item instance to remove from. It may come from the original inventory.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>The instance is resolved to the matching instance in the simulation before removal.</remarks>
     public bool TryRemove(ItemInstance<TKey> instance, out string? error, int amount = 1)
     {
         error = null;
@@ -71,7 +93,13 @@ public class InventoryTransactionBuilder<TKey>
         return true;
     }
 
-    /// <summary>Removes items at the given storage index. Returns false if the operation would fail.</summary>
+    /// <summary>
+    /// Removes items at the given storage index in the simulated state.
+    /// </summary>
+    /// <param name="index">The storage index to remove from.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
     public bool TryRemoveAtStorageIndex(int index, out string? error, int amount = 1)
     {
         error = null;
@@ -82,7 +110,14 @@ public class InventoryTransactionBuilder<TKey>
         return true;
     }
 
-    /// <summary>Removes items by definition. Returns false if the operation would fail.</summary>
+    /// <summary>
+    /// Removes items by definition from the simulated state.
+    /// </summary>
+    /// <param name="definition">The item definition to remove.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
     public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
     {
         error = null;
@@ -97,6 +132,7 @@ public class InventoryTransactionBuilder<TKey>
     /// Produces an <see cref="InventoryTransaction{TKey}"/> targeting the original inventory.
     /// Call <see cref="Inventory{TKey}.CommitTransaction"/> with the result.
     /// </summary>
+    /// <returns>A structural transaction that represents all successful simulated operations.</returns>
     public InventoryTransaction<TKey> ToInventoryTransaction()
     {
         var amountDeltas = new List<(int index, int delta)>();

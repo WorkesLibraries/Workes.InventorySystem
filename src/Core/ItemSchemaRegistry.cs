@@ -4,10 +4,17 @@ using System.Linq;
 
 namespace Workes.InventorySystem.Core;
 
+/// <summary>
+/// Tracks item schemas referenced by registered definitions.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class ItemSchemaRegistry<TKey>
 {
     private readonly Dictionary<string, ItemSchema<TKey>> _schemas = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Gets all schemas registered in this registry.
+    /// </summary>
     public IEnumerable<ItemSchema<TKey>> Schemas => _schemas.Values;
 
     internal void Register(ItemSchema<TKey> schema)
@@ -40,6 +47,11 @@ public sealed class ItemSchemaRegistry<TKey>
         }
     }
 
+    /// <summary>
+    /// Determines whether a schema id is registered.
+    /// </summary>
+    /// <param name="schemaId">The schema id to search for.</param>
+    /// <returns><see langword="true"/> when the schema id is registered; otherwise, <see langword="false"/>.</returns>
     public bool Contains(string schemaId)
     {
         if (string.IsNullOrWhiteSpace(schemaId))

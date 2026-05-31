@@ -10,6 +10,10 @@ using System.Collections.Generic;
 using System.Linq;
 namespace Workes.InventorySystem.Core;
 
+/// <summary>
+/// Mutable inventory that owns item instances, layout state, capacity validation, stacking behavior, rules, and change events.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class Inventory<TKey>
 {
     private readonly List<ItemInstance<TKey>> _items = new();
@@ -19,12 +23,36 @@ public class Inventory<TKey>
     private readonly IInventoryLayout<TKey> _layout;
     private readonly RuleContainer<TKey> _rules;
 
+    /// <summary>
+    /// Gets inventory-level attributes.
+    /// </summary>
     public AttributeContainer Attributes { get; } = new();
+
+    /// <summary>
+    /// Gets the manager that created this inventory.
+    /// </summary>
     public InventoryManager<TKey> Manager { get; }
+
+    /// <summary>
+    /// Gets the item catalog from <see cref="Manager"/>.
+    /// </summary>
     public ItemCatalog<TKey> Catalog => Manager.Catalog;
 
+    /// <summary>
+    /// Occurs after a mutating operation changes inventory contents or layout positions.
+    /// </summary>
+    /// <remarks>Committed transactions produce a single event containing all grouped changes.</remarks>
     public event EventHandler<InventoryChangedEventArgs<TKey>>? Changed;
 
+    /// <summary>
+    /// Creates an inventory with explicit policies, layout, and rules.
+    /// </summary>
+    /// <param name="manager">The inventory manager that owns the shared catalog.</param>
+    /// <param name="stackResolver">The stack resolver used for add and merge operations.</param>
+    /// <param name="capacityPolicy">The capacity policy used before committing transactions.</param>
+    /// <param name="layout">The layout that maps storage indices to placement positions.</param>
+    /// <param name="rules">The rule container used before committing transactions.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="manager"/> is <see langword="null"/>.</exception>
     public Inventory(
         InventoryManager<TKey> manager,
         IStackResolver<TKey> stackResolver,
@@ -41,10 +69,25 @@ public class Inventory<TKey>
         _rules = rules;
     }
 
+    /// <summary>
+    /// Gets item instances in inventory storage-index order.
+    /// </summary>
+    /// <remarks>Storage order is not necessarily the same as visual or layout order.</remarks>
     public IReadOnlyList<ItemInstance<TKey>> Items => _items;
+
+    /// <summary>
+    /// Gets the number of item instances or stacks.
+    /// </summary>
     public int InstanceCount => _items.Count;
+
+    /// <summary>
+    /// Gets the sum of all item instance amounts.
+    /// </summary>
     public int TotalItemCount => _items.Sum(i => i.Amount);
 
+    /// <summary>
+    /// Gets the layout used by this inventory.
+    /// </summary>
     public IInventoryLayout<TKey> Layout => _layout;
 
     private int GetItemIndex(ItemInstance<TKey> instance)
@@ -132,6 +175,7 @@ public class Inventory<TKey>
     /// Creates a transaction builder seeded with the current inventory state.
     /// Use for bulk operations that should produce a single Changed event on commit.
     /// </summary>
+    /// <returns>A transaction builder that simulates changes against a clone of the current inventory state.</returns>
     public InventoryTransactionBuilder<TKey> CreateTransactionBuilder()
     {
         var simulation = CreateSimulationClone(this);
@@ -139,6 +183,10 @@ public class Inventory<TKey>
     }
 
     /// <summary>Builds a semantic (normalized) view of the transaction for capacity evaluation. Groups by definition and metadata (structural equality) so e.g. 90 apples and 10 apples[metadata] are distinct.</summary>
+    /// <param name="transaction">The structural transaction to normalize.</param>
+    /// <returns>A semantic transaction grouped by item definition and structurally equal metadata.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="transaction"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="transaction"/> targets another inventory.</exception>
     public NormalizedInventoryTransaction<TKey> GenerateNormalizedInventoryTransaction(InventoryTransaction<TKey> transaction)
     {
         if (transaction == null)
@@ -405,6 +453,10 @@ public class Inventory<TKey>
     }
 
     /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>
+    /// <param name="normalized">The semantic transaction to convert.</param>
+    /// <param name="transaction">The structural transaction when conversion succeeds; otherwise, <see langword="null"/>.</param>
+    /// <param name="error">A consumer-facing reason when conversion is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
     public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out string? error)
     {
         transaction = null;
@@ -474,6 +526,9 @@ public class Inventory<TKey>
     }
 
     /// <summary>Executes a transaction. Transaction must reference this inventory and must not already be applied. Fires a single Changed event.</summary>
+    /// <param name="transaction">The structural transaction to commit.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="transaction"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="transaction"/> targets another inventory or has already been applied.</exception>
     public void CommitTransaction(InventoryTransaction<TKey> transaction)
     {
         if (transaction == null)
@@ -512,6 +567,14 @@ public class Inventory<TKey>
             Changed?.Invoke(this, changedEventArgs);
     }
 
+    /// <summary>
+    /// Attempts to add an amount of an item definition to the inventory.
+    /// </summary>
+    /// <param name="definition">The item definition to add.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryAdd(ItemDefinition<TKey> definition, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryFormulateAdd(definition, amount, context, out var tx, out error) || tx == null)
@@ -520,6 +583,13 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to remove an amount from a specific item instance.
+    /// </summary>
+    /// <param name="instance">The item instance to remove from.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryRemove(ItemInstance<TKey> instance, out string? error, int amount = 1)
     {
         if (!TryFormulateRemove(instance, amount, out var tx, out error) || tx == null)
@@ -528,6 +598,13 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to remove an amount from the item at a storage index.
+    /// </summary>
+    /// <param name="index">The storage index to remove from.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryRemoveAtStorageIndex(int index, out string? error, int amount = 1)
     {
         if (!TryFormulateRemoveAt(index, amount, out var tx, out error) || tx == null)
@@ -536,6 +613,14 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to remove an amount by item definition.
+    /// </summary>
+    /// <param name="definition">The item definition to remove.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
     {
         if (!TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out error) || tx == null)
@@ -544,6 +629,13 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to move an item between two layout contexts.
+    /// </summary>
+    /// <param name="contextFrom">The source layout context.</param>
+    /// <param name="contextTo">The destination layout context.</param>
+    /// <param name="error">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -572,6 +664,13 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to swap two items between layout contexts.
+    /// </summary>
+    /// <param name="contextFrom">The first layout context.</param>
+    /// <param name="contextTo">The second layout context.</param>
+    /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the swap succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TrySwap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -602,6 +701,14 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Attempts to move an amount from one compatible stack into another.
+    /// </summary>
+    /// <param name="contextFrom">The source stack layout context.</param>
+    /// <param name="contextTo">The destination stack layout context.</param>
+    /// <param name="error">A consumer-facing reason when the merge move is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">Optional exact amount to move; when omitted, as much as possible is moved.</param>
+    /// <returns><see langword="true"/> when the merge move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
     public bool TryMergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error, int? amount = null)
     {
         error = null;
@@ -670,6 +777,10 @@ public class Inventory<TKey>
         return true;
     }
 
+    /// <summary>
+    /// Removes all item instances from the inventory.
+    /// </summary>
+    /// <remarks>A change event is fired only when the inventory was not already empty.</remarks>
     public void Clear()
     {
         if (_items.Count == 0)
@@ -686,6 +797,7 @@ public class Inventory<TKey>
     /// Caller must ensure entries are valid for the current capacity and layout.
     /// Fires a single Changed event for the entire replacement.
     /// </summary>
+    /// <param name="entries">Definitions, amounts, and layout contexts to add after clearing current contents.</param>
     public void ReplaceContents(IEnumerable<(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey> context)> entries)
     {
         Clear();
@@ -702,6 +814,10 @@ public class Inventory<TKey>
         CommitTransaction(builder.ToInventoryTransaction());
     }
 
+    /// <summary>
+    /// Serializes item instances and layout data for persistence.
+    /// </summary>
+    /// <returns>A serialized inventory snapshot.</returns>
     public SerializedInventory<TKey> Serialize()
     {
         var serialized = new SerializedInventory<TKey>();
@@ -721,6 +837,15 @@ public class Inventory<TKey>
         return serialized;
     }
 
+    /// <summary>
+    /// Replaces inventory contents from serialized item and layout data.
+    /// </summary>
+    /// <param name="data">The serialized inventory snapshot to restore.</param>
+    /// <param name="strict">Whether failed item restoration should throw instead of being skipped.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="strict"/> is <see langword="true"/> and an item cannot be restored, or layout data is invalid for this layout.
+    /// </exception>
     public void Deserialize(SerializedInventory<TKey> data, bool strict = false)
     {
         if (data == null)

@@ -13,5 +13,6 @@ public class EntryLayoutPersistentData : ILayoutPersistentData
     /// </summary>
     public List<int> Order { get; set; } = new();
 
+    /// <inheritdoc />
     public object? GetPersistentContext() => Order;
 }

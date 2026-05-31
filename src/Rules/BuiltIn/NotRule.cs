@@ -5,17 +5,25 @@ namespace Workes.InventorySystem.Rules;
 /// <summary>
 /// Wraps another rule and inverts its result.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey>, IInventoryStructuralRulePolicy<TKey>
 {
     private readonly IRulePolicy<TKey> _inner;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates a negating rule wrapper.
+    /// </summary>
+    /// <param name="inner">The rule whose result should be inverted.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="inner"/> is <see langword="null"/>.</exception>
     public NotRule(IRulePolicy<TKey> inner)
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         Id = $"Not[{_inner.Id}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -38,6 +46,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
         return true;
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -59,6 +68,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
         return true;
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

@@ -4,11 +4,22 @@ using System.Collections.Generic;
 using System.Linq;
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Allows added items only when their definitions are in a fixed allow-list.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class OnlyAllowItemsRule<TKey> : IRulePolicy<TKey>
 {
     private readonly HashSet<ItemDefinition<TKey>> _allowed;
+    /// <inheritdoc />
     public string Id { get; }
 
+    /// <summary>
+    /// Creates an allow-list rule for item definitions.
+    /// </summary>
+    /// <param name="allowed">The item definitions that may be added.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="allowed"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="allowed"/> contains <see langword="null"/>.</exception>
     public OnlyAllowItemsRule(params ItemDefinition<TKey>[] allowed)
     {
         if (allowed == null)
@@ -24,6 +35,7 @@ public class OnlyAllowItemsRule<TKey> : IRulePolicy<TKey>
         Id = $"OnlyAllowItems[{allowedDescription}]";
     }
 
+    /// <inheritdoc />
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

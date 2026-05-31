@@ -1,6 +1,10 @@
 using Workes.InventorySystem.Core;
 namespace Workes.InventorySystem.Rules;
 
+/// <summary>
+/// Defines a rule that can accept or reject semantic inventory transactions.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public interface IRulePolicy<TKey>
 {
     /// <summary>
@@ -11,10 +15,15 @@ public interface IRulePolicy<TKey>
 
     /// <summary>
     /// Validates whether a normalized transaction can be applied.
-    /// Rules should prefer transaction-only checks for performance.
-    /// Rules that need an inventory-wide view can use <see cref="InventoryRuleSnapshot{TKey}"/>
-    /// directly or inherit from <see cref="InventorySnapshotRulePolicy{TKey}"/>.
     /// </summary>
+    /// <param name="inventory">The inventory that would receive the transaction.</param>
+    /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
+    /// <param name="error">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transaction satisfies the rule; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// Rules should prefer transaction-only checks for performance. Rules that need an inventory-wide view can use
+    /// <see cref="InventoryRuleSnapshot{TKey}"/> directly or inherit from <see cref="InventorySnapshotRulePolicy{TKey}"/>.
+    /// </remarks>
     bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

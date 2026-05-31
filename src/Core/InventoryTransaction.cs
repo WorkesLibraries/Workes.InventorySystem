@@ -7,12 +7,32 @@ namespace Workes.InventorySystem.Core;
 /// Represents a structural change to an inventory (deltas, removals, additions).
 /// Transactions are formulated by the inventory and committed via <see cref="Inventory{TKey}.CommitTransaction"/>.
 /// </summary>
+/// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class InventoryTransaction<TKey>
 {
+    /// <summary>
+    /// Gets the inventory this transaction targets.
+    /// </summary>
     public Inventory<TKey> Inventory { get; }
+
+    /// <summary>
+    /// Gets storage-index amount deltas to apply to existing item instances.
+    /// </summary>
     public IReadOnlyList<(int index, int delta)> AmountDeltas { get; }
+
+    /// <summary>
+    /// Gets item instances to remove by storage index.
+    /// </summary>
     public IReadOnlyList<(int index, ItemInstance<TKey> instance)> Removed { get; }
+
+    /// <summary>
+    /// Gets item instances to add with optional layout contexts.
+    /// </summary>
     public IReadOnlyList<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> Added { get; }
+
+    /// <summary>
+    /// Gets whether this transaction has already been committed.
+    /// </summary>
     public bool IsApplied { get; private set; }
 
     internal InventoryTransaction(
@@ -33,6 +53,9 @@ public class InventoryTransaction<TKey>
     /// Creates a new transaction with the same structural data but targeting a different inventory.
     /// Used when committing a transaction built against a simulation to the real inventory.
     /// </summary>
+    /// <param name="target">The inventory the copied transaction should target.</param>
+    /// <returns>A transaction with copied structural data targeting <paramref name="target"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is <see langword="null"/>.</exception>
     public InventoryTransaction<TKey> ForInventory(Inventory<TKey> target)
     {
         if (target == null)
