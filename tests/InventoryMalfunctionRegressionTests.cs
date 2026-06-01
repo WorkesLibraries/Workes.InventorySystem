@@ -15,8 +15,8 @@ namespace Workes.InventorySystem.Tests;
 public class InventoryMalfunctionRegressionTests
 {
     private static InventoryManager<string> CreateManager(
-        IInventoryLayout<string> layout = null,
-        IRulePolicy<string> rule = null,
+        IInventoryLayout<string>? layout = null,
+        IRulePolicy<string>? rule = null,
         int maxStack = 10,
         params ItemDefinition<string>[] definitions)
     {
@@ -147,13 +147,13 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
         inventory.TryAdd(apple, out _, 2);
 
-        InventoryChangedEventArgs<string> captured = null;
+        InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
         inventory.TryAdd(apple, out _, 3);
 
         Assert.That(captured, Is.Not.Null);
-        Assert.That(captured.Added.Count, Is.EqualTo(0));
+        Assert.That(captured!.Added.Count, Is.EqualTo(0));
         Assert.That(captured.Modified.Count, Is.EqualTo(1));
         Assert.That(captured.Modified[0].Instance.Amount, Is.EqualTo(5));
     }
@@ -165,13 +165,13 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
         inventory.TryAdd(apple, out _, 5);
 
-        InventoryChangedEventArgs<string> captured = null;
+        InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
         inventory.TryRemoveByDefinition(apple, 2, true, out _);
 
         Assert.That(captured, Is.Not.Null);
-        Assert.That(captured.Removed.Count, Is.EqualTo(0));
+        Assert.That(captured!.Removed.Count, Is.EqualTo(0));
         Assert.That(captured.Modified.Count, Is.EqualTo(1));
         Assert.That(captured.Modified[0].Instance.Amount, Is.EqualTo(3));
     }
@@ -183,13 +183,13 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
         inventory.TryAdd(apple, out _, 5);
 
-        InventoryChangedEventArgs<string> captured = null;
+        InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
         inventory.TryRemoveByDefinition(apple, 5, true, out _);
 
         Assert.That(captured, Is.Not.Null);
-        Assert.That(captured.Removed.Count, Is.EqualTo(1));
+        Assert.That(captured!.Removed.Count, Is.EqualTo(1));
         Assert.That(captured.Modified.Count, Is.EqualTo(0));
     }
 
@@ -245,9 +245,9 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(berry, out _);
         inventory.TryAdd(carrot, out _, 1, new EntryLayoutContext<string>(1));
 
-        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(0)).Definition.Id, Is.EqualTo("apple"));
-        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("carrot"));
-        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(2)).Definition.Id, Is.EqualTo("berry"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(0))!.Definition.Id, Is.EqualTo("apple"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1))!.Definition.Id, Is.EqualTo("carrot"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(2))!.Definition.Id, Is.EqualTo("berry"));
     }
 
     [Test]
@@ -260,7 +260,7 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(apple, out _);
 
         Assert.That(inventory.TryAdd(berry, out var error, 1, new EntryLayoutContext<string>(1)), Is.True, error);
-        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("berry"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1))!.Definition.Id, Is.EqualTo("berry"));
     }
 
     [Test]
@@ -353,7 +353,7 @@ public class InventoryMalfunctionRegressionTests
     [Test]
     public void OnlyAllowItemsRule_ThrowsArgumentNull_WhenAllowedArrayIsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new OnlyAllowItemsRule<string>(null));
+        Assert.Throws<ArgumentNullException>(() => new OnlyAllowItemsRule<string>(null!));
     }
 
     [Test]
@@ -361,6 +361,6 @@ public class InventoryMalfunctionRegressionTests
     {
         var apple = new ItemDefinition<string>("apple");
 
-        Assert.Throws<ArgumentException>(() => new OnlyAllowItemsRule<string>(apple, null));
+        Assert.Throws<ArgumentException>(() => new OnlyAllowItemsRule<string>(apple, null!));
     }
 }

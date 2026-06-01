@@ -151,7 +151,7 @@ public class InventoryCoreTests
         inventory.TryAdd(berry, out _, 1);
         var appleInstance = inventory.Items[0];
 
-        InventoryChangedEventArgs<string> capturedArgs = null;
+        InventoryChangedEventArgs<string>? capturedArgs = null;
         inventory.Changed += (_, e) => capturedArgs = (InventoryChangedEventArgs<string>)e;
 
         var builder = InventoryTransaction<string>.From(inventory);
@@ -160,7 +160,7 @@ public class InventoryCoreTests
         inventory.CommitTransaction(builder.ToInventoryTransaction());
 
         Assert.That(capturedArgs, Is.Not.Null);
-        Assert.That(capturedArgs.Added.Count, Is.EqualTo(0));
+        Assert.That(capturedArgs!.Added.Count, Is.EqualTo(0));
         Assert.That(capturedArgs.Modified.Count, Is.EqualTo(1));
         Assert.That(capturedArgs.Removed.Count, Is.EqualTo(1));
 
@@ -186,7 +186,7 @@ public class InventoryCoreTests
         inventory.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(0));
         var appleInstance = inventory.Items[0];
 
-        InventoryChangedEventArgs<string> capturedArgs = null;
+        InventoryChangedEventArgs<string>? capturedArgs = null;
         inventory.Changed += (_, e) => capturedArgs = (InventoryChangedEventArgs<string>)e;
 
         var fromContext = new SlotLayoutContext<string>(0);
@@ -197,7 +197,7 @@ public class InventoryCoreTests
         Assert.That(result, Is.True);
         Assert.That(error, Is.Null);
         Assert.That(capturedArgs, Is.Not.Null);
-        Assert.That(capturedArgs.Moved.Count, Is.EqualTo(1));
+        Assert.That(capturedArgs!.Moved.Count, Is.EqualTo(1));
         Assert.That(capturedArgs.Moved[0].Instance, Is.EqualTo(appleInstance));
         Assert.That(capturedArgs.Moved[0].FromPosition, Is.EqualTo(fromContext));
         Assert.That(capturedArgs.Moved[0].ToPosition, Is.EqualTo(toContext));
@@ -251,7 +251,7 @@ public class InventoryCoreTests
         var appleInstance = inventory.Items[0];
         var berryInstance = inventory.Items[1];
 
-        InventoryChangedEventArgs<string> capturedArgs = null;
+        InventoryChangedEventArgs<string>? capturedArgs = null;
         inventory.Changed += (_, e) => capturedArgs = (InventoryChangedEventArgs<string>)e;
 
         var slot0 = new SlotLayoutContext<string>(0);
@@ -262,7 +262,7 @@ public class InventoryCoreTests
         Assert.That(result, Is.True);
         Assert.That(error, Is.Null);
         Assert.That(capturedArgs, Is.Not.Null);
-        Assert.That(capturedArgs.Swapped.Count, Is.EqualTo(1));
+        Assert.That(capturedArgs!.Swapped.Count, Is.EqualTo(1));
 
         var swap = capturedArgs.Swapped[0];
         Assert.That(swap.FromPosition, Is.EqualTo(slot0));
