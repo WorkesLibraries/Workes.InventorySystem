@@ -12,14 +12,14 @@ namespace Workes.InventorySystem.Tests.Examples.Events;
 
 [TestFixture]
 [Category("Example")]
-public class UiEventIntegrationWorkflowExampleTests
+public class UiRefreshFromAffectedContextsExampleTests
 {
-    private static readonly AttributeKey<int> Width = new("ui-footprint-width");
-    private static readonly AttributeKey<int> Height = new("ui-footprint-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("ui-footprint").Require(Width).Require(Height);
+    private static readonly AttributeKey<int> Width = new("ui-refresh-footprint-width");
+    private static readonly AttributeKey<int> Height = new("ui-refresh-footprint-height");
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("ui-refresh-footprint").Require(Width).Require(Height);
 
     [Test]
-    public void TracksAffectedCellsForMultiCellInventoryUi()
+    public void RefreshesCellsWithoutInspectingSemanticEventGroups()
     {
         var table = new FootprintDefinition("table", 2, 1);
         var crate = new FootprintDefinition("crate", 1, 1);
@@ -32,63 +32,30 @@ public class UiEventIntegrationWorkflowExampleTests
             table,
             crate,
             chest);
-
-        var log = new List<string>();
+        var refreshLog = new List<string>();
         inventory.Changed += (_, args) =>
         {
             if (args.RequiresFullRefresh)
             {
-                log.Add("refresh: all");
+                refreshLog.Add("refresh all addressable cells");
                 return;
             }
 
             var cells = args.AffectedLayoutContexts
                 .OfType<MultiCellGridLayoutContext<string>>()
                 .Select(c => $"({c.X},{c.Y})");
-            log.Add("refresh: " + string.Join(", ", cells));
+            refreshLog.Add("refresh cells: " + string.Join(", ", cells));
         };
 
-        inventory.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
-        inventory.TryAdd(crate, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 2));
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True, error);
+        Assert.That(inventory.TryAdd(crate, out error, 1, MultiCellGridLayoutContext<string>.Single(0, 2)), Is.True, error);
         inventory.ReplaceContents(new (ItemDefinition<string> definition, int amount, ILayoutContext<string>? context)[]
         {
-            (chest, 1, (ILayoutContext<string>?)MultiCellGridLayoutContext<string>.Single(0, 0)),
-            (crate, 1, (ILayoutContext<string>?)MultiCellGridLayoutContext<string>.Single(3, 2))
+            (chest, 1, MultiCellGridLayoutContext<string>.Single(0, 0)),
+            (crate, 1, MultiCellGridLayoutContext<string>.Single(3, 2))
         });
 
-        WriteExample("Events", "UiMultiCellRefreshWorkflowExample.txt", string.Join("\n", log));
-    }
-
-    [Test]
-    public void TracksMovePayloadsForSortedGridUi()
-    {
-        var sword = new ItemDefinition<string>("sword");
-        var apple = new ItemDefinition<string>("apple");
-        var potion = new ItemDefinition<string>("potion");
-        var inventory = CreateInventory(new GridLayout<string>(3, 2), sword, apple, potion);
-        inventory.TryAdd(sword, out _, 1, GridLayoutContext<string>.Single(2, 1));
-        inventory.TryAdd(apple, out _, 1, GridLayoutContext<string>.Single(1, 1));
-        inventory.TryAdd(potion, out _, 1, GridLayoutContext<string>.Single(0, 1));
-
-        string movedSummary = string.Empty;
-        inventory.Changed += (_, args) =>
-        {
-            if (args.Moved.Count == 0)
-                return;
-
-            movedSummary = string.Join(
-                "\n",
-                args.Moved.Select(m =>
-                {
-                    var from = (GridLayoutContext<string>)m.FromPosition!;
-                    var to = (GridLayoutContext<string>)m.ToPosition!;
-                    return $"{m.Instance.Definition.Id}: ({from.X},{from.Y}) -> ({to.X},{to.Y})";
-                }));
-        };
-
-        inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out _);
-
-        WriteExample("Events", "UiSortedGridMovePayloadExample.txt", movedSummary);
+        WriteExample("Events", "UiRefreshFromAffectedContextsExample.txt", string.Join("\n", refreshLog));
     }
 
     private static Inventory<string> CreateInventory(IInventoryLayout<string> layout, params ItemDefinition<string>[] definitions)

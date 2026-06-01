@@ -1,4 +1,6 @@
 using System.IO;
+using System.Linq;
+using System.Text;
 using NUnit.Framework;
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Capacity;
@@ -17,29 +19,40 @@ public class MultiCellGridLayoutExampleTests
     private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("example-footprint").Require(Width).Require(Height);
 
     [Test]
-    public void PlacesRectangularItemsAcrossMultipleCells()
+    public void PlacesRectangularItemsAndRejectsOverlaps()
     {
         var table = new FootprintDefinition("table", 2, 1);
+        var chest = new FootprintDefinition("chest", 2, 2);
         var crate = new FootprintDefinition("crate", 1, 1);
         var layout = new Workes.InventorySystem.Layout.MultiCellGridLayout<string>(
+            4,
             3,
-            2,
             new AttributeGridFootprintProvider<string>(Width, Height));
-        var inventory = CreateInventory(layout, table, crate);
+        var inventory = CreateInventory(layout, table, chest, crate);
 
-        inventory.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 0));
-        inventory.TryAdd(crate, out _, 1, MultiCellGridLayoutContext<string>.Single(2, 1));
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(0, 0)), Is.True, error);
+        Assert.That(inventory.TryAdd(chest, out error, 1, MultiCellGridLayoutContext<string>.Single(2, 1)), Is.True, error);
+        var rejectedOverlap = inventory.TryAdd(crate, out error, 1, MultiCellGridLayoutContext<string>.Single(3, 2));
 
-        WriteExample("MultiCellGridLayout", "MultiCellGridLayoutExample.txt", Render(inventory));
+        Assert.That(rejectedOverlap, Is.False);
+        var chestContexts = inventory.Layout.GetContextsForStorageIndex(inventory, 1)
+            .OfType<MultiCellGridLayoutContext<string>>()
+            .Select(c => $"({c.X},{c.Y})");
+        var builder = new StringBuilder();
+        builder.AppendLine(Render(inventory, 4, 3));
+        builder.AppendLine();
+        builder.AppendLine("crate at (3,2): rejected - " + error);
+        builder.AppendLine("chest occupies: " + string.Join(", ", chestContexts));
+        WriteExample("MultiCellGridLayout", "MultiCellGridLayoutExample.txt", builder.ToString());
     }
 
-    private static string Render(Inventory<string> inventory)
+    private static string Render(Inventory<string> inventory, int width, int height)
     {
-        var lines = new string[2];
-        for (int y = 0; y < 2; y++)
+        var lines = new string[height];
+        for (int y = 0; y < height; y++)
         {
-            var values = new string[3];
-            for (int x = 0; x < 3; x++)
+            var values = new string[width];
+            for (int x = 0; x < width; x++)
                 values[x] = inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id ?? ".";
             lines[y] = string.Join(" | ", values);
         }
