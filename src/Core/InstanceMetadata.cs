@@ -4,6 +4,11 @@ namespace Workes.InventorySystem.Core;
 /// <summary>
 /// Stores per-instance item metadata used for structural equality and serialization.
 /// </summary>
+/// <remarks>
+/// Metadata is mutable caller-owned state. Mutating metadata on an inserted
+/// item changes future structural equality checks but does not currently fire
+/// inventory change events.
+/// </remarks>
 public class InstanceMetadata
 {
     private Dictionary<string, object>? _data;
@@ -60,6 +65,7 @@ public class InstanceMetadata
     /// <summary>
     /// Returns a read-only view of the stored metadata.
     /// </summary>
+    /// <remarks>When metadata exists, the returned view reflects later mutations. Stored values are not deep-cloned.</remarks>
     /// <returns>A read-only dictionary of metadata values.</returns>
     public IReadOnlyDictionary<string, object> AsReadOnly()
     {
@@ -99,14 +105,16 @@ public class InstanceMetadata
     }
 
     /// <summary>
-    /// Replaces the stored metadata with an existing dictionary.
+    /// Replaces the stored metadata with a copy of an existing dictionary.
     /// </summary>
+    /// <remarks>The dictionary container is copied, but stored values are not deep-cloned.</remarks>
     /// <param name="data">The metadata dictionary to restore.</param>
-    public void RestoreMetadata(Dictionary<string, object> data) => _data = data;
+    public void RestoreMetadata(Dictionary<string, object> data) => _data = data != null ? new Dictionary<string, object>(data) : null;
 
     /// <summary>
     /// Copies the stored metadata into a mutable dictionary.
     /// </summary>
+    /// <remarks>The dictionary container is copied, but stored values are not deep-cloned.</remarks>
     /// <returns>A dictionary containing the current metadata values.</returns>
     public Dictionary<string, object> ToDictionary() => new(Data);
 }

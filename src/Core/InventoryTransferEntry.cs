@@ -19,7 +19,7 @@ public sealed class InventoryTransferEntry<TKey>
     public int Amount { get; }
 
     /// <summary>
-    /// Gets the per-instance metadata to preserve on the target, if any.
+    /// Gets a shallow snapshot of the per-instance metadata to preserve on the target, if any.
     /// </summary>
     public InstanceMetadata? Metadata { get; }
 
@@ -33,7 +33,7 @@ public sealed class InventoryTransferEntry<TKey>
     /// </summary>
     /// <param name="definition">The item definition to transfer.</param>
     /// <param name="amount">The amount to transfer.</param>
-    /// <param name="metadata">Optional metadata to preserve on the target.</param>
+    /// <param name="metadata">Optional metadata to snapshot for the target.</param>
     /// <param name="sourceInstance">The source item instance this entry comes from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="definition"/> or <paramref name="sourceInstance"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="amount"/> is less than or equal to zero.</exception>
@@ -52,7 +52,17 @@ public sealed class InventoryTransferEntry<TKey>
 
         Definition = definition;
         Amount = amount;
-        Metadata = metadata;
+        Metadata = CloneMetadataOrNull(metadata);
         SourceInstance = sourceInstance;
+    }
+
+    private static InstanceMetadata? CloneMetadataOrNull(InstanceMetadata? source)
+    {
+        if (source == null || source.IsEmpty)
+            return null;
+
+        var clone = new InstanceMetadata();
+        clone.RestoreMetadata(source.ToDictionary());
+        return clone;
     }
 }

@@ -26,6 +26,11 @@ public class ItemInstance<TKey>
     /// <summary>
     /// Gets the per-instance metadata for this item.
     /// </summary>
+    /// <remarks>
+    /// The returned metadata object is live and mutable. Mutating it after insertion
+    /// is visible to future stack compatibility and structural equality checks, but
+    /// does not currently fire <see cref="Inventory{TKey}.Changed"/>.
+    /// </remarks>
     public InstanceMetadata Metadata { get; } = new();
 
     /// <summary>
@@ -34,6 +39,7 @@ public class ItemInstance<TKey>
     /// <param name="definition">The item definition represented by this instance.</param>
     /// <param name="amount">The amount stored in this instance.</param>
     /// <param name="metadata">Optional per-instance metadata.</param>
+    /// <remarks>The provided metadata object is stored by reference.</remarks>
     /// <exception cref="ArgumentException"><paramref name="amount"/> is less than or equal to zero.</exception>
     public ItemInstance(ItemDefinition<TKey> definition, int amount = 1, InstanceMetadata? metadata = null)
     {
