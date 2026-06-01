@@ -14,42 +14,6 @@ namespace Workes.InventorySystem.Tests.Examples.CrossInventoryTransfer;
 [Category("Example")]
 public class LootAllMaximumExampleTests
 {
-    private sealed class MaxTotalAmountCapacityPolicy : ICapacityPolicy<string>
-    {
-        private readonly int _maxTotalAmount;
-
-        public MaxTotalAmountCapacityPolicy(int maxTotalAmount)
-        {
-            _maxTotalAmount = maxTotalAmount;
-        }
-
-        public bool CanApply(Inventory<string> inventory, NormalizedInventoryTransaction<string> normalizedTransaction, out string? error)
-        {
-            int added = normalizedTransaction.Added.Sum(i => i.amount);
-            int removed = normalizedTransaction.Removed.Sum(i => i.amount);
-            if (inventory.TotalItemCount + added - removed > _maxTotalAmount)
-            {
-                error = "Capacity exceeded.";
-                return false;
-            }
-
-            error = null;
-            return true;
-        }
-
-        public bool CanAdd(Inventory<string> inventory, ItemInstance<string> instance, out string? error)
-        {
-            if (inventory.TotalItemCount + instance.Amount > _maxTotalAmount)
-            {
-                error = "Capacity exceeded.";
-                return false;
-            }
-
-            error = null;
-            return true;
-        }
-    }
-
     [Test]
     public void ChestLoot_MovesAsMuchAsLimitedBackpackCanAccept()
     {
@@ -62,7 +26,7 @@ public class LootAllMaximumExampleTests
         catalog.Freeze();
 
         var chest = CreateManager(catalog).CreateInventory();
-        var backpack = CreateManager(catalog, new MaxTotalAmountCapacityPolicy(5)).CreateInventory();
+        var backpack = CreateManager(catalog, new MaxTotalItemAmountCapacityPolicy<string>(5)).CreateInventory();
         chest.TryAdd(coin, out _, 4);
         chest.TryAdd(gem, out _, 4);
 

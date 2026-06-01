@@ -89,7 +89,7 @@ public class InventoryQueryTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 3);
         builder.TryAdd(apple, 2, null, metadata, out _);
         inventory.CommitTransaction(builder.ToInventoryTransaction());

@@ -15,7 +15,7 @@ public sealed class InventoryTransferBuilder<TKey>
     internal InventoryTransferBuilder(Inventory<TKey> source)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
-        _builder = source.CreateTransactionBuilder();
+        _builder = InventoryTransaction<TKey>.From(source);
     }
 
     /// <summary>
@@ -34,13 +34,13 @@ public sealed class InventoryTransferBuilder<TKey>
     public IReadOnlyList<InventoryTransferEntry<TKey>> Entries => BuildEntries(ToSourceTransaction());
 
     /// <summary>
-    /// Plans to take an amount from a source item instance.
+    /// Plans to remove an amount from a source item instance for transfer.
     /// </summary>
-    /// <param name="item">The source item instance to take from.</param>
-    /// <param name="amount">The amount to take.</param>
-    /// <param name="error">A consumer-facing reason when the take is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when the take is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryTake(ItemInstance<TKey> item, int amount, out string? error)
+    /// <param name="item">The source item instance to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemove(ItemInstance<TKey> item, int amount, out string? error)
     {
         if (amount <= 0)
         {
@@ -52,13 +52,13 @@ public sealed class InventoryTransferBuilder<TKey>
     }
 
     /// <summary>
-    /// Plans to take an amount from the source item at a storage index.
+    /// Plans to remove an amount from the source item at a storage index for transfer.
     /// </summary>
-    /// <param name="index">The source storage index to take from.</param>
-    /// <param name="amount">The amount to take.</param>
-    /// <param name="error">A consumer-facing reason when the take is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when the take is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryTakeAtStorageIndex(int index, int amount, out string? error)
+    /// <param name="index">The source storage index to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveAtStorageIndex(int index, int amount, out string? error)
     {
         if (amount <= 0)
         {
@@ -70,14 +70,14 @@ public sealed class InventoryTransferBuilder<TKey>
     }
 
     /// <summary>
-    /// Plans to take an amount by item definition.
+    /// Plans to remove an amount by item definition for transfer.
     /// </summary>
-    /// <param name="definition">The definition to take.</param>
-    /// <param name="amount">The amount to take.</param>
+    /// <param name="definition">The definition to remove.</param>
+    /// <param name="amount">The amount to remove.</param>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
-    /// <param name="error">A consumer-facing reason when the take is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when the take is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryTake(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
     {
         if (amount <= 0)
         {

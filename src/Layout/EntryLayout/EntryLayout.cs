@@ -14,13 +14,13 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     private readonly List<int> _order = new();
 
     /// <inheritdoc />
-    public int GetSlotCount(Inventory<TKey> inventory)
+    public int GetPositionCount(Inventory<TKey> inventory)
     {
         return _order.Count;
     }
 
     /// <inheritdoc />
-    public ItemInstance<TKey>? GetAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
+    public ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not EntryLayoutContext<TKey> entryContext)
             return null;
@@ -36,18 +36,22 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public int? GetSlotOfItem(ILayoutContext<TKey> context)
+    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
     {
-        if (context is not EntryLayoutContext<TKey> entryContext)
-            return null;
+        context = null;
+        if (storageIndex < 0 || storageIndex >= inventory.Items.Count)
+            return false;
 
         for (int i = 0; i < _order.Count; i++)
         {
-            if (_order[i] == entryContext.TargetIndex)
-                return i;
+            if (_order[i] == storageIndex)
+            {
+                context = EntryLayoutContext<TKey>.Single(i);
+                return true;
+            }
         }
 
-        return null;
+        return false;
     }
 
     /// <inheritdoc />
@@ -75,51 +79,237 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, ILayoutContext<TKey>? context, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         error = null;
-        int newInstanceCount = transaction.Added.Count;
-        int mergeDeltaCount = transaction.AmountDeltas.Count;
 
-        // Entry layout has no fixed capacity; without context we always allow placement.
-        if (context is not EntryLayoutContext<TKey> entryContext)
-            return true;
-
-        // With entry context we conceptually operate on a single structural index,
-        // so only a single structural change (one add or one merge delta) is allowed.
-        if (newInstanceCount + mergeDeltaCount > 1)
+        foreach (var (index, _) in transaction.AmountDeltas)
         {
-            if (newInstanceCount == 0 && mergeDeltaCount == 0)
+            if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "The inventory transaction contains no structural changes.";
+                error = "Index out of range.";
                 return false;
             }
-            error = "With entry layout context only one structural change is allowed.";
+        }
+
+        var removedIndices = new HashSet<int>();
+        foreach (var (index, _) in transaction.Removed)
+        {
+            if (index < 0 || index >= inventory.Items.Count)
+            {
+                error = "Index out of range.";
+                return false;
+            }
+            removedIndices.Add(index);
+        }
+
+        var simulated = new List<int>(_order);
+        var removed = new List<int>(removedIndices);
+        removed.Sort((a, b) => b.CompareTo(a));
+        foreach (int removedIndex in removed)
+            ApplyRemovalToOrder(simulated, removedIndex);
+
+        int futureStorageIndex = inventory.Items.Count - removed.Count;
+        for (int addedIndex = 0; addedIndex < transaction.Added.Count; addedIndex++)
+        {
+            var (_, itemContext) = transaction.Added[addedIndex];
+            int targetIndex;
+            if (itemContext is EntryLayoutContext<TKey> entryContext)
+            {
+                if (entryContext.IsMapped)
+                {
+                    error = "Invalid context type.";
+                    return false;
+                }
+
+                targetIndex = entryContext.TargetIndex;
+                if (targetIndex < 0 || targetIndex > simulated.Count)
+                {
+                    error = "Target index out of range.";
+                    return false;
+                }
+            }
+            else if (itemContext == null)
+            {
+                targetIndex = simulated.Count;
+            }
+            else
+            {
+                error = "Invalid context type.";
+                return false;
+            }
+
+            simulated.Insert(targetIndex, futureStorageIndex + addedIndex);
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryApplyPlacementContext(
+        Inventory<TKey> inventory,
+        InventoryTransaction<TKey> transaction,
+        ILayoutContext<TKey>? context,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error)
+    {
+        mappedTransaction = null;
+        error = null;
+
+        if (context == null)
+        {
+            mappedTransaction = transaction;
+            return true;
+        }
+
+        if (context is not EntryLayoutContext<TKey> entryContext)
+        {
+            error = "Invalid context type.";
             return false;
         }
 
-        // If this is a merge-only change, ensure the delta targets the item currently
-        // at the specified entry position.
-        if (mergeDeltaCount == 1)
+        if (!entryContext.IsMapped)
         {
-            int targetPos = entryContext.TargetIndex;
-            if (targetPos < 0 || targetPos >= _order.Count)
+            if (transaction.Added.Count == 1)
             {
-                error = "Target index out of range.";
-                return false;
+                if (!TryCreateAddedCopy(transaction, 0, entryContext, out mappedTransaction, out error))
+                    return false;
+                return true;
             }
 
-            int itemIndex = _order[targetPos];
-            var (index, _) = transaction.AmountDeltas[0];
-            if (index != itemIndex)
+            if (transaction.Added.Count == 0 && transaction.AmountDeltas.Count == 1 && transaction.AmountDeltas[0].delta > 0)
             {
-                error = "Merge delta does not match the item at the specified entry index.";
+                int targetPos = entryContext.TargetIndex;
+                if (targetPos < 0 || targetPos >= _order.Count)
+                {
+                    error = "Target index out of range.";
+                    return false;
+                }
+
+                int itemIndex = _order[targetPos];
+                if (transaction.AmountDeltas[0].index != itemIndex)
+                {
+                    error = "Merge delta does not match the item at the specified entry index.";
+                    return false;
+                }
+
+                mappedTransaction = transaction;
+                return true;
+            }
+
+            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            return false;
+        }
+
+        foreach (var pair in entryContext.AddedEntryTargetIndices)
+        {
+            if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
+            {
+                error = "Mapped added entry index out of range.";
                 return false;
             }
         }
 
-        // For add-only with context, there is no structural capacity limit: the entry
-        // list can always grow; placement details are handled in OnItemAdded.
+        var mappedEntries = new List<(int addedIndex, int targetIndex)>();
+        foreach (var pair in entryContext.AddedEntryTargetIndices)
+            mappedEntries.Add((pair.Key, pair.Value));
+        mappedEntries.Sort((a, b) =>
+        {
+            int targetComparison = a.targetIndex.CompareTo(b.targetIndex);
+            return targetComparison != 0 ? targetComparison : a.addedIndex.CompareTo(b.addedIndex);
+        });
+
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+        var mappedIndices = new HashSet<int>();
+        for (int i = 0; i < mappedEntries.Count; i++)
+        {
+            var (addedIndex, targetIndex) = mappedEntries[i];
+            var (instance, existingContext) = transaction.Added[addedIndex];
+            int adjustedTargetIndex = targetIndex + CountPriorMappedInsertions(mappedEntries, i, targetIndex);
+            var mappedContext = EntryLayoutContext<TKey>.Single(adjustedTargetIndex);
+            if (existingContext is EntryLayoutContext<TKey> existingEntryContext &&
+                !existingEntryContext.IsMapped &&
+                existingEntryContext.TargetIndex != adjustedTargetIndex)
+            {
+                error = "Transaction placement context conflicts with an added entry context.";
+                return false;
+            }
+            if (existingContext != null && existingContext is not EntryLayoutContext<TKey>)
+            {
+                error = "Invalid context type.";
+                return false;
+            }
+            added.Add((instance, mappedContext));
+            mappedIndices.Add(addedIndex);
+        }
+
+        for (int i = 0; i < transaction.Added.Count; i++)
+        {
+            if (mappedIndices.Contains(i))
+                continue;
+            added.Add(transaction.Added[i]);
+        }
+
+        mappedTransaction = new InventoryTransaction<TKey>(
+            transaction.Inventory,
+            new List<(int index, int delta)>(transaction.AmountDeltas),
+            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
+            added);
+        return true;
+    }
+
+    private static int CountPriorMappedInsertions(List<(int addedIndex, int targetIndex)> mappedEntries, int currentPosition, int targetIndex)
+    {
+        int count = 0;
+        for (int i = 0; i < currentPosition; i++)
+        {
+            if (mappedEntries[i].targetIndex <= targetIndex)
+                count++;
+        }
+        return count;
+    }
+
+    private static bool TryCreateAddedCopy(
+        InventoryTransaction<TKey> transaction,
+        int addedIndex,
+        ILayoutContext<TKey> context,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error)
+    {
+        mappedTransaction = null;
+        error = null;
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+        for (int i = 0; i < transaction.Added.Count; i++)
+        {
+            var (instance, existingContext) = transaction.Added[i];
+            if (i == addedIndex)
+            {
+                if (existingContext is EntryLayoutContext<TKey> existingEntryContext &&
+                    context is EntryLayoutContext<TKey> newEntryContext &&
+                    !existingEntryContext.IsMapped &&
+                    existingEntryContext.TargetIndex != newEntryContext.TargetIndex)
+                {
+                    error = "Transaction placement context conflicts with an added entry context.";
+                    return false;
+                }
+                if (existingContext != null && existingContext is not EntryLayoutContext<TKey>)
+                {
+                    error = "Invalid context type.";
+                    return false;
+                }
+                added.Add((instance, context));
+            }
+            else
+            {
+                added.Add((instance, existingContext));
+            }
+        }
+
+        mappedTransaction = new InventoryTransaction<TKey>(
+            transaction.Inventory,
+            new List<(int index, int delta)>(transaction.AmountDeltas),
+            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
+            added);
         return true;
     }
 
@@ -213,7 +403,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     /// <inheritdoc />
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
-        if (context is EntryLayoutContext<TKey> entryContext)
+        if (context is EntryLayoutContext<TKey> entryContext && !entryContext.IsMapped)
         {
             _order.Insert(entryContext.TargetIndex, index);
             return;
@@ -225,16 +415,21 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     /// <inheritdoc />
     public void OnItemRemoved(Inventory<TKey> inventory, int index)
     {
-        for (int i = 0; i < _order.Count; i++)
+        ApplyRemovalToOrder(_order, index);
+    }
+
+    private static void ApplyRemovalToOrder(List<int> order, int index)
+    {
+        for (int i = 0; i < order.Count; i++)
         {
-            if (_order[i] == index)
+            if (order[i] == index)
             {
-                _order.RemoveAt(i);
+                order.RemoveAt(i);
                 i--;
             }
-            else if (_order[i] > index)
+            else if (order[i] > index)
             {
-                _order[i]--;
+                order[i]--;
             }
         }
     }

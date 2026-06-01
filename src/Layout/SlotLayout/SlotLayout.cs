@@ -33,10 +33,10 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public int GetSlotCount(Inventory<TKey> inventory) => _slotMap.Count;
+    public int GetPositionCount(Inventory<TKey> inventory) => _slotMap.Count;
 
     /// <inheritdoc />
-    public ItemInstance<TKey>? GetAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
+    public ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not SlotLayoutContext<TKey> slotContext)
             return null;
@@ -52,18 +52,22 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public int? GetSlotOfItem(ILayoutContext<TKey> context)
+    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
     {
-        if (context is not SlotLayoutContext<TKey> slotContext)
-            return null;
+        context = null;
+        if (storageIndex < 0 || storageIndex >= inventory.Items.Count)
+            return false;
 
         for (int i = 0; i < _slotMap.Count; i++)
         {
-            if (_slotMap[i] == slotContext.SlotIndex)
-                return i;
+            if (_slotMap[i] == storageIndex)
+            {
+                context = SlotLayoutContext<TKey>.Single(i);
+                return true;
+            }
         }
 
-        return null;
+        return false;
     }
 
     /// <inheritdoc />
@@ -89,96 +93,235 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, ILayoutContext<TKey>? context, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         error = null;
-        int newInstanceCount = transaction.Added.Count;
-        int mergeDeltaCount = transaction.AmountDeltas.Count;
 
-        if (context is SlotLayoutContext<TKey> slotContext)
+        foreach (var (index, _) in transaction.AmountDeltas)
         {
-            int slot = slotContext.SlotIndex;
-            if (slot < 0 || slot >= _slotMap.Count)
+            if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Slot index out of range.";
+                error = "Index out of range.";
                 return false;
             }
+        }
 
-            if (newInstanceCount > 0 && mergeDeltaCount > 0)
+        var removedIndices = new HashSet<int>();
+        foreach (var (index, _) in transaction.Removed)
+        {
+            if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "With slot context cannot have both merge (delta) and new instance; only one action on the slot is allowed.";
+                error = "Index out of range.";
                 return false;
             }
-
-            if (newInstanceCount > 1 || mergeDeltaCount > 1)
-            {
-                error = "With slot context only one new instance or merge delta can be placed.";
-                return false;
-            }
-
-            if (newInstanceCount == 1)
-            {
-                if (_slotMap[slot].HasValue)
-                {
-                    error = "Slot already occupied.";
-                    return false;
-                }
-                return true;
-            }
-
-            if (mergeDeltaCount == 1)
-            {
-                if (!_slotMap[slot].HasValue)
-                {
-                    error = "Merge delta targets a slot that has no item.";
-                    return false;
-                }
-                int itemIndexInSlot = _slotMap[slot]!.Value;
-                if (transaction.AmountDeltas[0].index != itemIndexInSlot)
-                {
-                    error = "Merge delta index does not match the item in the slot specified by context.";
-                    return false;
-                }
-            }
-
-            return true;
+            removedIndices.Add(index);
         }
 
-        if (newInstanceCount <= 0)
-            return true;
+        var simulated = new List<int?>(_slotMap);
+        var removed = new List<int>(removedIndices);
+        removed.Sort((a, b) => b.CompareTo(a));
+        foreach (int removedIndex in removed)
+            ApplyRemovalToSlotMap(simulated, removedIndex);
 
-        int emptySlots = 0;
-        for (int i = 0; i < _slotMap.Count; i++)
+        int futureStorageIndex = inventory.Items.Count - removed.Count;
+        var explicitSlots = new HashSet<int>();
+        for (int addedIndex = 0; addedIndex < transaction.Added.Count; addedIndex++)
         {
-            if (!_slotMap[i].HasValue)
-                emptySlots++;
-        }
-
-        if (newInstanceCount > emptySlots)
-        {
-            error = "Not enough empty slots for new instances.";
-            return false;
-        }
-
-        foreach (var (_, itemContext) in transaction.Added)
-        {
+            var (_, itemContext) = transaction.Added[addedIndex];
+            int slot;
 
             if (itemContext is SlotLayoutContext<TKey> itemSlotContext)
             {
-                int slot = itemSlotContext.SlotIndex;
+                if (itemSlotContext.IsMapped)
+                {
+                    error = "Invalid context type.";
+                    return false;
+                }
+
+                slot = itemSlotContext.SlotIndex;
+                if (slot < 0 || slot >= simulated.Count)
+                {
+                    error = "Slot index out of range.";
+                    return false;
+                }
+                if (!explicitSlots.Add(slot))
+                {
+                    error = "Duplicate mapped target slot.";
+                    return false;
+                }
+            }
+            else if (itemContext == null)
+            {
+                slot = FindFirstAvailableSlot(simulated);
+                if (slot < 0)
+                {
+                    error = "Not enough empty slots for new instances.";
+                    return false;
+                }
+            }
+            else
+            {
+                error = "Invalid context type.";
+                return false;
+            }
+
+            if (simulated[slot].HasValue)
+            {
+                error = "Slot already occupied.";
+                return false;
+            }
+
+            simulated[slot] = futureStorageIndex + addedIndex;
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryApplyPlacementContext(
+        Inventory<TKey> inventory,
+        InventoryTransaction<TKey> transaction,
+        ILayoutContext<TKey>? context,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error)
+    {
+        mappedTransaction = null;
+        error = null;
+
+        if (context == null)
+        {
+            mappedTransaction = transaction;
+            return true;
+        }
+
+        if (context is not SlotLayoutContext<TKey> slotContext)
+        {
+            error = "Invalid context type.";
+            return false;
+        }
+
+        if (!slotContext.IsMapped)
+        {
+            if (transaction.Added.Count == 1)
+            {
+                if (!TryCreateAddedCopy(transaction, 0, slotContext, out mappedTransaction, out error))
+                    return false;
+                return true;
+            }
+
+            if (transaction.Added.Count == 0 && transaction.AmountDeltas.Count == 1 && transaction.AmountDeltas[0].delta > 0)
+            {
+                int slot = slotContext.SlotIndex;
                 if (slot < 0 || slot >= _slotMap.Count)
                 {
                     error = "Slot index out of range.";
                     return false;
                 }
-                if (_slotMap[slot].HasValue)
+                if (!_slotMap[slot].HasValue || _slotMap[slot]!.Value != transaction.AmountDeltas[0].index)
                 {
-                    error = "Slot already occupied.";
+                    error = "Merge delta index does not match the item in the slot specified by context.";
                     return false;
                 }
+
+                mappedTransaction = transaction;
+                return true;
+            }
+
+            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            return false;
+        }
+
+        var targetSlots = new HashSet<int>();
+        foreach (var pair in slotContext.AddedEntrySlots)
+        {
+            if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
+            {
+                error = "Mapped added entry index out of range.";
+                return false;
+            }
+            if (!targetSlots.Add(pair.Value))
+            {
+                error = "Duplicate mapped target slot.";
+                return false;
             }
         }
 
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+        for (int i = 0; i < transaction.Added.Count; i++)
+        {
+            var (instance, existingContext) = transaction.Added[i];
+            if (slotContext.AddedEntrySlots.TryGetValue(i, out int mappedSlot))
+            {
+                var mappedContext = SlotLayoutContext<TKey>.Single(mappedSlot);
+                if (existingContext is SlotLayoutContext<TKey> existingSlotContext &&
+                    !existingSlotContext.IsMapped &&
+                    existingSlotContext.SlotIndex != mappedSlot)
+                {
+                    error = "Transaction placement context conflicts with an added entry context.";
+                    return false;
+                }
+                if (existingContext != null && existingContext is not SlotLayoutContext<TKey>)
+                {
+                    error = "Invalid context type.";
+                    return false;
+                }
+                added.Add((instance, mappedContext));
+            }
+            else
+            {
+                added.Add((instance, existingContext));
+            }
+        }
+
+        mappedTransaction = new InventoryTransaction<TKey>(
+            transaction.Inventory,
+            new List<(int index, int delta)>(transaction.AmountDeltas),
+            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
+            added);
+        return true;
+    }
+
+    private static bool TryCreateAddedCopy(
+        InventoryTransaction<TKey> transaction,
+        int addedIndex,
+        ILayoutContext<TKey> context,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error)
+    {
+        mappedTransaction = null;
+        error = null;
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+        for (int i = 0; i < transaction.Added.Count; i++)
+        {
+            var (instance, existingContext) = transaction.Added[i];
+            if (i == addedIndex)
+            {
+                if (existingContext is SlotLayoutContext<TKey> existingSlotContext &&
+                    context is SlotLayoutContext<TKey> newSlotContext &&
+                    !existingSlotContext.IsMapped &&
+                    existingSlotContext.SlotIndex != newSlotContext.SlotIndex)
+                {
+                    error = "Transaction placement context conflicts with an added entry context.";
+                    return false;
+                }
+                if (existingContext != null && existingContext is not SlotLayoutContext<TKey>)
+                {
+                    error = "Invalid context type.";
+                    return false;
+                }
+                added.Add((instance, context));
+            }
+            else
+            {
+                added.Add((instance, existingContext));
+            }
+        }
+
+        mappedTransaction = new InventoryTransaction<TKey>(
+            transaction.Inventory,
+            new List<(int index, int delta)>(transaction.AmountDeltas),
+            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
+            added);
         return true;
     }
 
@@ -218,12 +361,28 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
 
     private int FindFirstAvailableSlot()
     {
-        for (int i = 0; i < _slotMap.Count; i++)
+        return FindFirstAvailableSlot(_slotMap);
+    }
+
+    private static int FindFirstAvailableSlot(List<int?> slotMap)
+    {
+        for (int i = 0; i < slotMap.Count; i++)
         {
-            if (!_slotMap[i].HasValue)
+            if (!slotMap[i].HasValue)
                 return i;
         }
         return -1;
+    }
+
+    private static void ApplyRemovalToSlotMap(List<int?> slotMap, int removedIndex)
+    {
+        for (int i = 0; i < slotMap.Count; i++)
+        {
+            if (slotMap[i] == removedIndex)
+                slotMap[i] = null;
+            else if (slotMap[i] > removedIndex)
+                slotMap[i]--;
+        }
     }
 
     /// <inheritdoc />
@@ -312,7 +471,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     /// <inheritdoc />
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
-        int slot = context is SlotLayoutContext<TKey> slotContext
+        int slot = context is SlotLayoutContext<TKey> slotContext && !slotContext.IsMapped
             ? slotContext.SlotIndex
             : FindFirstAvailableSlot();
         _slotMap[slot] = index;
@@ -321,13 +480,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     /// <inheritdoc />
     public void OnItemRemoved(Inventory<TKey> inventory, int removedIndex)
     {
-        for (int i = 0; i < _slotMap.Count; i++)
-        {
-            if (_slotMap[i] == removedIndex)
-                _slotMap[i] = null;
-            else if (_slotMap[i] > removedIndex)
-                _slotMap[i]--;
-        }
+        ApplyRemovalToSlotMap(_slotMap, removedIndex);
     }
 
     /// <inheritdoc />

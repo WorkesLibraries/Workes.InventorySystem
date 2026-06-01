@@ -11,6 +11,21 @@ namespace Workes.InventorySystem.Core;
 public class InventoryTransaction<TKey>
 {
     /// <summary>
+    /// Creates a transaction builder seeded with the current inventory state.
+    /// </summary>
+    /// <param name="inventory">The inventory the transaction will target.</param>
+    /// <returns>A transaction builder for <paramref name="inventory"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="inventory"/> is <see langword="null"/>.</exception>
+    public static InventoryTransactionBuilder<TKey> From(Inventory<TKey> inventory)
+    {
+        if (inventory == null)
+            throw new ArgumentNullException(nameof(inventory));
+
+        var simulation = Inventory<TKey>.CreateSimulationClone(inventory);
+        return new InventoryTransactionBuilder<TKey>(inventory, simulation);
+    }
+
+    /// <summary>
     /// Gets the inventory this transaction targets.
     /// </summary>
     public Inventory<TKey> Inventory { get; }

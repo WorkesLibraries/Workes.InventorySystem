@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Core;
 
-/// <summary>
-/// Builds a bulk transaction by operating on a simulated inventory state.
-/// Use <see cref="Inventory{TKey}.CreateTransactionBuilder"/> to create.
+    /// <summary>
+    /// Builds a bulk transaction by operating on a simulated inventory state.
+/// Use <see cref="InventoryTransaction{TKey}.From"/> to create.
 /// Add/remove operations update the simulated state; call <see cref="ToInventoryTransaction"/>
 /// to get the merged transaction, then <see cref="Inventory{TKey}.CommitTransaction"/> on the original inventory.
 /// </summary>
@@ -166,6 +166,22 @@ public class InventoryTransactionBuilder<TKey>
         }
 
         return new InventoryTransaction<TKey>(_targetInventory, amountDeltas, removed, added);
+    }
+
+    /// <summary>
+    /// Produces an inventory transaction after applying an optional transaction-level placement context.
+    /// </summary>
+    /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
+    /// <param name="transaction">The mapped transaction when creation succeeds; otherwise, <see langword="null"/>.</param>
+    /// <param name="error">A consumer-facing reason when creation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the mapped transaction is valid; otherwise, <see langword="false"/>.</returns>
+    public bool TryToInventoryTransaction(
+        ILayoutContext<TKey>? placementContext,
+        out InventoryTransaction<TKey>? transaction,
+        out string? error)
+    {
+        var candidate = ToInventoryTransaction();
+        return _targetInventory.TryPrepareTransaction(candidate, placementContext, out transaction, out error);
     }
 
     private ItemInstance<TKey>? ResolveToSimulationInstance(ItemInstance<TKey> instance)

@@ -48,7 +48,7 @@ public class InventoryMalfunctionRegressionTests
         entryA.TryAdd(apple, out _);
 
         Assert.That(entryB.InstanceCount, Is.EqualTo(0));
-        Assert.That(entryB.Layout.GetAt(entryB, new EntryLayoutContext<string>(0)), Is.Null);
+        Assert.That(entryB.Layout.GetItemAt(entryB, new EntryLayoutContext<string>(0)), Is.Null);
 
         var slotManager = CreateManager(new SlotLayout<string>(2), definitions: apple);
         var slotA = slotManager.CreateInventory();
@@ -57,7 +57,37 @@ public class InventoryMalfunctionRegressionTests
         slotA.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(0));
 
         Assert.That(slotB.InstanceCount, Is.EqualTo(0));
-        Assert.That(slotB.Layout.GetAt(slotB, new SlotLayoutContext<string>(0)), Is.Null);
+        Assert.That(slotB.Layout.GetItemAt(slotB, new SlotLayoutContext<string>(0)), Is.Null);
+    }
+
+    [Test]
+    public void EntryLayout_TryGetContextForStorageIndex_ReturnsEntryPosition()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: new[] { apple, berry }).CreateInventory();
+
+        inventory.TryAdd(apple, out _);
+        inventory.TryAdd(berry, out _);
+
+        Assert.That(inventory.Layout.TryGetContextForStorageIndex(inventory, 1, out var context), Is.True);
+        var entryContext = (EntryLayoutContext<string>)context!;
+        Assert.That(entryContext.TargetIndex, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void SlotLayout_TryGetContextForStorageIndex_ReturnsSlotPosition()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var inventory = CreateManager(new SlotLayout<string>(4), definitions: new[] { apple, berry }).CreateInventory();
+
+        inventory.TryAdd(apple, out _, 1, SlotLayoutContext<string>.Single(2));
+        inventory.TryAdd(berry, out _, 1, SlotLayoutContext<string>.Single(0));
+
+        Assert.That(inventory.Layout.TryGetContextForStorageIndex(inventory, 0, out var context), Is.True);
+        var slotContext = (SlotLayoutContext<string>)context!;
+        Assert.That(slotContext.SlotIndex, Is.EqualTo(2));
     }
 
     [Test]
@@ -66,7 +96,7 @@ public class InventoryMalfunctionRegressionTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(definitions: apple).CreateInventory();
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         Assert.That(builder.TryAdd(apple, out var addError, 5), Is.True, addError);
         Assert.That(builder.TryRemoveByDefinition(apple, 2, true, out var removeError), Is.True, removeError);
 
@@ -81,7 +111,7 @@ public class InventoryMalfunctionRegressionTests
     {
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(definitions: apple).CreateInventory();
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 5);
         builder.TryRemoveByDefinition(apple, 5, true, out _);
 
@@ -102,7 +132,7 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
         inventory.TryAdd(apple, out _, 5);
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         builder.TryRemoveByDefinition(apple, 2, true, out _);
         builder.TryAdd(apple, out _, 4);
 
@@ -215,9 +245,9 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(berry, out _);
         inventory.TryAdd(carrot, out _, 1, new EntryLayoutContext<string>(1));
 
-        Assert.That(inventory.Layout.GetAt(inventory, new EntryLayoutContext<string>(0)).Definition.Id, Is.EqualTo("apple"));
-        Assert.That(inventory.Layout.GetAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("carrot"));
-        Assert.That(inventory.Layout.GetAt(inventory, new EntryLayoutContext<string>(2)).Definition.Id, Is.EqualTo("berry"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(0)).Definition.Id, Is.EqualTo("apple"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("carrot"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(2)).Definition.Id, Is.EqualTo("berry"));
     }
 
     [Test]
@@ -230,7 +260,7 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(apple, out _);
 
         Assert.That(inventory.TryAdd(berry, out var error, 1, new EntryLayoutContext<string>(1)), Is.True, error);
-        Assert.That(inventory.Layout.GetAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("berry"));
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1)).Definition.Id, Is.EqualTo("berry"));
     }
 
     [Test]
@@ -256,7 +286,7 @@ public class InventoryMalfunctionRegressionTests
         var data = (EntryLayoutPersistentData)inventory.Layout.GetPersistentData();
         data.Order.Clear();
 
-        Assert.That(inventory.Layout.GetAt(inventory, new EntryLayoutContext<string>(0)), Is.Not.Null);
+        Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(0)), Is.Not.Null);
     }
 
     [TestCase(0)]
@@ -311,11 +341,11 @@ public class InventoryMalfunctionRegressionTests
         var metaB = new InstanceMetadata();
         metaB.Set("quality", "B");
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         Assert.That(builder.TryAdd(apple, 1, null, metaA, out var addError), Is.True, addError);
         inventory.CommitTransaction(builder.ToInventoryTransaction());
 
-        var secondBuilder = inventory.CreateTransactionBuilder();
+        var secondBuilder = InventoryTransaction<string>.From(inventory);
         Assert.That(secondBuilder.TryAdd(apple, 1, null, metaB, out var secondError), Is.False);
         Assert.That(secondError, Is.Not.Null);
     }

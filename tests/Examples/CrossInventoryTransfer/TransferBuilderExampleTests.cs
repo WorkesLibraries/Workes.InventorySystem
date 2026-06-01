@@ -35,8 +35,8 @@ public class TransferBuilderExampleTests
         backpack.TryAdd(coin, out _, 12);
 
         var builder = InventoryTransfer.From(backpack);
-        builder.TryTake(backpack.Find(herb).Single(), 3, out _);
-        builder.TryTake(backpack.Find(bottle).Single(), 1, out _);
+        builder.TryRemove(backpack.Find(herb).Single(), 3, out _);
+        builder.TryRemove(backpack.Find(bottle).Single(), 1, out _);
 
         var moved = InventoryTransfer.TryTransfer(builder, craftingInput, targetContext: null, out var error);
 

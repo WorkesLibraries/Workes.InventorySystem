@@ -1,4 +1,5 @@
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
@@ -18,13 +19,20 @@ public class ItemAdded<TKey>
     public int Index { get; }
 
     /// <summary>
+    /// Gets the layout context resolved for the added item instance, when available.
+    /// </summary>
+    public ILayoutContext<TKey>? LayoutContext { get; }
+
+    /// <summary>
     /// Creates an item-added event payload.
     /// </summary>
     /// <param name="instance">The item instance that was added.</param>
     /// <param name="index">The storage index assigned to the item instance.</param>
-    public ItemAdded(ItemInstance<TKey> instance, int index)
+    /// <param name="layoutContext">The layout context resolved for the added item instance, when available.</param>
+    public ItemAdded(ItemInstance<TKey> instance, int index, ILayoutContext<TKey>? layoutContext = null)
     {
         Instance = instance;
         Index = index;
+        LayoutContext = layoutContext;
     }
 }

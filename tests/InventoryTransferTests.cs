@@ -257,7 +257,7 @@ public class InventoryTransferTests
         var target = manager.CreateInventory();
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
-        var builder = source.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(source);
         builder.TryAdd(apple, 2, null, metadata, out _);
         source.CommitTransaction(builder.ToInventoryTransaction());
 

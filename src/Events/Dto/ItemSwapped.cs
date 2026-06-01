@@ -3,7 +3,7 @@ using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
-/// Describes two item instances swapped between layout positions.
+/// Describes two item instances swapped between layout contexts.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class ItemSwapped<TKey>

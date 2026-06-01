@@ -1,4 +1,5 @@
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
@@ -18,13 +19,20 @@ public class ItemRemoved<TKey>
     public int Index { get; }
 
     /// <summary>
+    /// Gets the layout context the item occupied before removal, when available.
+    /// </summary>
+    public ILayoutContext<TKey>? LayoutContext { get; }
+
+    /// <summary>
     /// Creates an item-removed event payload.
     /// </summary>
     /// <param name="instance">The item instance that was removed.</param>
     /// <param name="index">The storage index the item occupied before removal.</param>
-    public ItemRemoved(ItemInstance<TKey> instance, int index)
+    /// <param name="layoutContext">The layout context the item occupied before removal, when available.</param>
+    public ItemRemoved(ItemInstance<TKey> instance, int index, ILayoutContext<TKey>? layoutContext = null)
     {
         Instance = instance;
         Index = index;
+        LayoutContext = layoutContext;
     }
 }

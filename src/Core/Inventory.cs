@@ -311,21 +311,10 @@ public class Inventory<TKey>
         {
             var meta = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
             var clonedInstance = new ItemInstance<TKey>(item.Definition, item.Amount, meta);
-            clone.AddItemSilent(clonedInstance, null);
+            clone._items.Add(clonedInstance);
         }
 
         return clone;
-    }
-
-    /// <summary>
-    /// Creates a transaction builder seeded with the current inventory state.
-    /// Use for bulk operations that should produce a single Changed event on commit.
-    /// </summary>
-    /// <returns>A transaction builder that simulates changes against a clone of the current inventory state.</returns>
-    public InventoryTransactionBuilder<TKey> CreateTransactionBuilder()
-    {
-        var simulation = CreateSimulationClone(this);
-        return new InventoryTransactionBuilder<TKey>(this, simulation);
     }
 
     /// <summary>Builds a semantic (normalized) view of the transaction for capacity evaluation. Groups by definition and metadata (structural equality) so e.g. 90 apples and 10 apples[metadata] are distinct.</summary>
@@ -432,9 +421,9 @@ public class Inventory<TKey>
         }
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, new List<(int index, ItemInstance<TKey> instance)>(), added);
-        if (!ValidateTransactionConstraints(tx, context, out error))
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
             return false;
-        transaction = tx;
+        transaction = mappedTx;
         return true;
     }
 
@@ -477,9 +466,9 @@ public class Inventory<TKey>
         else
             amountDeltas.Add((index, -amount));
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!ValidateTransactionConstraints(tx, null, out error))
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
             return false;
-        transaction = tx;
+        transaction = mappedTx;
         return true;
     }
 
@@ -511,9 +500,9 @@ public class Inventory<TKey>
         else
             amountDeltas.Add((index, -amount));
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!ValidateTransactionConstraints(tx, null, out error))
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
             return false;
-        transaction = tx;
+        transaction = mappedTx;
         return true;
     }
 
@@ -579,13 +568,49 @@ public class Inventory<TKey>
         }
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!ValidateTransactionConstraints(tx, null, out error))
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
             return false;
-        transaction = tx;
+        transaction = mappedTx;
         return true;
     }
 
-    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, ILayoutContext<TKey>? context, out string? error)
+    internal bool TryPrepareTransaction(
+        InventoryTransaction<TKey> tx,
+        ILayoutContext<TKey>? placementContext,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error)
+    {
+        mappedTransaction = null;
+        error = null;
+        if (tx == null)
+        {
+            error = "Transaction cannot be null.";
+            return false;
+        }
+        if (tx.Inventory != this)
+        {
+            error = "Transaction does not belong to this inventory.";
+            return false;
+        }
+        if (tx.IsApplied)
+        {
+            error = "Transaction has already been applied.";
+            return false;
+        }
+
+        if (!_layout.TryApplyPlacementContext(this, tx, placementContext, out mappedTransaction, out error) || mappedTransaction == null)
+            return false;
+
+        if (!ValidateTransactionConstraints(mappedTransaction, out error))
+        {
+            mappedTransaction = null;
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out string? error)
     {
         error = null;
         var normalized = GenerateNormalizedInventoryTransaction(tx);
@@ -593,7 +618,7 @@ public class Inventory<TKey>
             return false;
         if (!_rules.CanApply(this, normalized, tx, out error))
             return false;
-        if (!_layout.CanSatisfyPlacement(this, tx, context, out error))
+        if (!_layout.CanSatisfyPlacement(this, tx, out error))
             return false;
         return true;
     }
@@ -683,34 +708,128 @@ public class Inventory<TKey>
             throw new InvalidOperationException("Transaction does not belong to this inventory.");
         if (transaction.IsApplied)
             throw new InvalidOperationException("Transaction has already been applied.");
+        if (!TryCommitTransaction(transaction, out var error))
+            throw new InvalidOperationException(error);
+    }
 
-        var changedEventArgs = new InventoryChangedEventArgs<TKey>();
+    /// <summary>
+    /// Attempts to execute a transaction after validating all inventory constraints.
+    /// </summary>
+    /// <param name="transaction">The structural transaction to commit.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out string? error)
+    {
+        return TryCommitTransaction(transaction, null, out error);
+    }
+
+    /// <summary>
+    /// Attempts to execute a transaction after applying a transaction-level placement context.
+    /// </summary>
+    /// <param name="transaction">The structural transaction to commit.</param>
+    /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransaction(
+        InventoryTransaction<TKey> transaction,
+        ILayoutContext<TKey>? placementContext,
+        out string? error)
+    {
+        if (!TryPrepareTransaction(transaction, placementContext, out var mappedTransaction, out error) || mappedTransaction == null)
+            return false;
+
+        ApplyPreparedTransaction(mappedTransaction);
+        return true;
+    }
+
+    private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)
+    {
+        if (transaction == null)
+            throw new ArgumentNullException(nameof(transaction));
+        if (transaction.Inventory != this)
+            throw new InvalidOperationException("Transaction does not belong to this inventory.");
+        if (transaction.IsApplied)
+            throw new InvalidOperationException("Transaction has already been applied.");
+
+        var addedEvents = new List<ItemAdded<TKey>>();
+        var removedEvents = new List<ItemRemoved<TKey>>();
+        var modifiedCaptures = new List<ModifiedEventCapture>();
 
         foreach (var (index, delta) in transaction.AmountDeltas)
         {
+            var instance = _items[index];
+            int beforeAmount = instance.Amount;
+            _layout.TryGetContextForStorageIndex(this, index, out var beforeContext);
             _items[index].AddAmount(delta);
-            changedEventArgs.Modified.Add(new ItemModified<TKey>(_items[index], index));
+            modifiedCaptures.Add(new ModifiedEventCapture(instance, index, beforeAmount, instance.Amount, beforeContext));
         }
 
         var removed = new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed);
         removed.Sort((a, b) => b.index.CompareTo(a.index));
         foreach (var (index, instance) in removed)
         {
+            _layout.TryGetContextForStorageIndex(this, index, out var layoutContext);
+            removedEvents.Add(new ItemRemoved<TKey>(instance, index, layoutContext));
             RemoveAt(index);
-            changedEventArgs.Removed.Add(new ItemRemoved<TKey>(instance, index));
         }
 
         foreach (var (instance, context) in transaction.Added)
         {
             AddItem(instance, context);
-            changedEventArgs.Added.Add(new ItemAdded<TKey>(instance, _items.Count - 1));
+            int index = _items.Count - 1;
+            _layout.TryGetContextForStorageIndex(this, index, out var layoutContext);
+            addedEvents.Add(new ItemAdded<TKey>(instance, index, layoutContext));
+        }
+
+        var modifiedEvents = new List<ItemModified<TKey>>();
+        foreach (var capture in modifiedCaptures)
+        {
+            ILayoutContext<TKey>? afterContext = null;
+            int currentIndex = _items.IndexOf(capture.Instance);
+            if (currentIndex >= 0)
+                _layout.TryGetContextForStorageIndex(this, currentIndex, out afterContext);
+
+            modifiedEvents.Add(new ItemModified<TKey>(
+                capture.Instance,
+                capture.OriginalIndex,
+                capture.BeforeAmount,
+                capture.AfterAmount,
+                capture.BeforeLayoutContext,
+                afterContext));
         }
 
         transaction.MarkApplied();
 
         bool hasChanges = transaction.AmountDeltas.Count > 0 || transaction.Removed.Count > 0 || transaction.Added.Count > 0;
-        if (hasChanges)
-            Changed?.Invoke(this, changedEventArgs);
+        if (hasChanges || cleared)
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(addedEvents, removedEvents, modifiedEvents, cleared: cleared));
+    }
+
+    private readonly struct ModifiedEventCapture
+    {
+        public ModifiedEventCapture(
+            ItemInstance<TKey> instance,
+            int originalIndex,
+            int beforeAmount,
+            int afterAmount,
+            ILayoutContext<TKey>? beforeLayoutContext)
+        {
+            Instance = instance;
+            OriginalIndex = originalIndex;
+            BeforeAmount = beforeAmount;
+            AfterAmount = afterAmount;
+            BeforeLayoutContext = beforeLayoutContext;
+        }
+
+        public ItemInstance<TKey> Instance { get; }
+
+        public int OriginalIndex { get; }
+
+        public int BeforeAmount { get; }
+
+        public int AfterAmount { get; }
+
+        public ILayoutContext<TKey>? BeforeLayoutContext { get; }
     }
 
     /// <summary>
@@ -786,7 +905,7 @@ public class Inventory<TKey>
     {
         error = null;
 
-        var item = _layout.GetAt(this, contextFrom);
+        var item = _layout.GetItemAt(this, contextFrom);
 
         if (item == null)
         {
@@ -821,8 +940,8 @@ public class Inventory<TKey>
     {
         error = null;
 
-        var itemFrom = _layout.GetAt(this, contextFrom);
-        var itemTo = _layout.GetAt(this, contextTo);
+        var itemFrom = _layout.GetItemAt(this, contextFrom);
+        var itemTo = _layout.GetItemAt(this, contextTo);
 
         if (itemFrom == null || itemTo == null)
         {
@@ -859,8 +978,8 @@ public class Inventory<TKey>
     {
         error = null;
 
-        var itemFrom = _layout.GetAt(this, contextFrom);
-        var itemTo = _layout.GetAt(this, contextTo);
+        var itemFrom = _layout.GetItemAt(this, contextFrom);
+        var itemTo = _layout.GetItemAt(this, contextTo);
 
         if (itemFrom == null || itemTo == null)
         {
@@ -917,9 +1036,9 @@ public class Inventory<TKey>
             amountDeltas.Add((GetItemIndex(itemFrom), -amountToMove));
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!ValidateTransactionConstraints(tx, null, out error))
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
             return false;
-        CommitTransaction(tx);
+        ApplyPreparedTransaction(mappedTx);
         return true;
     }
 
@@ -938,26 +1057,47 @@ public class Inventory<TKey>
     }
 
     /// <summary>
-    /// Replaces the entire inventory with the given entries (e.g. for load/restore).
-    /// Clears current contents, then adds each entry with its optional layout context.
-    /// Caller must ensure entries are valid for the current capacity and layout.
-    /// Fires a single Changed event for the entire replacement.
+    /// Replaces the entire inventory with the given entries after validating the replacement.
     /// </summary>
-    /// <param name="entries">Definitions, amounts, and layout contexts to add after clearing current contents.</param>
-    public void ReplaceContents(IEnumerable<(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey> context)> entries)
+    /// <param name="entries">Definitions, amounts, and layout contexts to use as the replacement contents.</param>
+    /// <remarks>
+    /// Invalid entries with a <see langword="null"/> definition or non-positive amount are ignored.
+    /// A successful replacement fires at most one <see cref="Changed"/> event. If validation fails,
+    /// the original inventory remains unchanged and an <see cref="InvalidOperationException"/> is thrown.
+    /// </remarks>
+    public void ReplaceContents(IEnumerable<(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context)>? entries)
     {
-        Clear();
-        if (entries == null)
+        var validEntries = new List<(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context)>();
+        if (entries != null)
+        {
+            foreach (var (definition, amount, context) in entries)
+            {
+                if (definition == null || amount <= 0)
+                    continue;
+                validEntries.Add((definition, amount, context));
+            }
+        }
+
+        if (_items.Count == 0 && validEntries.Count == 0)
             return;
 
-        var builder = CreateTransactionBuilder();
-        foreach (var (definition, amount, context) in entries)
+        var builder = InventoryTransaction<TKey>.From(this);
+        for (int index = _items.Count - 1; index >= 0; index--)
         {
-            if (definition == null || amount <= 0)
-                continue;
-            builder.TryAdd(definition, out _, amount, context);
+            if (!builder.TryRemoveAtStorageIndex(index, out var removeError, _items[index].Amount))
+                throw new InvalidOperationException(removeError);
         }
-        CommitTransaction(builder.ToInventoryTransaction());
+
+        foreach (var (definition, amount, context) in validEntries)
+        {
+            if (!builder.TryAdd(definition, out var addError, amount, context))
+                throw new InvalidOperationException(addError);
+        }
+
+        if (!builder.TryToInventoryTransaction(null, out var transaction, out var error) || transaction == null)
+            throw new InvalidOperationException(error);
+
+        ApplyPreparedTransaction(transaction, cleared: _items.Count > 0);
     }
 
     /// <summary>
@@ -999,7 +1139,7 @@ public class Inventory<TKey>
 
         Clear();
 
-        var builder = CreateTransactionBuilder();
+        var builder = InventoryTransaction<TKey>.From(this);
         foreach (var serializedItem in data.Items)
         {
             var definition = Manager.Registry.Resolve(serializedItem.DefinitionId);

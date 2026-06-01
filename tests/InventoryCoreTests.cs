@@ -117,7 +117,7 @@ public class InventoryCoreTests
         var appleInstance = inventory.Items[0];
         var berryInstance = inventory.Items[1];
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 3);
         builder.TryRemove(berryInstance, out _, 2);
         builder.TryAdd(carrot, out _, 4);
@@ -154,7 +154,7 @@ public class InventoryCoreTests
         InventoryChangedEventArgs<string> capturedArgs = null;
         inventory.Changed += (_, e) => capturedArgs = (InventoryChangedEventArgs<string>)e;
 
-        var builder = inventory.CreateTransactionBuilder();
+        var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(berry, out _, 2);
         builder.TryRemove(appleInstance, out _, 2);
         inventory.CommitTransaction(builder.ToInventoryTransaction());
@@ -203,8 +203,8 @@ public class InventoryCoreTests
         Assert.That(capturedArgs.Moved[0].ToPosition, Is.EqualTo(toContext));
 
         var layout = (SlotLayout<string>)inventory.Layout;
-        Assert.That(layout.GetAt(inventory, fromContext), Is.Null);
-        Assert.That(layout.GetAt(inventory, toContext), Is.EqualTo(appleInstance));
+        Assert.That(layout.GetItemAt(inventory, fromContext), Is.Null);
+        Assert.That(layout.GetItemAt(inventory, toContext), Is.EqualTo(appleInstance));
     }
 
     [Test]
@@ -271,8 +271,8 @@ public class InventoryCoreTests
         Assert.That(swap.AfterSwapToPositionInstance, Is.EqualTo(appleInstance));
 
         var layout = (SlotLayout<string>)inventory.Layout;
-        Assert.That(layout.GetAt(inventory, slot0), Is.EqualTo(berryInstance));
-        Assert.That(layout.GetAt(inventory, slot1), Is.EqualTo(appleInstance));
+        Assert.That(layout.GetItemAt(inventory, slot0), Is.EqualTo(berryInstance));
+        Assert.That(layout.GetItemAt(inventory, slot1), Is.EqualTo(appleInstance));
     }
 
     [Test]

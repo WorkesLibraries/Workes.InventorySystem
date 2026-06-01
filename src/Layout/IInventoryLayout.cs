@@ -16,7 +16,7 @@ public interface IInventoryLayout<TKey>
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <returns>The number of positions known to the layout.</returns>
-    int GetSlotCount(Inventory<TKey> inventory);
+    int GetPositionCount(Inventory<TKey> inventory);
 
     /// <summary>
     /// Gets the item at the specified layout context.
@@ -24,14 +24,16 @@ public interface IInventoryLayout<TKey>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="context">The layout-specific context that identifies a position.</param>
     /// <returns>The item at the context, or <see langword="null"/> when the context is invalid or empty.</returns>
-    ItemInstance<TKey>? GetAt(Inventory<TKey> inventory, ILayoutContext<TKey> context);
+    ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context);
 
     /// <summary>
-    /// Gets the layout position associated with an item-oriented context.
+    /// Gets the layout context currently associated with a storage index.
     /// </summary>
-    /// <param name="context">The layout-specific context to resolve.</param>
-    /// <returns>The resolved position, or <see langword="null"/> when the context cannot be resolved.</returns>
-    int? GetSlotOfItem(ILayoutContext<TKey> context);
+    /// <param name="inventory">The inventory using this layout.</param>
+    /// <param name="storageIndex">The inventory storage index to resolve.</param>
+    /// <param name="context">The layout-specific context when the storage index is placed; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the storage index has a layout context; otherwise, <see langword="false"/>.</returns>
+    bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context);
 
     /// <summary>
     /// Returns storage indices that should be considered for merging an added item into existing stacks.
@@ -47,10 +49,35 @@ public interface IInventoryLayout<TKey>
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="transaction">The structural transaction being validated.</param>
-    /// <param name="context">Optional layout-specific placement context.</param>
     /// <param name="error">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the layout can satisfy placement; otherwise, <see langword="false"/>.</returns>
-    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, ILayoutContext<TKey>? context, out string? error);
+    /// <remarks>
+    /// Implementations must validate against the final transaction state: removals
+    /// are applied before additions, amount deltas do not create new layout
+    /// positions, and added-entry contexts are authoritative for new placements.
+    /// </remarks>
+    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error);
+
+    /// <summary>
+    /// Applies a transaction-level placement context to the transaction.
+    /// </summary>
+    /// <param name="inventory">The inventory using this layout.</param>
+    /// <param name="transaction">The structural transaction to map.</param>
+    /// <param name="context">Optional transaction-level placement context.</param>
+    /// <param name="mappedTransaction">The mapped transaction when context application succeeds; otherwise, <see langword="null"/>.</param>
+    /// <param name="error">A consumer-facing reason when context application is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the context is valid for the transaction; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// Mapping is layout-owned. Transaction-level mapping should target
+    /// <see cref="InventoryTransaction{TKey}.Added"/> entry indices and must
+    /// preserve amount deltas and removals exactly.
+    /// </remarks>
+    bool TryApplyPlacementContext(
+        Inventory<TKey> inventory,
+        InventoryTransaction<TKey> transaction,
+        ILayoutContext<TKey>? context,
+        out InventoryTransaction<TKey>? mappedTransaction,
+        out string? error);
 
     /// <summary>
     /// Validates whether a new item instance can be placed.
