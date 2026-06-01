@@ -683,6 +683,8 @@ public static class InventoryTransfer
             return equipmentContext.IsMapped;
         if (context is MultiCellGridLayoutContext<TKey> multiCellGridContext)
             return multiCellGridContext.IsMapped;
+        if (context is SectionedLayoutContext<TKey> sectionedContext)
+            return sectionedContext.IsMapped;
         return false;
     }
 

@@ -1,0 +1,533 @@
+using System;
+using System.Linq;
+using NUnit.Framework;
+using Workes.InventorySystem.Capacity;
+using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Layout;
+using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Stacking;
+using Workes.InventorySystem.Tags;
+
+namespace Workes.InventorySystem.Tests;
+
+[TestFixture]
+public class SectionedLayoutTests
+{
+    [Test]
+    public void Constructor_RejectsNullSections()
+    {
+        Assert.Throws<ArgumentNullException>(() => new SectionedLayout<string>((System.Collections.Generic.IEnumerable<SectionDefinition<string>>)null!));
+    }
+
+    [Test]
+    public void Constructor_RejectsEmptySections()
+    {
+        Assert.Throws<ArgumentException>(() => new SectionedLayout<string>(Array.Empty<SectionDefinition<string>>()));
+    }
+
+    [Test]
+    public void Constructor_RejectsDuplicateSectionIds()
+    {
+        Assert.Throws<ArgumentException>(() => new SectionedLayout<string>(
+            new SectionDefinition<string>("bag", 1),
+            new SectionDefinition<string>("bag", 1)));
+    }
+
+    [Test]
+    public void SectionDefinition_RejectsInvalidId()
+    {
+        Assert.Throws<ArgumentException>(() => new SectionDefinition<string>(" ", 1));
+    }
+
+    [Test]
+    public void SectionDefinition_RejectsNonPositiveSlotCount()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SectionDefinition<string>("bag", 0));
+    }
+
+    [Test]
+    public void GetAddressableContexts_ReturnsSectionOrderThenSlotOrder()
+    {
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("hotbar", 2),
+                new SectionDefinition<string>("bag", 1)));
+
+        var contexts = inventory.Layout.GetAddressableContexts(inventory)
+            .Cast<SectionedLayoutContext<string>>()
+            .Select(c => (c.SectionId, c.SlotIndex))
+            .ToList();
+
+        Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(3));
+        Assert.That(contexts, Is.EqualTo(new[] { ("hotbar", 0), ("hotbar", 1), ("bag", 0) }));
+    }
+
+    [Test]
+    public void TryAdd_WithSingleContext_PlacesItemInSectionSlot()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: apple);
+
+        Assert.That(inventory.TryAdd(apple, out var error, 1, SectionedLayoutContext<string>.Single("bag", 1)), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
+        Assert.That(inventory.Layout.TryGetContextForStorageIndex(inventory, 0, out var context), Is.True);
+        var sectionContext = (SectionedLayoutContext<string>)context!;
+        Assert.That((sectionContext.SectionId, sectionContext.SlotIndex), Is.EqualTo(("bag", 1)));
+    }
+
+    [Test]
+    public void NullContext_SkipsIncompatibleSections()
+    {
+        var weapon = TagKey.Parse("gear:weapon");
+        var sword = new TaggedDefinition("sword", weapon);
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("potions", 1, TagKey.Parse("gear:potion")),
+                new SectionDefinition<string>("weapons", 1, weapon)),
+            tags: new[] { weapon, TagKey.Parse("gear:potion") },
+            definitions: sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+        Assert.That(ItemAt(inventory, "potions", 0), Is.Null);
+    }
+
+    [Test]
+    public void NullContext_RejectsWhenNoCompatibleSlotAvailable()
+    {
+        var weapon = TagKey.Parse("gear:weapon");
+        var apple = new TaggedDefinition("apple", TagKey.Parse("gear:food"));
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("weapons", 1, weapon)),
+            tags: new[] { weapon, TagKey.Parse("gear:food") },
+            definitions: apple);
+
+        Assert.That(inventory.TryAdd(apple, out var error), Is.False);
+        Assert.That(error, Is.EqualTo("No compatible section slot available."));
+    }
+
+    [Test]
+    public void MappedContext_PlacesMultipleAddedEntries()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("hotbar", 2),
+                new SectionDefinition<string>("bag", 2)),
+            definitions: new ItemDefinition<string>[] { apple, sword });
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+        builder.TryAdd(sword, out _);
+        var context = SectionedLayoutContext<string>.Map()
+            .Add(0, "bag", 1)
+            .Add(1, "hotbar", 0)
+            .Build();
+
+        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
+        Assert.That(ItemAt(inventory, "hotbar", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void MappedContext_RejectsMappedAddedIndexOutOfRange()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: apple);
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+
+        Assert.That(builder.TryToInventoryTransaction(
+            SectionedLayoutContext<string>.Map().Add(1, "bag", 0).Build(),
+            out _,
+            out var error), Is.False);
+        Assert.That(error, Is.EqualTo("Mapped added entry index out of range."));
+    }
+
+    [Test]
+    public void MappedContext_RejectsDuplicateTargetSectionSlot()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: new ItemDefinition<string>[] { apple, sword });
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+        builder.TryAdd(sword, out _);
+        var context = SectionedLayoutContext<string>.Map()
+            .Add(0, "bag", 0)
+            .Add(1, "bag", 0)
+            .Build();
+
+        Assert.That(builder.TryToInventoryTransaction(context, out _, out var error), Is.False);
+        Assert.That(error, Is.EqualTo("Duplicate mapped target section slot."));
+    }
+
+    [Test]
+    public void MappedContext_CanTargetSlotFreedBySameTransaction()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: new ItemDefinition<string>[] { apple, sword });
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("bag", 0));
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryRemoveAtStorageIndex(0, out _);
+        builder.TryAdd(sword, out _);
+
+        Assert.That(builder.TryToInventoryTransaction(
+            SectionedLayoutContext<string>.Map().Add(0, "bag", 0).Build(),
+            out var transaction,
+            out var error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void AmountDelta_DoesNotRequirePlacementMapping()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 1)),
+            definitions: apple);
+        inventory.TryAdd(apple, out _, 2, SectionedLayoutContext<string>.Single("bag", 0));
+
+        Assert.That(inventory.TryAdd(apple, out var error, 2), Is.True, error);
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
+        Assert.That(inventory.Items[0].Amount, Is.EqualTo(4));
+    }
+
+    [Test]
+    public void SectionRequiredTags_IncludeGeneratedParentTags()
+    {
+        var axeTag = TagKey.Parse("gear:tools.axe");
+        var toolsTag = TagKey.Parse("gear:tools");
+        var axe = new TaggedDefinition("axe", axeTag);
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("tools", 1, toolsTag)),
+            tags: new[] { axeTag },
+            definitions: axe);
+
+        Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
+        Assert.That(ItemAt(inventory, "tools", 0), Is.EqualTo("axe"));
+    }
+
+    [Test]
+    public void TryMove_MovesToCompatibleEmptySectionSlot()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("hotbar", 1),
+                new SectionDefinition<string>("bag", 1)),
+            definitions: apple);
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("hotbar", 0));
+
+        Assert.That(inventory.TryMove(
+            SectionedLayoutContext<string>.Single("hotbar", 0),
+            SectionedLayoutContext<string>.Single("bag", 0),
+            out var error), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
+        Assert.That(ItemAt(inventory, "hotbar", 0), Is.Null);
+    }
+
+    [Test]
+    public void TryMove_RejectsIncompatibleTargetAndFiresNoEvent()
+    {
+        var weapon = TagKey.Parse("gear:weapon");
+        var armor = TagKey.Parse("gear:armor");
+        var sword = new TaggedDefinition("sword", weapon);
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("weapons", 1, weapon),
+                new SectionDefinition<string>("armor", 1, armor)),
+            tags: new[] { weapon, armor },
+            definitions: sword);
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("weapons", 0));
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        Assert.That(inventory.TryMove(
+            SectionedLayoutContext<string>.Single("weapons", 0),
+            SectionedLayoutContext<string>.Single("armor", 0),
+            out var error), Is.False);
+        Assert.That(error, Is.EqualTo("No compatible section slot available."));
+        Assert.That(events, Is.EqualTo(0));
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void TrySwap_SwapsCompatibleSectionSlots()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("left", 1),
+                new SectionDefinition<string>("right", 1)),
+            definitions: new ItemDefinition<string>[] { apple, sword });
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("left", 0));
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("right", 0));
+
+        Assert.That(inventory.TrySwap(
+            SectionedLayoutContext<string>.Single("left", 0),
+            SectionedLayoutContext<string>.Single("right", 0),
+            out var error), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "left", 0), Is.EqualTo("sword"));
+        Assert.That(ItemAt(inventory, "right", 0), Is.EqualTo("apple"));
+    }
+
+    [Test]
+    public void TrySwap_RejectsIncompatibleResult()
+    {
+        var weapon = TagKey.Parse("gear:weapon");
+        var armor = TagKey.Parse("gear:armor");
+        var sword = new TaggedDefinition("sword", weapon);
+        var helmet = new TaggedDefinition("helmet", armor);
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("weapons", 1, weapon),
+                new SectionDefinition<string>("armor", 1, armor)),
+            tags: new[] { weapon, armor },
+            definitions: new ItemDefinition<string>[] { sword, helmet });
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("weapons", 0));
+        inventory.TryAdd(helmet, out _, 1, SectionedLayoutContext<string>.Single("armor", 0));
+
+        Assert.That(inventory.TrySwap(
+            SectionedLayoutContext<string>.Single("weapons", 0),
+            SectionedLayoutContext<string>.Single("armor", 0),
+            out var error), Is.False);
+        Assert.That(error, Is.EqualTo("No compatible section slot available."));
+    }
+
+    [Test]
+    public void TrySort_SortsAndCompactsAcrossCompatibleSections()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>("hotbar", 2),
+                new SectionDefinition<string>("bag", 2)),
+            definitions: new ItemDefinition<string>[] { sword, apple });
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("bag", 1));
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("bag", 0));
+        int events = 0;
+        inventory.Changed += (_, args) =>
+        {
+            events++;
+            Assert.That(args.Moved, Has.Count.EqualTo(2));
+            Assert.That(args.AffectedLayoutContexts, Has.Count.EqualTo(4));
+        };
+
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True, error);
+
+        Assert.That(ItemAt(inventory, "hotbar", 0), Is.EqualTo("apple"));
+        Assert.That(ItemAt(inventory, "hotbar", 1), Is.EqualTo("sword"));
+        Assert.That(events, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TrySort_RejectsUnknownSortContextAtomically()
+    {
+        var weapon = TagKey.Parse("gear:weapon");
+        var armor = TagKey.Parse("gear:armor");
+        var sword = new TaggedDefinition("sword", weapon);
+        var helmet = new TaggedDefinition("helmet", armor);
+        var layout = new SectionedLayout<string>(
+            new SectionDefinition<string>("weapons", 1, weapon),
+            new SectionDefinition<string>("armor", 1, armor));
+        var inventory = CreateInventory(layout, tags: new[] { weapon, armor }, definitions: new ItemDefinition<string>[] { sword, helmet });
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("weapons", 0));
+        inventory.TryAdd(helmet, out _, 1, SectionedLayoutContext<string>.Single("armor", 0));
+        var data = (SectionedLayoutPersistentData)inventory.Layout.GetPersistentData();
+        data.SlotMap = new System.Collections.Generic.List<int?> { 1, 0 };
+        inventory.Layout.RestorePersistentData(data);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        Assert.That(inventory.TrySortLayout(new UnknownSortContext(), out var error), Is.False);
+        Assert.That(error, Is.EqualTo("Invalid sort context type."));
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("helmet"));
+        Assert.That(ItemAt(inventory, "armor", 0), Is.EqualTo("sword"));
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void GetPersistentData_ReturnsDefensiveSlotMapCopy()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 1)),
+            definitions: apple);
+        inventory.TryAdd(apple, out _);
+
+        var data = (SectionedLayoutPersistentData)inventory.Layout.GetPersistentData();
+        data.SlotMap[0] = null;
+
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
+    }
+
+    [Test]
+    public void RestorePersistentData_RestoresSectionSlots()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: new ItemDefinition<string>[] { apple, sword });
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("bag", 0));
+        inventory.TryAdd(sword, out _, 1, SectionedLayoutContext<string>.Single("bag", 1));
+        var data = (SectionedLayoutPersistentData)inventory.Layout.GetPersistentData();
+        data.SlotMap = new System.Collections.Generic.List<int?> { 1, 0 };
+
+        inventory.Layout.RestorePersistentData(data);
+
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("sword"));
+        Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
+    }
+
+    [Test]
+    public void RestorePersistentData_RejectsMismatchedSections()
+    {
+        var inventory = CreateInventory(new SectionedLayout<string>(new SectionDefinition<string>("bag", 1)));
+        var data = new SectionedLayoutPersistentData
+        {
+            SectionIds = new System.Collections.Generic.List<string> { "other" },
+            SectionSlotCounts = new System.Collections.Generic.List<int> { 1 },
+            SlotMap = new System.Collections.Generic.List<int?> { null }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Layout.RestorePersistentData(data));
+        Assert.That(ex!.Message, Is.EqualTo("Invalid layout data"));
+    }
+
+    [Test]
+    public void Clone_PreservesSectionLayoutState()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
+            definitions: apple);
+        inventory.TryAdd(apple, out _, 1, SectionedLayoutContext<string>.Single("bag", 1));
+
+        var clone = inventory.Layout.Clone();
+
+        Assert.That(clone.GetItemAt(inventory, SectionedLayoutContext<string>.Single("bag", 1))!.Definition.Id, Is.EqualTo("apple"));
+    }
+
+    [Test]
+    public void TransferBuilder_WithMappedSectionContext_PlacesIncomingEntries()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var manager = CreateManager(definitions: new ItemDefinition<string>[] { apple, sword });
+        var source = manager.CreateInventory(layout: new EntryLayout<string>());
+        var target = manager.CreateInventory(layout: new SectionedLayout<string>(
+                new SectionDefinition<string>("hotbar", 2),
+                new SectionDefinition<string>("bag", 1)));
+        source.TryAdd(apple, out _);
+        source.TryAdd(sword, out _);
+        var transfer = InventoryTransfer.From(source);
+        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        var context = SectionedLayoutContext<string>.Map()
+            .Add(0, "bag", 0)
+            .Add(1, "hotbar", 1)
+            .Build();
+
+        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+
+        Assert.That(source.Items, Is.Empty);
+        Assert.That(ItemAt(target, "bag", 0), Is.EqualTo("apple"));
+        Assert.That(ItemAt(target, "hotbar", 1), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void InvalidMappedSectionTransferLeavesSourceAndTargetUnchanged()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var manager = CreateManager(definitions: new ItemDefinition<string>[] { apple, sword });
+        var source = manager.CreateInventory(layout: new EntryLayout<string>());
+        var target = manager.CreateInventory(layout: new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)));
+        source.TryAdd(apple, out _);
+        source.TryAdd(sword, out _);
+        var transfer = InventoryTransfer.From(source);
+        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        var context = SectionedLayoutContext<string>.Map()
+            .Add(0, "bag", 0)
+            .Add(1, "bag", 0)
+            .Build();
+
+        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.False);
+        Assert.That(error, Is.EqualTo("Duplicate mapped target section slot."));
+        Assert.That(source.Items, Has.Count.EqualTo(2));
+        Assert.That(target.Items, Is.Empty);
+    }
+
+    private static string? ItemAt(Inventory<string> inventory, string sectionId, int slotIndex)
+    {
+        return inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single(sectionId, slotIndex))?.Definition.Id;
+    }
+
+    private static Inventory<string> CreateInventory(
+        IInventoryLayout<string> layout,
+        TagKey[]? tags = null,
+        params ItemDefinition<string>[] definitions)
+    {
+        var manager = new InventoryManager<string>(
+            new DefaultStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            layout);
+
+        foreach (var tag in tags ?? Array.Empty<TagKey>())
+            manager.Catalog.Tags.Define(tag);
+        foreach (var definition in definitions)
+            manager.Registry.Register(definition);
+        manager.Registry.Freeze();
+        return manager.CreateInventory();
+    }
+
+    private static InventoryManager<string> CreateManager(
+        TagKey[]? tags = null,
+        params ItemDefinition<string>[] definitions)
+    {
+        var manager = new InventoryManager<string>(
+            new DefaultStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>());
+
+        foreach (var tag in tags ?? Array.Empty<TagKey>())
+            manager.Catalog.Tags.Define(tag);
+        foreach (var definition in definitions)
+            manager.Registry.Register(definition);
+        manager.Registry.Freeze();
+        return manager;
+    }
+
+    private sealed class TaggedDefinition : ItemDefinition<string>
+    {
+        public TaggedDefinition(string id, params TagKey[] tags)
+            : base(id, tags)
+        {
+        }
+    }
+
+    private sealed class UnknownSortContext : IInventorySortContext<string>
+    {
+    }
+}
