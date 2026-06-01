@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+
+namespace Workes.InventorySystem.Layout;
+
+/// <summary>
+/// Provides anchor-cell placement instructions for a multi-cell grid layout.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+public sealed class MultiCellGridLayoutContext<TKey> : ILayoutContext<TKey>
+{
+    /// <summary>
+    /// Gets the anchor x coordinate for a single placement context.
+    /// </summary>
+    public int X { get; }
+
+    /// <summary>
+    /// Gets the anchor y coordinate for a single placement context.
+    /// </summary>
+    public int Y { get; }
+
+    /// <summary>
+    /// Gets whether this context maps transaction added-entry indices to anchor cells.
+    /// </summary>
+    public bool IsMapped { get; }
+
+    /// <summary>
+    /// Gets added-entry index to anchor coordinate mappings.
+    /// </summary>
+    public IReadOnlyDictionary<int, (int x, int y)> AddedEntryAnchors { get; }
+
+    /// <summary>
+    /// Creates a single anchor-cell placement context.
+    /// </summary>
+    /// <param name="x">The anchor x coordinate.</param>
+    /// <param name="y">The anchor y coordinate.</param>
+    public MultiCellGridLayoutContext(int x, int y)
+    {
+        X = x;
+        Y = y;
+        IsMapped = false;
+        AddedEntryAnchors = new Dictionary<int, (int x, int y)>();
+    }
+
+    private MultiCellGridLayoutContext(IReadOnlyDictionary<int, (int x, int y)> addedEntryAnchors)
+    {
+        X = -1;
+        Y = -1;
+        IsMapped = true;
+        AddedEntryAnchors = addedEntryAnchors;
+    }
+
+    /// <summary>
+    /// Creates a single anchor-cell placement context.
+    /// </summary>
+    /// <param name="x">The anchor x coordinate.</param>
+    /// <param name="y">The anchor y coordinate.</param>
+    /// <returns>A single placement context.</returns>
+    public static MultiCellGridLayoutContext<TKey> Single(int x, int y) => new(x, y);
+
+    /// <summary>
+    /// Creates a builder for transaction added-entry anchor mappings.
+    /// </summary>
+    /// <returns>A mapping builder.</returns>
+    public static MultiCellGridLayoutContextBuilder<TKey> Map() => new();
+
+    internal static MultiCellGridLayoutContext<TKey> FromMap(IReadOnlyDictionary<int, (int x, int y)> map)
+    {
+        return new MultiCellGridLayoutContext<TKey>(map);
+    }
+}
+
+/// <summary>
+/// Builds multi-cell grid mappings from transaction added-entry indices to anchor coordinates.
+/// </summary>
+/// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+public sealed class MultiCellGridLayoutContextBuilder<TKey>
+{
+    private readonly Dictionary<int, (int x, int y)> _map = new();
+
+    /// <summary>
+    /// Maps an added-entry index to an anchor coordinate.
+    /// </summary>
+    /// <param name="addedEntryIndex">The transaction added-entry index.</param>
+    /// <param name="x">The anchor x coordinate.</param>
+    /// <param name="y">The anchor y coordinate.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="addedEntryIndex"/> is negative.</exception>
+    /// <exception cref="ArgumentException"><paramref name="addedEntryIndex"/> is already mapped.</exception>
+    public MultiCellGridLayoutContextBuilder<TKey> Add(int addedEntryIndex, int x, int y)
+    {
+        if (addedEntryIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(addedEntryIndex), "Added entry index cannot be negative.");
+        if (_map.ContainsKey(addedEntryIndex))
+            throw new ArgumentException("Added entry index is already mapped.", nameof(addedEntryIndex));
+
+        _map.Add(addedEntryIndex, (x, y));
+        return this;
+    }
+
+    /// <summary>
+    /// Builds the mapped multi-cell grid layout context.
+    /// </summary>
+    /// <returns>A mapped multi-cell grid layout context.</returns>
+    public MultiCellGridLayoutContext<TKey> Build()
+    {
+        return MultiCellGridLayoutContext<TKey>.FromMap(new Dictionary<int, (int x, int y)>(_map));
+    }
+}
