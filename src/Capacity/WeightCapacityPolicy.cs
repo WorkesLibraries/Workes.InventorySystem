@@ -9,6 +9,10 @@ namespace Workes.InventorySystem.Capacity;
 /// Capacity policy that limits the projected total item weight in an inventory.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// Per-unit weight is read from a definition attribute. Missing weights
+/// contribute zero by default unless strict missing-weight handling is enabled.
+/// </remarks>
 public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 {
     /// <summary>
