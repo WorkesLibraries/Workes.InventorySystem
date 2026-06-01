@@ -5,6 +5,7 @@ using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Rules;
+using Workes.InventorySystem.Tags;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -89,6 +90,151 @@ public class Inventory<TKey>
     /// Gets the layout used by this inventory.
     /// </summary>
     public IInventoryLayout<TKey> Layout => _layout;
+
+    /// <summary>
+    /// Counts the total amount of items that use the exact item definition instance.
+    /// </summary>
+    /// <param name="definition">The item definition instance to count.</param>
+    /// <returns>The summed amount across matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
+    public int Count(ItemDefinition<TKey> definition)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+
+        int count = 0;
+        foreach (var item in _items)
+        {
+            if (ReferenceEquals(item.Definition, definition))
+                count += item.Amount;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Determines whether the inventory contains at least the requested amount of the exact item definition instance.
+    /// </summary>
+    /// <param name="definition">The item definition instance to search for.</param>
+    /// <param name="amount">The minimum amount required.</param>
+    /// <returns><see langword="true"/> when the requested amount exists; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="amount"/> is less than or equal to zero.</exception>
+    public bool Contains(ItemDefinition<TKey> definition, int amount = 1)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be greater than zero.");
+
+        return Count(definition) >= amount;
+    }
+
+    /// <summary>
+    /// Finds item instances that use the exact item definition instance.
+    /// </summary>
+    /// <param name="definition">The item definition instance to search for.</param>
+    /// <returns>A snapshot list of matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
+    public IReadOnlyList<ItemInstance<TKey>> Find(ItemDefinition<TKey> definition)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+
+        return FindWhere(item => ReferenceEquals(item.Definition, definition));
+    }
+
+    /// <summary>
+    /// Finds item instances whose definitions satisfy a catalog-resolved tag.
+    /// </summary>
+    /// <param name="tag">The tag to resolve through this inventory's catalog.</param>
+    /// <returns>A snapshot list of matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
+    public IReadOnlyList<ItemInstance<TKey>> FindByTag(TagKey tag)
+    {
+        if (tag == null)
+            throw new ArgumentNullException(nameof(tag));
+
+        return FindWhere(item => Catalog.Satisfies(item.Definition, tag));
+    }
+
+    /// <summary>
+    /// Counts the total amount of items whose definitions satisfy a catalog-resolved tag.
+    /// </summary>
+    /// <param name="tag">The tag to resolve through this inventory's catalog.</param>
+    /// <returns>The summed amount across matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
+    public int CountByTag(TagKey tag)
+    {
+        if (tag == null)
+            throw new ArgumentNullException(nameof(tag));
+
+        int count = 0;
+        foreach (var item in _items)
+        {
+            if (Catalog.Satisfies(item.Definition, tag))
+                count += item.Amount;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Determines whether any item definition in the inventory satisfies every provided catalog-resolved tag.
+    /// </summary>
+    /// <param name="tags">The tags that one item definition must satisfy.</param>
+    /// <returns><see langword="true"/> when at least one item satisfies every tag; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="tags"/> is null, empty, or contains <see langword="null"/>.</exception>
+    public bool ContainsAllTags(params TagKey[] tags)
+    {
+        if (tags == null || tags.Length == 0)
+            throw new ArgumentException("At least one tag is required.", nameof(tags));
+
+        foreach (var tag in tags)
+        {
+            if (tag == null)
+                throw new ArgumentException("Tags cannot contain null.", nameof(tags));
+        }
+
+        foreach (var item in _items)
+        {
+            bool satisfiesAll = true;
+            foreach (var tag in tags)
+            {
+                if (!Catalog.Satisfies(item.Definition, tag))
+                {
+                    satisfiesAll = false;
+                    break;
+                }
+            }
+
+            if (satisfiesAll)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Finds item instances that match a predicate.
+    /// </summary>
+    /// <param name="predicate">The predicate used to select item instances.</param>
+    /// <returns>A snapshot list of matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is <see langword="null"/>.</exception>
+    public IReadOnlyList<ItemInstance<TKey>> FindWhere(Func<ItemInstance<TKey>, bool> predicate)
+    {
+        if (predicate == null)
+            throw new ArgumentNullException(nameof(predicate));
+
+        var matches = new List<ItemInstance<TKey>>();
+        foreach (var item in _items)
+        {
+            if (predicate(item))
+                matches.Add(item);
+        }
+
+        return matches;
+    }
 
     private int GetItemIndex(ItemInstance<TKey> instance)
     {
