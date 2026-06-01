@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Sorting;
 
 namespace Workes.InventorySystem.Layout;
 
@@ -8,6 +9,10 @@ namespace Workes.InventorySystem.Layout;
 /// Fixed-size grid layout where each item occupies a rectangular footprint of cells.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// <see cref="PlacementOrder"/> controls context-less placement and sort repacking scan order.
+/// Explicit placement contexts are interpreted through <see cref="DefaultAnchor"/> unless they specify their own anchor.
+/// </remarks>
 public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
 {
     private readonly List<int?> _cellMap;
@@ -23,9 +28,14 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
     public int Height { get; }
 
     /// <summary>
-    /// Gets the automatic placement order.
+    /// Gets the scan order used for context-less placement and sort repacking.
     /// </summary>
     public GridPlacementOrder PlacementOrder { get; }
+
+    /// <summary>
+    /// Gets the default anchor used when a placement context does not specify one.
+    /// </summary>
+    public GridAnchor DefaultAnchor { get; }
 
     /// <summary>
     /// Gets the footprint provider used for item definitions.
@@ -39,13 +49,15 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
     /// <param name="height">The number of cells down the grid.</param>
     /// <param name="footprintProvider">The provider used to resolve item footprints.</param>
     /// <param name="placementOrder">The automatic placement order.</param>
+    /// <param name="defaultAnchor">The default anchor for explicit placement contexts.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> or <paramref name="height"/> is less than or equal to zero.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="footprintProvider"/> is <see langword="null"/>.</exception>
     public MultiCellGridLayout(
         int width,
         int height,
         IGridFootprintProvider<TKey> footprintProvider,
-        GridPlacementOrder placementOrder = GridPlacementOrder.RowMajor)
+        GridPlacementOrder placementOrder = GridPlacementOrder.RowMajor,
+        GridAnchor defaultAnchor = GridAnchor.TopLeft)
     {
         if (width <= 0)
             throw new ArgumentOutOfRangeException(nameof(width), "Grid width must be greater than zero.");
@@ -56,6 +68,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         Height = height;
         FootprintProvider = footprintProvider ?? throw new ArgumentNullException(nameof(footprintProvider));
         PlacementOrder = placementOrder;
+        DefaultAnchor = defaultAnchor;
         _cellMap = new List<int?>(width * height);
         for (int i = 0; i < width * height; i++)
             _cellMap.Add(null);
@@ -218,10 +231,14 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
             var (instance, existingContext) = transaction.Added[i];
             if (gridContext.AddedEntryAnchors.TryGetValue(i, out var mappedAnchor))
             {
-                var mappedContext = MultiCellGridLayoutContext<TKey>.Single(mappedAnchor.x, mappedAnchor.y);
+                var mappedContext = mappedAnchor.anchor.HasValue
+                    ? MultiCellGridLayoutContext<TKey>.Single(mappedAnchor.x, mappedAnchor.y, mappedAnchor.anchor.Value)
+                    : MultiCellGridLayoutContext<TKey>.Single(mappedAnchor.x, mappedAnchor.y);
                 if (existingContext is MultiCellGridLayoutContext<TKey> existingGridContext &&
                     !existingGridContext.IsMapped &&
-                    (existingGridContext.X != mappedAnchor.x || existingGridContext.Y != mappedAnchor.y))
+                    (existingGridContext.X != mappedAnchor.x ||
+                     existingGridContext.Y != mappedAnchor.y ||
+                     existingGridContext.Anchor != mappedAnchor.anchor))
                 {
                     error = "Transaction placement context conflicts with an added entry context.";
                     return false;
@@ -253,9 +270,10 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         var footprint = FootprintProvider.GetFootprint(instance.Definition);
         if (context is MultiCellGridLayoutContext<TKey> gridContext && !gridContext.IsMapped)
         {
-            if (!CanPlaceFootprint(_cellMap, gridContext.X, gridContext.Y, footprint))
+            var (x, y) = ResolveTopLeft(gridContext.X, gridContext.Y, footprint, gridContext.Anchor);
+            if (!CanPlaceFootprint(_cellMap, x, y, footprint))
             {
-                error = IsFootprintInRange(gridContext.X, gridContext.Y, footprint)
+                error = IsFootprintInRange(x, y, footprint)
                     ? "Grid cells already occupied."
                     : "Grid footprint out of range.";
                 return false;
@@ -303,11 +321,12 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         }
 
         var footprint = FootprintProvider.GetFootprint(inventory.Items[storageIndex.Value].Definition);
+        var (targetX, targetY) = ResolveTopLeft(toContext.X, toContext.Y, footprint, toContext.Anchor);
         var simulated = new List<int?>(_cellMap);
         ClearStorageIndex(simulated, storageIndex.Value);
-        if (!CanPlaceFootprint(simulated, toContext.X, toContext.Y, footprint))
+        if (!CanPlaceFootprint(simulated, targetX, targetY, footprint))
         {
-            error = IsFootprintInRange(toContext.X, toContext.Y, footprint)
+            error = IsFootprintInRange(targetX, targetY, footprint)
                 ? "Grid cells already occupied."
                 : "Grid footprint out of range.";
             return false;
@@ -315,7 +334,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
 
         _cellMap.Clear();
         _cellMap.AddRange(simulated);
-        PlaceFootprint(_cellMap, toContext.X, toContext.Y, footprint, storageIndex.Value);
+        PlaceFootprint(_cellMap, targetX, targetY, footprint, storageIndex.Value);
         error = null;
         return true;
     }
@@ -328,11 +347,23 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
-        if (comparer == null)
+        MultiCellGridSortPriority priority;
+        IComparer<ItemInstance<TKey>>? comparer;
+        if (sortContext is ItemSortContext<TKey> itemSortContext)
         {
-            error = "Comparer cannot be null.";
+            priority = MultiCellGridSortPriority.ItemOrder;
+            comparer = itemSortContext.Comparer;
+        }
+        else if (sortContext is MultiCellGridSortContext<TKey> multiCellSortContext)
+        {
+            priority = multiCellSortContext.Priority;
+            comparer = multiCellSortContext.Comparer;
+        }
+        else
+        {
+            error = "Invalid sort context type.";
             return false;
         }
 
@@ -348,7 +379,22 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
 
         occupied.Sort((a, b) =>
         {
-            int comparison = comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
+            if (priority == MultiCellGridSortPriority.SpaceEfficiency)
+            {
+                var aFootprint = FootprintProvider.GetFootprint(inventory.Items[a.storageIndex].Definition);
+                var bFootprint = FootprintProvider.GetFootprint(inventory.Items[b.storageIndex].Definition);
+                int areaComparison = (bFootprint.Width * bFootprint.Height).CompareTo(aFootprint.Width * aFootprint.Height);
+                if (areaComparison != 0)
+                    return areaComparison;
+                int heightComparison = bFootprint.Height.CompareTo(aFootprint.Height);
+                if (heightComparison != 0)
+                    return heightComparison;
+                int widthComparison = bFootprint.Width.CompareTo(aFootprint.Width);
+                if (widthComparison != 0)
+                    return widthComparison;
+            }
+
+            int comparison = comparer?.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]) ?? 0;
             return comparison != 0 ? comparison : a.placementIndex.CompareTo(b.placementIndex);
         });
 
@@ -379,8 +425,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         int y;
         if (context is MultiCellGridLayoutContext<TKey> gridContext && !gridContext.IsMapped)
         {
-            x = gridContext.X;
-            y = gridContext.Y;
+            (x, y) = ResolveTopLeft(gridContext.X, gridContext.Y, footprint, gridContext.Anchor);
         }
         else if (context == null)
         {
@@ -423,6 +468,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
             Width = Width,
             Height = Height,
             PlacementOrder = PlacementOrder,
+            DefaultAnchor = DefaultAnchor,
             CellMap = new List<int?>(_cellMap)
         };
     }
@@ -434,6 +480,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
             data.Width != Width ||
             data.Height != Height ||
             data.PlacementOrder != PlacementOrder ||
+            data.DefaultAnchor != DefaultAnchor ||
             data.CellMap == null ||
             data.CellMap.Count != _cellMap.Count)
         {
@@ -447,12 +494,13 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
     /// <inheritdoc />
     public IInventoryLayout<TKey> Clone()
     {
-        var clone = new MultiCellGridLayout<TKey>(Width, Height, FootprintProvider, PlacementOrder);
+        var clone = new MultiCellGridLayout<TKey>(Width, Height, FootprintProvider, PlacementOrder, DefaultAnchor);
         clone.RestorePersistentData(new MultiCellGridLayoutPersistentData
         {
             Width = Width,
             Height = Height,
             PlacementOrder = PlacementOrder,
+            DefaultAnchor = DefaultAnchor,
             CellMap = new List<int?>(_cellMap)
         });
         return clone;
@@ -509,8 +557,7 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
                     error = "Invalid context type.";
                     return false;
                 }
-                x = gridContext.X;
-                y = gridContext.Y;
+                (x, y) = ResolveTopLeft(gridContext.X, gridContext.Y, footprint, gridContext.Anchor);
             }
             else if (context == null)
             {
@@ -538,6 +585,18 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         }
 
         return true;
+    }
+
+    private (int topLeftX, int topLeftY) ResolveTopLeft(int x, int y, GridFootprint footprint, GridAnchor? contextAnchor)
+    {
+        var anchor = contextAnchor ?? DefaultAnchor;
+        return anchor switch
+        {
+            GridAnchor.TopRight => (x - footprint.Width + 1, y),
+            GridAnchor.BottomLeft => (x, y - footprint.Height + 1),
+            GridAnchor.BottomRight => (x - footprint.Width + 1, y - footprint.Height + 1),
+            _ => (x, y)
+        };
     }
 
     private bool IsInRange(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
@@ -650,7 +709,9 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
                 if (existingContext is MultiCellGridLayoutContext<TKey> existingGridContext &&
                     context is MultiCellGridLayoutContext<TKey> newGridContext &&
                     !existingGridContext.IsMapped &&
-                    (existingGridContext.X != newGridContext.X || existingGridContext.Y != newGridContext.Y))
+                    (existingGridContext.X != newGridContext.X ||
+                     existingGridContext.Y != newGridContext.Y ||
+                     existingGridContext.Anchor != newGridContext.Anchor))
                 {
                     error = "Transaction placement context conflicts with an added entry context.";
                     return false;

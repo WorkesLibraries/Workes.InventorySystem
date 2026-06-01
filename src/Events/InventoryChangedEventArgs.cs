@@ -9,7 +9,11 @@ namespace Workes.InventorySystem.Events;
 /// Provides grouped details for one inventory change notification.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
-/// <remarks>Each collection represents one category of changes produced by a single operation or committed transaction.</remarks>
+/// <remarks>
+/// Each collection represents one category of changes produced by a single operation or committed transaction.
+/// UI listeners can usually refresh from <see cref="AffectedLayoutContexts"/> and <see cref="RequiresFullRefresh"/>;
+/// the semantic groups provide richer information for animations, gameplay, and auditing.
+/// </remarks>
 public class InventoryChangedEventArgs<TKey> : EventArgs
 {
     /// <summary>
@@ -43,12 +47,12 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     public bool Cleared { get; }
 
     /// <summary>
-    /// Gets layout contexts affected by this change notification.
+    /// Gets the distinct layout contexts affected by this change notification.
     /// </summary>
     public IReadOnlyList<ILayoutContext<TKey>> AffectedLayoutContexts { get; }
 
     /// <summary>
-    /// Gets whether consumers should refresh the whole inventory view.
+    /// Gets whether consumers should refresh the whole inventory view instead of only <see cref="AffectedLayoutContexts"/>.
     /// </summary>
     public bool RequiresFullRefresh { get; }
 

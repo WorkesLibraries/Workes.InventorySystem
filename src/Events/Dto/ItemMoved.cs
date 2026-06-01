@@ -5,7 +5,7 @@ using System.Linq;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
-/// Describes an item moved between two layout contexts.
+/// Describes an item that stayed in the inventory but moved between layout contexts.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class ItemMoved<TKey>
@@ -16,12 +16,12 @@ public class ItemMoved<TKey>
     public ItemInstance<TKey> Instance { get; }
 
     /// <summary>
-    /// Gets the source layout contexts.
+    /// Gets the source layout contexts. Multi-cell layouts may provide more than one context.
     /// </summary>
     public IReadOnlyList<ILayoutContext<TKey>> FromLayoutContexts { get; }
 
     /// <summary>
-    /// Gets the destination layout contexts.
+    /// Gets the destination layout contexts. Multi-cell layouts may provide more than one context.
     /// </summary>
     public IReadOnlyList<ILayoutContext<TKey>> ToLayoutContexts { get; }
 

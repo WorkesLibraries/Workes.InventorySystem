@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Sorting;
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
-/// Maps inventory storage indices to a placement model such as entries or fixed slots.
+/// Maps inventory storage indices to a layout-owned placement model such as entries, slots, grids, equipment positions, or sections.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
-/// Layout implementations must keep their placement state synchronized when the inventory calls the item notification methods.
+/// Layout implementations own placement, sorting, empty positions, and UI addressability. Inventory storage order is item ownership state and should not be treated as presentation order.
 /// </remarks>
 public interface IInventoryLayout<TKey>
 {
@@ -26,7 +27,8 @@ public interface IInventoryLayout<TKey>
     /// <remarks>
     /// Fixed layouts return every possible position. Entry-style layouts return
     /// the current entry positions because the list has no empty addressable
-    /// gaps.
+    /// gaps. UI listeners can combine this with change event affected contexts
+    /// to refresh either exact positions or the whole visible layout.
     /// </remarks>
     IReadOnlyList<ILayoutContext<TKey>> GetAddressableContexts(Inventory<TKey> inventory);
 
@@ -46,7 +48,8 @@ public interface IInventoryLayout<TKey>
     /// <returns>The layout contexts occupied by the storage index.</returns>
     /// <remarks>
     /// Single-position layouts return zero or one context. Multi-position
-    /// layouts return every occupied position for the item.
+    /// layouts return every occupied position for the item, so multi-cell item
+    /// events may expose more than one layout context.
     /// </remarks>
     IReadOnlyList<ILayoutContext<TKey>> GetContextsForStorageIndex(Inventory<TKey> inventory, int storageIndex);
 
@@ -137,10 +140,15 @@ public interface IInventoryLayout<TKey>
     /// Sorts the layout's placement state without mutating inventory storage order.
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
-    /// <param name="comparer">The item comparer used for sorting placed items.</param>
+    /// <param name="sortContext">The layout-specific sort context.</param>
     /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
-    bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error);
+    /// <remarks>
+    /// Sorting changes layout placement only and never mutates inventory storage order.
+    /// Layouts interpret sort contexts themselves so complex layouts can support
+    /// richer strategies than simple item comparison.
+    /// </remarks>
+    bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error);
 
     /// <summary>
     /// Notifies the layout that the inventory added an item at the specified storage index.

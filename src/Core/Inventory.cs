@@ -5,6 +5,7 @@ using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Rules;
+using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Tags;
 using System;
 using System.Collections.Generic;
@@ -1072,6 +1073,7 @@ public class Inventory<TKey>
     /// <param name="comparer">The item comparer used to order placed items.</param>
     /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
     public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out string? error)
     {
         if (comparer == null)
@@ -1080,8 +1082,44 @@ public class Inventory<TKey>
             return false;
         }
 
+        return TrySortLayout(new ItemSortContext<TKey>(comparer), out error);
+    }
+
+    /// <summary>
+    /// Attempts to sort the current layout without mutating inventory storage order.
+    /// </summary>
+    /// <param name="comparison">The item comparison used to order placed items.</param>
+    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
+    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out string? error)
+    {
+        if (comparison == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        return TrySortLayout(ItemSortContext<TKey>.FromComparison(comparison), out error);
+    }
+
+    /// <summary>
+    /// Attempts to sort the current layout using layout-specific sorting instructions.
+    /// </summary>
+    /// <param name="sortContext">The sort context interpreted by the current layout.</param>
+    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>Layouts interpret sort contexts themselves; inventory storage order is not changed.</remarks>
+    public bool TrySortLayout(IInventorySortContext<TKey> sortContext, out string? error)
+    {
+        if (sortContext == null)
+        {
+            error = "Sort context cannot be null.";
+            return false;
+        }
+
         var before = CaptureLayoutContextsByStorageIndex();
-        if (!_layout.TrySort(this, comparer, out error))
+        if (!_layout.TrySort(this, sortContext, out error))
             return false;
 
         var after = CaptureLayoutContextsByStorageIndex();
@@ -1097,23 +1135,6 @@ public class Inventory<TKey>
 
         error = null;
         return true;
-    }
-
-    /// <summary>
-    /// Attempts to sort the current layout without mutating inventory storage order.
-    /// </summary>
-    /// <param name="comparison">The item comparison used to order placed items.</param>
-    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out string? error)
-    {
-        if (comparison == null)
-        {
-            error = "Comparer cannot be null.";
-            return false;
-        }
-
-        return TrySortLayout(Comparer<ItemInstance<TKey>>.Create(comparison), out error);
     }
 
     private List<IReadOnlyList<ILayoutContext<TKey>>> CaptureLayoutContextsByStorageIndex()

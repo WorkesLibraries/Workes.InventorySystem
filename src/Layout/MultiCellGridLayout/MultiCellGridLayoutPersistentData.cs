@@ -23,6 +23,11 @@ public sealed class MultiCellGridLayoutPersistentData : ILayoutPersistentData
     public GridPlacementOrder PlacementOrder { get; set; }
 
     /// <summary>
+    /// Gets or sets the default footprint anchor.
+    /// </summary>
+    public GridAnchor DefaultAnchor { get; set; }
+
+    /// <summary>
     /// Gets or sets the row-major cell map.
     /// </summary>
     public List<int?> CellMap { get; set; } = new();

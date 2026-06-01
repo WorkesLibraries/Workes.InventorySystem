@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Sorting;
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
@@ -482,11 +483,11 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
-        if (comparer == null)
+        if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
-            error = "Comparer cannot be null.";
+            error = "Invalid sort context type.";
             return false;
         }
 
@@ -499,7 +500,7 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
 
         occupied.Sort((a, b) =>
         {
-            int comparison = comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
+            int comparison = itemSortContext.Comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
             return comparison != 0 ? comparison : a.slotIndex.CompareTo(b.slotIndex);
         });
 

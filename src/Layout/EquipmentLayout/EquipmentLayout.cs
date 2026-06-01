@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Sorting;
 
 namespace Workes.InventorySystem.Layout;
 
@@ -438,7 +439,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
         error = "Layout does not support sorting.";
         return false;

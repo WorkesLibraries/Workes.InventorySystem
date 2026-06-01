@@ -1,7 +1,7 @@
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
-/// Defines how a grid layout chooses an automatic placement cell.
+/// Defines how a grid layout scans cells for automatic placement and sort repacking.
 /// </summary>
 public enum GridPlacementOrder
 {
