@@ -19,6 +19,18 @@ public interface IInventoryLayout<TKey>
     int GetPositionCount(Inventory<TKey> inventory);
 
     /// <summary>
+    /// Gets every layout context that can be refreshed or addressed by a UI.
+    /// </summary>
+    /// <param name="inventory">The inventory using this layout.</param>
+    /// <returns>All layout contexts addressable by this layout.</returns>
+    /// <remarks>
+    /// Fixed layouts return every possible position. Entry-style layouts return
+    /// the current entry positions because the list has no empty addressable
+    /// gaps.
+    /// </remarks>
+    IReadOnlyList<ILayoutContext<TKey>> GetAddressableContexts(Inventory<TKey> inventory);
+
+    /// <summary>
     /// Gets the item at the specified layout context.
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
@@ -27,7 +39,19 @@ public interface IInventoryLayout<TKey>
     ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context);
 
     /// <summary>
-    /// Gets the layout context currently associated with a storage index.
+    /// Gets every layout context currently occupied by a storage index.
+    /// </summary>
+    /// <param name="inventory">The inventory using this layout.</param>
+    /// <param name="storageIndex">The inventory storage index to resolve.</param>
+    /// <returns>The layout contexts occupied by the storage index.</returns>
+    /// <remarks>
+    /// Single-position layouts return zero or one context. Multi-position
+    /// layouts return every occupied position for the item.
+    /// </remarks>
+    IReadOnlyList<ILayoutContext<TKey>> GetContextsForStorageIndex(Inventory<TKey> inventory, int storageIndex);
+
+    /// <summary>
+    /// Gets the first layout context currently associated with a storage index.
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="storageIndex">The inventory storage index to resolve.</param>
@@ -108,6 +132,15 @@ public interface IInventoryLayout<TKey>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the swap succeeds; otherwise, <see langword="false"/>.</returns>
     bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error);
+
+    /// <summary>
+    /// Sorts the layout's placement state without mutating inventory storage order.
+    /// </summary>
+    /// <param name="inventory">The inventory using this layout.</param>
+    /// <param name="comparer">The item comparer used for sorting placed items.</param>
+    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error);
 
     /// <summary>
     /// Notifies the layout that the inventory added an item at the specified storage index.

@@ -20,6 +20,15 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<ILayoutContext<TKey>> GetAddressableContexts(Inventory<TKey> inventory)
+    {
+        var contexts = new List<ILayoutContext<TKey>>(_order.Count);
+        for (int i = 0; i < _order.Count; i++)
+            contexts.Add(EntryLayoutContext<TKey>.Single(i));
+        return contexts;
+    }
+
+    /// <inheritdoc />
     public ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not EntryLayoutContext<TKey> entryContext)
@@ -36,22 +45,26 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    public IReadOnlyList<ILayoutContext<TKey>> GetContextsForStorageIndex(Inventory<TKey> inventory, int storageIndex)
     {
-        context = null;
         if (storageIndex < 0 || storageIndex >= inventory.Items.Count)
-            return false;
+            return Array.Empty<ILayoutContext<TKey>>();
 
         for (int i = 0; i < _order.Count; i++)
         {
             if (_order[i] == storageIndex)
-            {
-                context = EntryLayoutContext<TKey>.Single(i);
-                return true;
-            }
+                return new List<ILayoutContext<TKey>> { EntryLayoutContext<TKey>.Single(i) };
         }
 
-        return false;
+        return Array.Empty<ILayoutContext<TKey>>();
+    }
+
+    /// <inheritdoc />
+    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    {
+        var contexts = GetContextsForStorageIndex(inventory, storageIndex);
+        context = contexts.Count > 0 ? contexts[0] : null;
+        return context != null;
     }
 
     /// <inheritdoc />
@@ -397,6 +410,33 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
         _order[fromPos] = _order[targetPos];
         _order[targetPos] = temp;
 
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    {
+        if (comparer == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        var indexed = new List<(int storageIndex, int orderIndex)>();
+        for (int i = 0; i < _order.Count; i++)
+            indexed.Add((_order[i], i));
+
+        indexed.Sort((a, b) =>
+        {
+            int comparison = comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
+            return comparison != 0 ? comparison : a.orderIndex.CompareTo(b.orderIndex);
+        });
+
+        _order.Clear();
+        foreach (var entry in indexed)
+            _order.Add(entry.storageIndex);
+
+        error = null;
         return true;
     }
 

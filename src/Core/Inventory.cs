@@ -759,17 +759,17 @@ public class Inventory<TKey>
         {
             var instance = _items[index];
             int beforeAmount = instance.Amount;
-            _layout.TryGetContextForStorageIndex(this, index, out var beforeContext);
+            var beforeContexts = _layout.GetContextsForStorageIndex(this, index);
             _items[index].AddAmount(delta);
-            modifiedCaptures.Add(new ModifiedEventCapture(instance, index, beforeAmount, instance.Amount, beforeContext));
+            modifiedCaptures.Add(new ModifiedEventCapture(instance, index, beforeAmount, instance.Amount, beforeContexts));
         }
 
         var removed = new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed);
         removed.Sort((a, b) => b.index.CompareTo(a.index));
         foreach (var (index, instance) in removed)
         {
-            _layout.TryGetContextForStorageIndex(this, index, out var layoutContext);
-            removedEvents.Add(new ItemRemoved<TKey>(instance, index, layoutContext));
+            var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+            removedEvents.Add(new ItemRemoved<TKey>(instance, index, layoutContexts));
             RemoveAt(index);
         }
 
@@ -777,25 +777,25 @@ public class Inventory<TKey>
         {
             AddItem(instance, context);
             int index = _items.Count - 1;
-            _layout.TryGetContextForStorageIndex(this, index, out var layoutContext);
-            addedEvents.Add(new ItemAdded<TKey>(instance, index, layoutContext));
+            var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+            addedEvents.Add(new ItemAdded<TKey>(instance, index, layoutContexts));
         }
 
         var modifiedEvents = new List<ItemModified<TKey>>();
         foreach (var capture in modifiedCaptures)
         {
-            ILayoutContext<TKey>? afterContext = null;
+            IReadOnlyList<ILayoutContext<TKey>> afterContexts = Array.Empty<ILayoutContext<TKey>>();
             int currentIndex = _items.IndexOf(capture.Instance);
             if (currentIndex >= 0)
-                _layout.TryGetContextForStorageIndex(this, currentIndex, out afterContext);
+                afterContexts = _layout.GetContextsForStorageIndex(this, currentIndex);
 
             modifiedEvents.Add(new ItemModified<TKey>(
                 capture.Instance,
                 capture.OriginalIndex,
                 capture.BeforeAmount,
                 capture.AfterAmount,
-                capture.BeforeLayoutContext,
-                afterContext));
+                capture.BeforeLayoutContexts,
+                afterContexts));
         }
 
         transaction.MarkApplied();
@@ -812,13 +812,13 @@ public class Inventory<TKey>
             int originalIndex,
             int beforeAmount,
             int afterAmount,
-            ILayoutContext<TKey>? beforeLayoutContext)
+            IReadOnlyList<ILayoutContext<TKey>> beforeLayoutContexts)
         {
             Instance = instance;
             OriginalIndex = originalIndex;
             BeforeAmount = beforeAmount;
             AfterAmount = afterAmount;
-            BeforeLayoutContext = beforeLayoutContext;
+            BeforeLayoutContexts = beforeLayoutContexts;
         }
 
         public ItemInstance<TKey> Instance { get; }
@@ -829,7 +829,7 @@ public class Inventory<TKey>
 
         public int AfterAmount { get; }
 
-        public ILayoutContext<TKey>? BeforeLayoutContext { get; }
+        public IReadOnlyList<ILayoutContext<TKey>> BeforeLayoutContexts { get; }
     }
 
     /// <summary>
@@ -913,14 +913,25 @@ public class Inventory<TKey>
             return false;
         }
 
+        int itemIndex = _items.IndexOf(item);
+        var beforeContexts = itemIndex >= 0
+            ? _layout.GetContextsForStorageIndex(this, itemIndex)
+            : new List<ILayoutContext<TKey>> { contextFrom };
+
         if (!_layout.TryMove(this, contextFrom, contextTo, out error))
             return false;
 
+        var afterContexts = itemIndex >= 0
+            ? _layout.GetContextsForStorageIndex(this, itemIndex)
+            : new List<ILayoutContext<TKey>> { contextTo };
 
         var changedEventArgs = new InventoryChangedEventArgs<TKey>(
             moved: new List<ItemMoved<TKey>>
             {
-                new ItemMoved<TKey>(item, contextFrom, contextTo)
+                new ItemMoved<TKey>(
+                    item,
+                    beforeContexts.Count == 1 ? new[] { contextFrom } : beforeContexts,
+                    afterContexts.Count == 1 ? new[] { contextTo } : afterContexts)
             }
         );
 
@@ -949,6 +960,15 @@ public class Inventory<TKey>
             return false;
         }
 
+        int fromIndex = _items.IndexOf(itemFrom);
+        int toIndex = _items.IndexOf(itemTo);
+        var firstBeforeContexts = fromIndex >= 0
+            ? _layout.GetContextsForStorageIndex(this, fromIndex)
+            : new List<ILayoutContext<TKey>> { contextFrom };
+        var secondBeforeContexts = toIndex >= 0
+            ? _layout.GetContextsForStorageIndex(this, toIndex)
+            : new List<ILayoutContext<TKey>> { contextTo };
+
         if (!_layout.TrySwap(this, contextFrom, contextTo, out error))
         {
             return false;
@@ -957,7 +977,11 @@ public class Inventory<TKey>
         var changedEventArgs = new InventoryChangedEventArgs<TKey>(
             swapped: new List<ItemSwapped<TKey>>
             {
-                new ItemSwapped<TKey>(contextFrom, contextTo, itemTo, itemFrom) // Swapped items to reflect where the items are after the swap
+                new ItemSwapped<TKey>(
+                    firstBeforeContexts.Count == 1 ? new[] { contextFrom } : firstBeforeContexts,
+                    secondBeforeContexts.Count == 1 ? new[] { contextTo } : secondBeforeContexts,
+                    itemTo,
+                    itemFrom)
             }
         );
 
@@ -1043,6 +1067,105 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Attempts to sort the current layout without mutating inventory storage order.
+    /// </summary>
+    /// <param name="comparer">The item comparer used to order placed items.</param>
+    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out string? error)
+    {
+        if (comparer == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        var before = CaptureLayoutContextsByStorageIndex();
+        if (!_layout.TrySort(this, comparer, out error))
+            return false;
+
+        var after = CaptureLayoutContextsByStorageIndex();
+        var moved = new List<ItemMoved<TKey>>();
+        for (int i = 0; i < _items.Count; i++)
+        {
+            if (!ContextListsEqual(before[i], after[i]))
+                moved.Add(new ItemMoved<TKey>(_items[i], before[i], after[i]));
+        }
+
+        if (moved.Count > 0)
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(moved: moved));
+
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to sort the current layout without mutating inventory storage order.
+    /// </summary>
+    /// <param name="comparison">The item comparison used to order placed items.</param>
+    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out string? error)
+    {
+        if (comparison == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        return TrySortLayout(Comparer<ItemInstance<TKey>>.Create(comparison), out error);
+    }
+
+    private List<IReadOnlyList<ILayoutContext<TKey>>> CaptureLayoutContextsByStorageIndex()
+    {
+        var contexts = new List<IReadOnlyList<ILayoutContext<TKey>>>(_items.Count);
+        for (int i = 0; i < _items.Count; i++)
+            contexts.Add(_layout.GetContextsForStorageIndex(this, i));
+        return contexts;
+    }
+
+    private static bool ContextListsEqual(IReadOnlyList<ILayoutContext<TKey>> first, IReadOnlyList<ILayoutContext<TKey>> second)
+    {
+        if (first.Count != second.Count)
+            return false;
+
+        for (int i = 0; i < first.Count; i++)
+        {
+            if (!LayoutContextEquals(first[i], second[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool LayoutContextEquals(ILayoutContext<TKey> first, ILayoutContext<TKey> second)
+    {
+        if (ReferenceEquals(first, second))
+            return true;
+        if (first == null || second == null || first.GetType() != second.GetType())
+            return false;
+
+        var properties = first.GetType().GetProperties();
+        foreach (var property in properties)
+        {
+            if (property.GetIndexParameters().Length != 0)
+                continue;
+            if (!property.CanRead)
+                continue;
+            if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType) &&
+                property.PropertyType != typeof(string))
+                continue;
+
+            var firstValue = property.GetValue(first);
+            var secondValue = property.GetValue(second);
+            if (!Equals(firstValue, secondValue))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Removes all item instances from the inventory.
     /// </summary>
     /// <remarks>A change event is fired only when the inventory was not already empty.</remarks>
@@ -1051,9 +1174,13 @@ public class Inventory<TKey>
         if (_items.Count == 0)
             return;
 
+        var removedEvents = new List<ItemRemoved<TKey>>();
+        for (int index = 0; index < _items.Count; index++)
+            removedEvents.Add(new ItemRemoved<TKey>(_items[index], index, _layout.GetContextsForStorageIndex(this, index)));
+
         _items.Clear();
         _layout.OnInventoryCleared(this);
-        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(cleared: true));
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(removed: removedEvents, cleared: true));
     }
 
     /// <summary>

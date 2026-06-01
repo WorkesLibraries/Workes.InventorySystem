@@ -1,5 +1,7 @@
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Layout;
+using System.Collections.Generic;
+using System.Linq;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
@@ -19,9 +21,14 @@ public class ItemAdded<TKey>
     public int Index { get; }
 
     /// <summary>
-    /// Gets the layout context resolved for the added item instance, when available.
+    /// Gets the layout contexts resolved for the added item instance.
     /// </summary>
-    public ILayoutContext<TKey>? LayoutContext { get; }
+    public IReadOnlyList<ILayoutContext<TKey>> LayoutContexts { get; }
+
+    /// <summary>
+    /// Gets the single layout context resolved for the added item instance, when exactly one is available.
+    /// </summary>
+    public ILayoutContext<TKey>? LayoutContext => LayoutContexts.Count == 1 ? LayoutContexts[0] : null;
 
     /// <summary>
     /// Creates an item-added event payload.
@@ -30,9 +37,20 @@ public class ItemAdded<TKey>
     /// <param name="index">The storage index assigned to the item instance.</param>
     /// <param name="layoutContext">The layout context resolved for the added item instance, when available.</param>
     public ItemAdded(ItemInstance<TKey> instance, int index, ILayoutContext<TKey>? layoutContext = null)
+        : this(instance, index, layoutContext != null ? new[] { layoutContext } : null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an item-added event payload.
+    /// </summary>
+    /// <param name="instance">The item instance that was added.</param>
+    /// <param name="index">The storage index assigned to the item instance.</param>
+    /// <param name="layoutContexts">The layout contexts resolved for the added item instance.</param>
+    public ItemAdded(ItemInstance<TKey> instance, int index, IEnumerable<ILayoutContext<TKey>>? layoutContexts)
     {
         Instance = instance;
         Index = index;
-        LayoutContext = layoutContext;
+        LayoutContexts = layoutContexts != null ? layoutContexts.ToList() : new List<ILayoutContext<TKey>>();
     }
 }

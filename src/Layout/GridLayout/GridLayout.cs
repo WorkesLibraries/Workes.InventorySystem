@@ -57,6 +57,15 @@ public class GridLayout<TKey> : IInventoryLayout<TKey>
     public int GetPositionCount(Inventory<TKey> inventory) => Width * Height;
 
     /// <inheritdoc />
+    public IReadOnlyList<ILayoutContext<TKey>> GetAddressableContexts(Inventory<TKey> inventory)
+    {
+        var contexts = new List<ILayoutContext<TKey>>(_cellMap.Count);
+        foreach (int cell in EnumerateCellIndicesInPlacementOrder())
+            contexts.Add(GridLayoutContext<TKey>.Single(ToX(cell), ToY(cell)));
+        return contexts;
+    }
+
+    /// <inheritdoc />
     public ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not GridLayoutContext<TKey> gridContext || gridContext.IsMapped)
@@ -72,22 +81,26 @@ public class GridLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    public IReadOnlyList<ILayoutContext<TKey>> GetContextsForStorageIndex(Inventory<TKey> inventory, int storageIndex)
     {
-        context = null;
         if (storageIndex < 0 || storageIndex >= inventory.Items.Count)
-            return false;
+            return Array.Empty<ILayoutContext<TKey>>();
 
         for (int cell = 0; cell < _cellMap.Count; cell++)
         {
             if (_cellMap[cell] == storageIndex)
-            {
-                context = GridLayoutContext<TKey>.Single(ToX(cell), ToY(cell));
-                return true;
-            }
+                return new List<ILayoutContext<TKey>> { GridLayoutContext<TKey>.Single(ToX(cell), ToY(cell)) };
         }
 
-        return false;
+        return Array.Empty<ILayoutContext<TKey>>();
+    }
+
+    /// <inheritdoc />
+    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    {
+        var contexts = GetContextsForStorageIndex(inventory, storageIndex);
+        context = contexts.Count > 0 ? contexts[0] : null;
+        return context != null;
     }
 
     /// <inheritdoc />
@@ -517,6 +530,47 @@ public class GridLayout<TKey> : IInventoryLayout<TKey>
         var temp = _cellMap[fromCell];
         _cellMap[fromCell] = _cellMap[toCell];
         _cellMap[toCell] = temp;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    {
+        if (comparer == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        var occupied = new List<(int storageIndex, int placementIndex)>();
+        int placementIndex = 0;
+        foreach (int cell in EnumerateCellIndicesInPlacementOrder())
+        {
+            if (_cellMap[cell].HasValue)
+                occupied.Add((_cellMap[cell]!.Value, placementIndex));
+            placementIndex++;
+        }
+
+        occupied.Sort((a, b) =>
+        {
+            int comparison = comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
+            return comparison != 0 ? comparison : a.placementIndex.CompareTo(b.placementIndex);
+        });
+
+        for (int i = 0; i < _cellMap.Count; i++)
+            _cellMap[i] = null;
+
+        int occupiedIndex = 0;
+        foreach (int cell in EnumerateCellIndicesInPlacementOrder())
+        {
+            if (occupiedIndex >= occupied.Count)
+                break;
+
+            _cellMap[cell] = occupied[occupiedIndex].storageIndex;
+            occupiedIndex++;
+        }
+
+        error = null;
         return true;
     }
 

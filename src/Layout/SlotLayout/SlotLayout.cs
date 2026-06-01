@@ -36,6 +36,15 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     public int GetPositionCount(Inventory<TKey> inventory) => _slotMap.Count;
 
     /// <inheritdoc />
+    public IReadOnlyList<ILayoutContext<TKey>> GetAddressableContexts(Inventory<TKey> inventory)
+    {
+        var contexts = new List<ILayoutContext<TKey>>(_slotMap.Count);
+        for (int i = 0; i < _slotMap.Count; i++)
+            contexts.Add(SlotLayoutContext<TKey>.Single(i));
+        return contexts;
+    }
+
+    /// <inheritdoc />
     public ItemInstance<TKey>? GetItemAt(Inventory<TKey> inventory, ILayoutContext<TKey> context)
     {
         if (context is not SlotLayoutContext<TKey> slotContext)
@@ -52,22 +61,26 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
-    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    public IReadOnlyList<ILayoutContext<TKey>> GetContextsForStorageIndex(Inventory<TKey> inventory, int storageIndex)
     {
-        context = null;
         if (storageIndex < 0 || storageIndex >= inventory.Items.Count)
-            return false;
+            return Array.Empty<ILayoutContext<TKey>>();
 
         for (int i = 0; i < _slotMap.Count; i++)
         {
             if (_slotMap[i] == storageIndex)
-            {
-                context = SlotLayoutContext<TKey>.Single(i);
-                return true;
-            }
+                return new List<ILayoutContext<TKey>> { SlotLayoutContext<TKey>.Single(i) };
         }
 
-        return false;
+        return Array.Empty<ILayoutContext<TKey>>();
+    }
+
+    /// <inheritdoc />
+    public bool TryGetContextForStorageIndex(Inventory<TKey> inventory, int storageIndex, out ILayoutContext<TKey>? context)
+    {
+        var contexts = GetContextsForStorageIndex(inventory, storageIndex);
+        context = contexts.Count > 0 ? contexts[0] : null;
+        return context != null;
     }
 
     /// <inheritdoc />
@@ -465,6 +478,35 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
         _slotMap[fromSlot] = _slotMap[toSlot];
         _slotMap[toSlot] = temp;
 
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TrySort(Inventory<TKey> inventory, IComparer<ItemInstance<TKey>> comparer, out string? error)
+    {
+        if (comparer == null)
+        {
+            error = "Comparer cannot be null.";
+            return false;
+        }
+
+        var occupied = new List<(int storageIndex, int slotIndex)>();
+        for (int i = 0; i < _slotMap.Count; i++)
+        {
+            if (_slotMap[i].HasValue)
+                occupied.Add((_slotMap[i]!.Value, i));
+        }
+
+        occupied.Sort((a, b) =>
+        {
+            int comparison = comparer.Compare(inventory.Items[a.storageIndex], inventory.Items[b.storageIndex]);
+            return comparison != 0 ? comparison : a.slotIndex.CompareTo(b.slotIndex);
+        });
+
+        for (int i = 0; i < _slotMap.Count; i++)
+            _slotMap[i] = i < occupied.Count ? occupied[i].storageIndex : null;
+
+        error = null;
         return true;
     }
 
