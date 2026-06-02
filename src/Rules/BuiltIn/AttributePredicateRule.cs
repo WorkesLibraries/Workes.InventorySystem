@@ -11,7 +11,7 @@ namespace Workes.InventorySystem.Rules;
 /// <typeparam name="TValue">The attribute value type.</typeparam>
 public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
 {
-    private readonly AttributeKey<TValue> _attribute;
+    private readonly string _attributeId;
     private readonly Func<TValue, bool> _predicate;
     private readonly string _errorMessage;
     /// <inheritdoc />
@@ -20,21 +20,25 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     /// <summary>
     /// Creates an attribute predicate rule.
     /// </summary>
-    /// <param name="attribute">The required attribute key.</param>
+    /// <param name="attributeId">The required attribute id.</param>
     /// <param name="predicate">The predicate that must accept the attribute value.</param>
     /// <param name="errorMessage">The error message prefix used when validation fails.</param>
     /// <param name="id">Optional rule id override.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="attribute"/> or <paramref name="predicate"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="attributeId"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is <see langword="null"/>.</exception>
     public AttributePredicateRule(
-        AttributeKey<TValue> attribute,
+        string attributeId,
         Func<TValue, bool> predicate,
         string errorMessage = "Expected item definition attribute to satisfy the provided predicate",
         string? id = null)
     {
-        _attribute = attribute ?? throw new ArgumentNullException(nameof(attribute));
+        if (string.IsNullOrWhiteSpace(attributeId))
+            throw new ArgumentException("Attribute id cannot be null or empty.", nameof(attributeId));
+
+        _attributeId = attributeId;
         _predicate = predicate ?? throw new ArgumentNullException(nameof(predicate));
         _errorMessage = errorMessage;
-        Id = id ?? $"AttributePredicate[{_attribute}:{_errorMessage}]";
+        Id = id ?? $"AttributePredicate[{_attributeId}:{_errorMessage}]";
     }
 
     /// <inheritdoc />
@@ -45,15 +49,15 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     {
         foreach (var (definition, _, _) in transaction.Added)
         {
-            if (!definition.Attributes.TryGet(_attribute, out var value))
+            if (!definition.Attributes.TryGet<TValue>(_attributeId, out var value))
             {
-                error = $"{_errorMessage}. Item definition '{definition.Id}' was missing attribute '{_attribute}'.";
+                error = $"{_errorMessage}. Item definition '{definition.Id}' was missing attribute '{_attributeId}'.";
                 return false;
             }
 
             if (!_predicate(value))
             {
-                error = $"{_errorMessage}. Item definition '{definition.Id}' attribute '{_attribute}' was '{value}'.";
+                error = $"{_errorMessage}. Item definition '{definition.Id}' attribute '{_attributeId}' was '{value}'.";
                 return false;
             }
         }

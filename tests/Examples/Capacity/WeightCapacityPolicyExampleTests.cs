@@ -14,8 +14,8 @@ namespace Workes.InventorySystem.Tests.Examples.Capacity;
 [Category("Example")]
 public class WeightCapacityPolicyExampleTests
 {
-    private static readonly AttributeKey<double> Weight = new("example-weight");
-    private static readonly ItemSchema<string> WeightedSchema = ItemSchema<string>.Create("example-weighted").Require(Weight);
+    private const string Weight = "example-weight";
+    private static readonly ItemSchema<string> WeightedSchema = ItemSchema<string>.Create("example-weighted").Require<double>(Weight);
 
     [Test]
     public void LimitsInventoryByTotalWeight()
@@ -62,7 +62,7 @@ public class WeightCapacityPolicyExampleTests
         double total = 0;
         foreach (var item in inventory.Items)
         {
-            if (item.Definition.Attributes.TryGet(Weight, out var weight))
+            if (item.Definition.Attributes.TryGet<double>(Weight, out var weight))
                 total += weight * item.Amount;
         }
 
@@ -75,7 +75,7 @@ public class WeightCapacityPolicyExampleTests
             new DefaultStackResolver<string>(10),
             capacity,
             new EntryLayout<string>());
-        manager.Catalog.Attributes.Define(Weight);
+        manager.Catalog.Attributes.Define<double>(Weight);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -98,3 +98,6 @@ public class WeightCapacityPolicyExampleTests
         }
     }
 }
+
+
+

@@ -149,3 +149,5 @@ public class MaxTotalItemAmountCapacityPolicyTests
             catalog: catalog);
     }
 }
+
+

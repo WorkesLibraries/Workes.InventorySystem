@@ -20,12 +20,12 @@ public class TagFocusedItemUniverseExampleTests
 {
     private static class GameAttributes
     {
-        public static readonly AttributeKey<int> Weight = new("weight");
-        public static readonly AttributeKey<int> Durability = new("durability");
-        public static readonly AttributeKey<int> ChopPower = new("chopPower");
-        public static readonly AttributeKey<int> CutPower = new("cutPower");
-        public static readonly AttributeKey<int> Damage = new("damage");
-        public static readonly AttributeKey<int> CraftingValue = new("craftingValue");
+        public const string Weight = "weight";
+        public const string Durability = "durability";
+        public const string ChopPower = "chopPower";
+        public const string CutPower = "cutPower";
+        public const string Damage = "damage";
+        public const string CraftingValue = "craftingValue";
     }
 
     private static class GameTags
@@ -56,7 +56,7 @@ public class TagFocusedItemUniverseExampleTests
     {
         public static readonly ItemSchema<string> EquipmentSchema =
             ItemSchema<string>.Create("equipment")
-                .RequireAttribute(GameAttributes.Weight, inherited: true);
+                .RequireAttribute<int>(GameAttributes.Weight, inherited: true);
 
         protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight, params TagKey[] tags)
             : base(id, schema, tags)
@@ -75,7 +75,7 @@ public class TagFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> ToolSchema =
             ItemSchema<string>.Create("tool")
                 .WithParent(EquipmentSchema)
-                .RequireAttribute(GameAttributes.Durability, inherited: true);
+                .RequireAttribute<int>(GameAttributes.Durability, inherited: true);
 
         protected ToolDefinition(string id, ItemSchema<string> schema, int weight, int durability, params TagKey[] tags)
             : base(id, schema, weight, tags)
@@ -94,7 +94,7 @@ public class TagFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> AxeSchema =
             ItemSchema<string>.Create("axe")
                 .WithParent(ToolSchema)
-                .RequireAttribute(GameAttributes.ChopPower, inherited: true)
+                .RequireAttribute<int>(GameAttributes.ChopPower, inherited: true)
                 .AddTag(GameTags.Equipment.Tools.Axe);
 
         public AxeDefinition(string id, int weight, int durability, int chopPower, params TagKey[] tags)
@@ -109,8 +109,8 @@ public class TagFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> KnifeSchema =
             ItemSchema<string>.Create("knife")
                 .WithParent(ToolSchema)
-                .RequireAttribute(GameAttributes.CutPower, inherited: true)
-                .RequireAttribute(GameAttributes.Damage, inherited: true)
+                .RequireAttribute<int>(GameAttributes.CutPower, inherited: true)
+                .RequireAttribute<int>(GameAttributes.Damage, inherited: true)
                 .AddTag(GameTags.Equipment.Tools.Knife)
                 .AddTag(GameTags.Equipment.Weapons.Blade);
 
@@ -131,7 +131,7 @@ public class TagFocusedItemUniverseExampleTests
     {
         public static readonly ItemSchema<string> RawMaterialSchema =
             ItemSchema<string>.Create("raw_material")
-                .RequireAttribute(GameAttributes.CraftingValue, inherited: true)
+                .RequireAttribute<int>(GameAttributes.CraftingValue, inherited: true)
                 .AddTag(GameTags.Materials.Raw);
 
         protected RawMaterialDefinition(string id, ItemSchema<string> schema, int craftingValue, params TagKey[] tags)
@@ -261,12 +261,12 @@ public class TagFocusedItemUniverseExampleTests
 
     private static void DefineAttributes(ItemCatalog<string> catalog)
     {
-        catalog.Attributes.Define(GameAttributes.Weight);
-        catalog.Attributes.Define(GameAttributes.Durability);
-        catalog.Attributes.Define(GameAttributes.ChopPower);
-        catalog.Attributes.Define(GameAttributes.CutPower);
-        catalog.Attributes.Define(GameAttributes.Damage);
-        catalog.Attributes.Define(GameAttributes.CraftingValue);
+        catalog.Attributes.Define<int>(GameAttributes.Weight);
+        catalog.Attributes.Define<int>(GameAttributes.Durability);
+        catalog.Attributes.Define<int>(GameAttributes.ChopPower);
+        catalog.Attributes.Define<int>(GameAttributes.CutPower);
+        catalog.Attributes.Define<int>(GameAttributes.Damage);
+        catalog.Attributes.Define<int>(GameAttributes.CraftingValue);
     }
 
     private static void AssertSatisfies(ItemCatalog<string> catalog, ItemDefinition<string> definition, params TagKey[] tags)
@@ -409,3 +409,6 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine();
     }
 }
+
+
+

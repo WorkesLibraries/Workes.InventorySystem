@@ -62,3 +62,5 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
         return builder.ToString();
     }
 }
+
+

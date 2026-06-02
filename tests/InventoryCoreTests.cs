@@ -484,3 +484,5 @@ public class InventoryCoreTests
         Assert.That(changedCount, Is.EqualTo(1));
     }
 }
+
+

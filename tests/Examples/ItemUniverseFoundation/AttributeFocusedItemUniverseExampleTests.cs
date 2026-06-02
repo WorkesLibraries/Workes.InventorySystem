@@ -19,25 +19,25 @@ public class AttributeFocusedItemUniverseExampleTests
 {
     private static class GameAttributes
     {
-        public static readonly AttributeKey<int> Weight = new("weight");
-        public static readonly AttributeKey<int> Durability = new("durability");
-        public static readonly AttributeKey<int> Damage = new("damage");
-        public static readonly AttributeKey<int> CutPower = new("cutPower");
-        public static readonly AttributeKey<int> ChopPower = new("chopPower");
-        public static readonly AttributeKey<int> Armor = new("armor");
-        public static readonly AttributeKey<int> CraftingValue = new("craftingValue");
+        public const string Weight = "weight";
+        public const string Durability = "durability";
+        public const string Damage = "damage";
+        public const string CutPower = "cutPower";
+        public const string ChopPower = "chopPower";
+        public const string Armor = "armor";
+        public const string CraftingValue = "craftingValue";
     }
 
     private class EquipmentDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> EquipmentSchema =
             ItemSchema<string>.Create("attribute_equipment")
-                .RequireAttribute(GameAttributes.Weight, inherited: true);
+                .RequireAttribute<int>("weight", inherited: true);
 
         protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight)
             : base(id, schema)
         {
-            DefineAttribute(GameAttributes.Weight, weight);
+            DefineAttribute("weight", weight);
         }
 
         public EquipmentDefinition(string id, int weight)
@@ -51,12 +51,12 @@ public class AttributeFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> ToolSchema =
             ItemSchema<string>.Create("attribute_tool")
                 .WithParent(EquipmentSchema)
-                .RequireAttribute(GameAttributes.Durability, inherited: true);
+                .RequireAttribute<int>("durability", inherited: true);
 
         protected ToolDefinition(string id, ItemSchema<string> schema, int weight, int durability)
             : base(id, schema, weight)
         {
-            DefineAttribute(GameAttributes.Durability, durability);
+            DefineAttribute("durability", durability);
         }
 
         public ToolDefinition(string id, int weight, int durability)
@@ -70,12 +70,12 @@ public class AttributeFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> WeaponSchema =
             ItemSchema<string>.Create("attribute_weapon")
                 .WithParent(EquipmentSchema)
-                .RequireAttribute(GameAttributes.Damage, inherited: true);
+                .RequireAttribute<int>("damage", inherited: true);
 
         protected WeaponDefinition(string id, ItemSchema<string> schema, int weight, int damage)
             : base(id, schema, weight)
         {
-            DefineAttribute(GameAttributes.Damage, damage);
+            DefineAttribute("damage", damage);
         }
 
         public WeaponDefinition(string id, int weight, int damage)
@@ -89,14 +89,14 @@ public class AttributeFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> KnifeSchema =
             ItemSchema<string>.Create("attribute_knife")
                 .WithParent(ToolSchema)
-                .RequireAttribute(GameAttributes.CutPower, inherited: true)
-                .RequireAttribute(GameAttributes.Damage, inherited: true);
+                .RequireAttribute<int>("cutPower", inherited: true)
+                .RequireAttribute<int>("damage", inherited: true);
 
         public KnifeDefinition(string id, int weight, int durability, int cutPower, int damage)
             : base(id, KnifeSchema, weight, durability)
         {
-            DefineAttribute(GameAttributes.CutPower, cutPower);
-            DefineAttribute(GameAttributes.Damage, damage);
+            DefineAttribute("cutPower", cutPower);
+            DefineAttribute("damage", damage);
         }
     }
 
@@ -105,12 +105,12 @@ public class AttributeFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> AxeSchema =
             ItemSchema<string>.Create("attribute_axe")
                 .WithParent(ToolSchema)
-                .RequireAttribute(GameAttributes.ChopPower, inherited: true);
+                .RequireAttribute<int>("chopPower", inherited: true);
 
         public AxeDefinition(string id, int weight, int durability, int chopPower)
             : base(id, AxeSchema, weight, durability)
         {
-            DefineAttribute(GameAttributes.ChopPower, chopPower);
+            DefineAttribute("chopPower", chopPower);
         }
     }
 
@@ -119,12 +119,12 @@ public class AttributeFocusedItemUniverseExampleTests
         public static readonly ItemSchema<string> ArmorSchema =
             ItemSchema<string>.Create("attribute_armor")
                 .WithParent(EquipmentSchema)
-                .RequireAttribute(GameAttributes.Armor, inherited: true);
+                .RequireAttribute<int>("armor", inherited: true);
 
         public ArmorDefinition(string id, int weight, int armor)
             : base(id, ArmorSchema, weight)
         {
-            DefineAttribute(GameAttributes.Armor, armor);
+            DefineAttribute("armor", armor);
         }
     }
 
@@ -132,12 +132,12 @@ public class AttributeFocusedItemUniverseExampleTests
     {
         public static readonly ItemSchema<string> MaterialSchema =
             ItemSchema<string>.Create("attribute_material")
-                .RequireAttribute(GameAttributes.CraftingValue, inherited: true);
+                .RequireAttribute<int>("craftingValue", inherited: true);
 
         public MaterialDefinition(string id, int craftingValue)
             : base(id, MaterialSchema)
         {
-            DefineAttribute(GameAttributes.CraftingValue, craftingValue);
+            DefineAttribute("craftingValue", craftingValue);
         }
     }
 
@@ -157,7 +157,8 @@ public class AttributeFocusedItemUniverseExampleTests
         foreach (var definition in definitions)
             catalog.Registry.Register(definition);
 
-        Assert.That(catalogWeight, Is.SameAs(GameAttributes.Weight));
+        Assert.That(catalogWeight.Id, Is.EqualTo(GameAttributes.Weight));
+        Assert.That(catalogWeight.ValueType, Is.EqualTo(typeof(int)));
         Assert.DoesNotThrow(() => catalog.Freeze());
 
         AssertHasAttributes(ironKnife, GameAttributes.Weight, GameAttributes.Durability, GameAttributes.CutPower, GameAttributes.Damage);
@@ -232,13 +233,13 @@ public class AttributeFocusedItemUniverseExampleTests
 
     private static void DefineAttributes(ItemCatalog<string> catalog)
     {
-        catalog.Attributes.Define(GameAttributes.Weight);
-        catalog.Attributes.Define(GameAttributes.Durability);
-        catalog.Attributes.Define(GameAttributes.Damage);
-        catalog.Attributes.Define(GameAttributes.CutPower);
-        catalog.Attributes.Define(GameAttributes.ChopPower);
-        catalog.Attributes.Define(GameAttributes.Armor);
-        catalog.Attributes.Define(GameAttributes.CraftingValue);
+        catalog.Attributes.Define<int>("weight");
+        catalog.Attributes.Define<int>("durability");
+        catalog.Attributes.Define<int>("damage");
+        catalog.Attributes.Define<int>("cutPower");
+        catalog.Attributes.Define<int>("chopPower");
+        catalog.Attributes.Define<int>("armor");
+        catalog.Attributes.Define<int>("craftingValue");
     }
 
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog, RuleContainer<string>? rules = null)
@@ -259,10 +260,10 @@ public class AttributeFocusedItemUniverseExampleTests
         return (definition, accepted, error);
     }
 
-    private static void AssertHasAttributes(ItemDefinition<string> definition, params AttributeKey<int>[] attributes)
+    private static void AssertHasAttributes(ItemDefinition<string> definition, params string[] attributes)
     {
         foreach (var attribute in attributes)
-            Assert.That(definition.Attributes.Contains(attribute), Is.True, $"{definition.Id} should have attribute {attribute.Id}.");
+            Assert.That(definition.Attributes.Contains<int>(attribute), Is.True, $"{definition.Id} should have attribute {attribute}.");
     }
 
     private static int GetWeightOrZero(ItemDefinition<string> definition)
@@ -418,11 +419,13 @@ public class AttributeFocusedItemUniverseExampleTests
         builder.AppendLine();
     }
 
-    private static void AppendAttribute(StringBuilder builder, ItemDefinition<string> definition, AttributeKey<int> attribute)
+    private static void AppendAttribute(StringBuilder builder, ItemDefinition<string> definition, string attribute)
     {
-        if (!definition.Attributes.TryGet(attribute, out var value))
+        if (!definition.Attributes.TryGet<int>(attribute, out var value))
             return;
 
-        builder.AppendLine("    " + attribute.Id + " = " + value);
+        builder.AppendLine("    " + attribute + " = " + value);
     }
 }
+
+

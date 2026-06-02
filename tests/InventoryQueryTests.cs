@@ -217,3 +217,5 @@ public class InventoryQueryTests
         Assert.Throws<ArgumentNullException>(() => inventory.FindWhere(null!));
     }
 }
+
+

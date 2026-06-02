@@ -14,9 +14,9 @@ namespace Workes.InventorySystem.Tests.Examples.Events;
 [Category("Example")]
 public class UiRefreshFromAffectedContextsExampleTests
 {
-    private static readonly AttributeKey<int> Width = new("ui-refresh-footprint-width");
-    private static readonly AttributeKey<int> Height = new("ui-refresh-footprint-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("ui-refresh-footprint").Require(Width).Require(Height);
+    private const string Width = "ui-refresh-footprint-width";
+    private const string Height = "ui-refresh-footprint-height";
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("ui-refresh-footprint").Require<int>(Width).Require<int>(Height);
 
     [Test]
     public void RefreshesCellsWithoutInspectingSemanticEventGroups()
@@ -64,8 +64,8 @@ public class UiRefreshFromAffectedContextsExampleTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
-        manager.Catalog.Attributes.Define(Width);
-        manager.Catalog.Attributes.Define(Height);
+        manager.Catalog.Attributes.Define<int>(Width);
+        manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -89,3 +89,6 @@ public class UiRefreshFromAffectedContextsExampleTests
         }
     }
 }
+
+
+

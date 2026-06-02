@@ -27,7 +27,7 @@ public class ItemDefinition<TKey>
     /// <summary>
     /// Gets a read-only view of the typed attributes defined for this item definition.
     /// </summary>
-    /// <remarks>Derived definition classes should write schema attributes during construction with <see cref="DefineAttribute{T}(AttributeKey{T}, T)"/>.</remarks>
+    /// <remarks>Derived definition classes should write schema attributes during construction with <see cref="DefineAttribute{T}(string, T)"/>.</remarks>
     public IAttributeView Attributes => _attributes;
 
     /// <summary>
@@ -100,14 +100,15 @@ public class ItemDefinition<TKey>
     }
 
     /// <summary>
-    /// Defines a typed attribute for this item definition.
+    /// Defines a typed attribute by string id for this item definition.
     /// </summary>
     /// <typeparam name="T">The attribute value type.</typeparam>
-    /// <param name="key">The attribute key.</param>
+    /// <param name="id">The attribute id.</param>
     /// <param name="value">The attribute value.</param>
-    protected void DefineAttribute<T>(AttributeKey<T> key, T value)
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    protected void DefineAttribute<T>(string id, T value)
     {
-        _attributes.Set(key, value);
+        _attributes.Set(id, value);
     }
 
     /// <summary>

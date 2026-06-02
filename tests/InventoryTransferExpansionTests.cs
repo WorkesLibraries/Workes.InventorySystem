@@ -482,3 +482,5 @@ public class InventoryTransferExpansionTests
         Assert.That(target.TotalItemCount, Is.EqualTo(4));
     }
 }
+
+

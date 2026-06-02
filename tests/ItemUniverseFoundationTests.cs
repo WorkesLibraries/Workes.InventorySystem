@@ -15,12 +15,12 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class ItemUniverseFoundationTests
 {
-    private static readonly AttributeKey<int> Weight = new("weight");
-    private static readonly AttributeKey<int> Durability = new("durability");
-    private static readonly AttributeKey<int> ChopPower = new("chopPower");
-    private static readonly AttributeKey<int> Quality = new("quality");
-    private static readonly AttributeKey<int> CutPower = new("cutPower");
-    private static readonly AttributeKey<int> Damage = new("damage");
+    private const string Weight = "weight";
+    private const string Durability = "durability";
+    private const string ChopPower = "chopPower";
+    private const string Quality = "quality";
+    private const string CutPower = "cutPower";
+    private const string Damage = "damage";
     private static readonly TagKey KnifeTag = TagKey.Parse("core:equipment.tools.knife");
     private static readonly TagKey ObsidianTag = TagKey.Parse("c:materials.obsidian");
     private static readonly TagKey SteelTag = TagKey.Parse("c:materials.steel");
@@ -43,12 +43,12 @@ public class ItemUniverseFoundationTests
 
     private static void DefineAttributes(ItemCatalog<string> catalog)
     {
-        catalog.Attributes.Define(Weight);
-        catalog.Attributes.Define(Durability);
-        catalog.Attributes.Define(ChopPower);
-        catalog.Attributes.Define(Quality);
-        catalog.Attributes.Define(CutPower);
-        catalog.Attributes.Define(Damage);
+        catalog.Attributes.Define<int>(Weight);
+        catalog.Attributes.Define<int>(Durability);
+        catalog.Attributes.Define<int>(ChopPower);
+        catalog.Attributes.Define<int>(Quality);
+        catalog.Attributes.Define<int>(CutPower);
+        catalog.Attributes.Define<int>(Damage);
     }
 
     // Test-only helper for invalid schema edge cases. Normal usage should colocate
@@ -79,7 +79,7 @@ public class ItemUniverseFoundationTests
     {
         public static readonly ItemSchema<string> EquipmentSchema =
             ItemSchema<string>.Create("test-equipment")
-                .RequireAttribute(Weight, inherited: true);
+                .RequireAttribute<int>(Weight, inherited: true);
 
         protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight)
             : base(id, schema)
@@ -98,7 +98,7 @@ public class ItemUniverseFoundationTests
         public static readonly ItemSchema<string> ToolSchema =
             ItemSchema<string>.Create("test-tool")
                 .WithParent(EquipmentSchema)
-                .RequireAttribute(Durability, inherited: true);
+                .RequireAttribute<int>(Durability, inherited: true);
 
         protected ToolDefinition(string id, ItemSchema<string> schema, int weight, int durability)
             : base(id, schema, weight)
@@ -119,7 +119,7 @@ public class ItemUniverseFoundationTests
         public static readonly ItemSchema<string> AxeSchema =
             ItemSchema<string>.Create("test-axe")
                 .WithParent(ToolSchema)
-                .RequireAttribute(ChopPower, inherited: true)
+                .RequireAttribute<int>(ChopPower, inherited: true)
                 .AddTag(AxeTag);
 
         public AxeDefinition(string id, int weight, int durability, int chopPower)
@@ -151,8 +151,8 @@ public class ItemUniverseFoundationTests
         public static readonly ItemSchema<string> KnifeSchema =
             ItemSchema<string>.Create("repository-knife")
                 .WithParent(ToolSchema)
-                .RequireAttribute(CutPower, inherited: true)
-                .RequireAttribute(Damage, inherited: true)
+                .RequireAttribute<int>(CutPower, inherited: true)
+                .RequireAttribute<int>(Damage, inherited: true)
                 .AddTag(KnifeTag);
 
         public RepositoryKnifeDefinition(string id, int weight, int durability, int cutPower, int damage, params TagKey[] tags)
@@ -169,6 +169,19 @@ public class ItemUniverseFoundationTests
         public SchemaTagDefinition(string id, ItemSchema<string> schema)
             : base(id, schema)
         {
+        }
+    }
+
+    private sealed class StringAttributeDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> StringAttributeSchema =
+            ItemSchema<string>.Create("string-attribute-equipment")
+                .RequireAttribute<int>("stringWeight", inherited: true);
+
+        public StringAttributeDefinition(string id, int weight)
+            : base(id, StringAttributeSchema)
+        {
+            DefineAttribute("stringWeight", weight);
         }
     }
 
@@ -274,10 +287,10 @@ public class ItemUniverseFoundationTests
     public void CatalogFreeze_Fails_WhenInheritedRequiredAttributeIsMissing()
     {
         var parent = ItemSchema<string>.Create("missing-parent")
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var child = ItemSchema<string>.Create("missing-child")
             .WithParent(parent)
-            .RequireAttribute(Durability, inherited: true);
+            .RequireAttribute<int>(Durability, inherited: true);
         var definition = new SchemaValidationDefinition("broken-tool", child, defineDurability: true);
         var catalog = new ItemCatalog<string>();
 
@@ -291,7 +304,7 @@ public class ItemUniverseFoundationTests
     public void CatalogFreeze_Fails_WhenDirectRequiredAttributeIsMissing()
     {
         var schema = ItemSchema<string>.Create("missing-direct")
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var definition = new SchemaValidationDefinition("broken-equipment", schema);
         var catalog = new ItemCatalog<string>();
 
@@ -333,12 +346,34 @@ public class ItemUniverseFoundationTests
         catalog.Registry.Register(definition);
 
         Assert.DoesNotThrow(() => catalog.Freeze());
-        Assert.That(definition.Attributes.TryGet(Weight, out var weight), Is.True);
+        Assert.That(definition.Attributes.TryGet<int>(Weight, out var weight), Is.True);
         Assert.That(weight, Is.EqualTo(5));
     }
 
     [Test]
-    public void AttributeCatalog_DefineString_ReturnsCanonicalTypedKey()
+    public void DefinitionClass_CanDefineSchemaAttributesByStringId()
+    {
+        var definition = new StringAttributeDefinition("equipment", weight: 5);
+        var catalog = new ItemCatalog<string>();
+        catalog.Attributes.Define<int>("stringWeight");
+
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        Assert.That(definition.Attributes.TryGet<int>("stringWeight", out var resolvedWeight), Is.True);
+        Assert.That(resolvedWeight, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void AttributeKey_IsNotPublicApi()
+    {
+        var exportedTypes = typeof(AttributeCatalog).Assembly.GetExportedTypes();
+
+        Assert.That(exportedTypes.Any(t => t.Name.StartsWith("AttributeKey", StringComparison.Ordinal)), Is.False);
+    }
+
+    [Test]
+    public void AttributeCatalog_DefineString_ReturnsCanonicalDefinition()
     {
         var catalog = new ItemCatalog<string>();
 
@@ -346,15 +381,16 @@ public class ItemUniverseFoundationTests
         var definedAgain = catalog.Attributes.Define<int>("weight");
 
         Assert.That(defined.Id, Is.EqualTo("weight"));
+        Assert.That(defined.ValueType, Is.EqualTo(typeof(int)));
         Assert.That(definedAgain, Is.SameAs(defined));
-        Assert.That(catalog.Attributes.Contains(defined), Is.True);
+        Assert.That(catalog.Attributes.Contains<int>("weight"), Is.True);
     }
 
     [Test]
-    public void AttributeCatalog_Get_ReturnsDeclaredTypedKey()
+    public void AttributeCatalog_Get_ReturnsDeclaredDefinition()
     {
         var catalog = new ItemCatalog<string>();
-        var defined = catalog.Attributes.Define(Weight);
+        var defined = catalog.Attributes.Define<int>(Weight);
 
         var resolved = catalog.Attributes.Get<int>("weight");
 
@@ -397,7 +433,7 @@ public class ItemUniverseFoundationTests
         var definition = new EquipmentDefinition("equipment", weight: 5);
         var catalog = new ItemCatalog<string>();
 
-        catalog.Attributes.Define(Weight);
+        catalog.Attributes.Define<int>(Weight);
         catalog.Registry.Register(definition);
 
         Assert.DoesNotThrow(() => catalog.Freeze());
@@ -423,7 +459,7 @@ public class ItemUniverseFoundationTests
     public void CatalogFreeze_Fails_WhenDefinitionContainsAttributeNotDeclaredBySchema()
     {
         var schema = ItemSchema<string>.Create("undeclared-quality")
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var definition = new SchemaValidationDefinition("equipment", schema, defineWeight: true, defineQuality: true);
         var catalog = new ItemCatalog<string>();
 
@@ -437,10 +473,10 @@ public class ItemUniverseFoundationTests
     public void CatalogFreeze_Fails_WhenChildRedefinesInheritedAttribute()
     {
         var parent = ItemSchema<string>.Create("redefine-parent")
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var child = ItemSchema<string>.Create("redefine-child")
             .WithParent(parent)
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var definition = new SchemaValidationDefinition("broken-child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
@@ -454,10 +490,10 @@ public class ItemUniverseFoundationTests
     public void CatalogFreeze_AllowsChildToRedefineNonInheritedParentAttribute()
     {
         var parent = ItemSchema<string>.Create("non-inherited-parent")
-            .RequireAttribute(Weight, inherited: false);
+            .RequireAttribute<int>(Weight, inherited: false);
         var child = ItemSchema<string>.Create("non-inherited-child")
             .WithParent(parent)
-            .RequireAttribute(Weight, inherited: true);
+            .RequireAttribute<int>(Weight, inherited: true);
         var definition = new SchemaValidationDefinition("child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
@@ -477,7 +513,7 @@ public class ItemUniverseFoundationTests
         catalog.Registry.Register(definition);
         catalog.Freeze();
 
-        Assert.Throws<InvalidOperationException>(() => schema.RequireAttribute(Weight));
+        Assert.Throws<InvalidOperationException>(() => schema.RequireAttribute<int>(Weight));
         Assert.Throws<InvalidOperationException>(() => schema.AddTag(TagKey.Parse("core:frozen")));
     }
 
@@ -790,3 +826,6 @@ public class ItemUniverseFoundationTests
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
     }
 }
+
+
+

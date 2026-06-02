@@ -18,7 +18,7 @@ public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
     /// <summary>
     /// Gets the definition attribute used as per-unit item weight.
     /// </summary>
-    public AttributeKey<double> WeightAttribute { get; }
+    public string WeightAttributeId { get; }
 
     /// <summary>
     /// Gets the maximum total weight allowed after a transaction.
@@ -33,20 +33,22 @@ public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
     /// <summary>
     /// Creates a weight capacity policy.
     /// </summary>
-    /// <param name="weightAttribute">The definition attribute used as per-unit item weight.</param>
+    /// <param name="weightAttributeId">The definition attribute id used as per-unit item weight.</param>
     /// <param name="maxWeight">The maximum total weight allowed after a transaction.</param>
     /// <param name="treatMissingWeightAsZero">Whether missing weight attributes contribute zero weight.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="weightAttribute"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="weightAttributeId"/> is null, empty, or whitespace.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxWeight"/> is negative.</exception>
     public WeightCapacityPolicy(
-        AttributeKey<double> weightAttribute,
+        string weightAttributeId,
         double maxWeight,
         bool treatMissingWeightAsZero = true)
     {
-        WeightAttribute = weightAttribute ?? throw new ArgumentNullException(nameof(weightAttribute));
+        if (string.IsNullOrWhiteSpace(weightAttributeId))
+            throw new ArgumentException("Weight attribute id cannot be null or empty.", nameof(weightAttributeId));
         if (maxWeight < 0)
             throw new ArgumentOutOfRangeException(nameof(maxWeight), "Maximum weight cannot be negative.");
 
+        WeightAttributeId = weightAttributeId;
         MaxWeight = maxWeight;
         TreatMissingWeightAsZero = treatMissingWeightAsZero;
     }
@@ -134,7 +136,7 @@ public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 
     private bool TryGetWeight(ItemDefinition<TKey> definition, out double weight, out string? error)
     {
-        if (definition.Attributes.TryGet(WeightAttribute, out weight))
+        if (definition.Attributes.TryGet(WeightAttributeId, out weight))
         {
             error = null;
             return true;

@@ -17,10 +17,7 @@ public sealed class AttributeDefinition
     /// </summary>
     public Type ValueType { get; }
 
-    /// <summary>
-    /// Gets the canonical typed attribute key as an object.
-    /// </summary>
-    public object Key { get; }
+    internal object Key { get; }
 
     internal AttributeDefinition(string id, Type valueType, object key)
     {

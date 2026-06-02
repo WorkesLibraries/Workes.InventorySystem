@@ -13,12 +13,12 @@ public sealed class AttributeGridFootprintProvider<TKey> : IGridFootprintProvide
     /// <summary>
     /// Gets the definition attribute used as footprint width.
     /// </summary>
-    public AttributeKey<int> WidthAttribute { get; }
+    public string WidthAttributeId { get; }
 
     /// <summary>
     /// Gets the definition attribute used as footprint height.
     /// </summary>
-    public AttributeKey<int> HeightAttribute { get; }
+    public string HeightAttributeId { get; }
 
     /// <summary>
     /// Gets the footprint used when a definition is missing either footprint attribute.
@@ -28,17 +28,22 @@ public sealed class AttributeGridFootprintProvider<TKey> : IGridFootprintProvide
     /// <summary>
     /// Creates an attribute-based footprint provider.
     /// </summary>
-    /// <param name="widthAttribute">The definition attribute used as footprint width.</param>
-    /// <param name="heightAttribute">The definition attribute used as footprint height.</param>
+    /// <param name="widthAttributeId">The definition attribute id used as footprint width.</param>
+    /// <param name="heightAttributeId">The definition attribute id used as footprint height.</param>
     /// <param name="defaultFootprint">The footprint used when either attribute is missing.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="widthAttribute"/> or <paramref name="heightAttribute"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="widthAttributeId"/> or <paramref name="heightAttributeId"/> is null, empty, or whitespace.</exception>
     public AttributeGridFootprintProvider(
-        AttributeKey<int> widthAttribute,
-        AttributeKey<int> heightAttribute,
+        string widthAttributeId,
+        string heightAttributeId,
         GridFootprint? defaultFootprint = null)
     {
-        WidthAttribute = widthAttribute ?? throw new ArgumentNullException(nameof(widthAttribute));
-        HeightAttribute = heightAttribute ?? throw new ArgumentNullException(nameof(heightAttribute));
+        if (string.IsNullOrWhiteSpace(widthAttributeId))
+            throw new ArgumentException("Width attribute id cannot be null or empty.", nameof(widthAttributeId));
+        if (string.IsNullOrWhiteSpace(heightAttributeId))
+            throw new ArgumentException("Height attribute id cannot be null or empty.", nameof(heightAttributeId));
+
+        WidthAttributeId = widthAttributeId;
+        HeightAttributeId = heightAttributeId;
         DefaultFootprint = defaultFootprint ?? new GridFootprint(1, 1);
     }
 
@@ -48,8 +53,8 @@ public sealed class AttributeGridFootprintProvider<TKey> : IGridFootprintProvide
         if (definition == null)
             throw new ArgumentNullException(nameof(definition));
 
-        if (!definition.Attributes.TryGet(WidthAttribute, out int width) ||
-            !definition.Attributes.TryGet(HeightAttribute, out int height))
+        if (!definition.Attributes.TryGet(WidthAttributeId, out int width) ||
+            !definition.Attributes.TryGet(HeightAttributeId, out int height))
         {
             return DefaultFootprint;
         }

@@ -14,11 +14,11 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class StandardLayoutPolishTests
 {
-    private static readonly AttributeKey<double> Weight = new("weight");
-    private static readonly AttributeKey<int> FootprintWidth = new("footprint-width");
-    private static readonly AttributeKey<int> FootprintHeight = new("footprint-height");
-    private static readonly ItemSchema<string> WeightedSchema = ItemSchema<string>.Create("weighted").Require(Weight);
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("footprint").Require(FootprintWidth).Require(FootprintHeight);
+    private const string Weight = "weight";
+    private const string FootprintWidth = "footprint-width";
+    private const string FootprintHeight = "footprint-height";
+    private static readonly ItemSchema<string> WeightedSchema = ItemSchema<string>.Create("weighted").Require<double>(Weight);
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("footprint").Require<int>(FootprintWidth).Require<int>(FootprintHeight);
 
     [Test]
     public void WeightCapacityPolicy_RejectsProjectedWeightOverLimit()
@@ -210,9 +210,9 @@ public class StandardLayoutPolishTests
 
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
-        manager.Catalog.Attributes.Define(Weight);
-        manager.Catalog.Attributes.Define(FootprintWidth);
-        manager.Catalog.Attributes.Define(FootprintHeight);
+        manager.Catalog.Attributes.Define<double>(Weight);
+        manager.Catalog.Attributes.Define<int>(FootprintWidth);
+        manager.Catalog.Attributes.Define<int>(FootprintHeight);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -246,3 +246,6 @@ public class StandardLayoutPolishTests
         }
     }
 }
+
+
+

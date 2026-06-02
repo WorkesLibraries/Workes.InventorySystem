@@ -12,9 +12,9 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class MultiCellGridAnchorAndSortTests
 {
-    private static readonly AttributeKey<int> Width = new("anchor-width");
-    private static readonly AttributeKey<int> Height = new("anchor-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("anchor-footprint").Require(Width).Require(Height);
+    private const string Width = "anchor-width";
+    private const string Height = "anchor-height";
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("anchor-footprint").Require<int>(Width).Require<int>(Height);
 
     [Test]
     public void MultiCellGridLayout_ContextTopRightPlacesFootprintToLeftOfCoordinate()
@@ -160,8 +160,8 @@ public class MultiCellGridAnchorAndSortTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
-        manager.Catalog.Attributes.Define(Width);
-        manager.Catalog.Attributes.Define(Height);
+        manager.Catalog.Attributes.Define<int>(Width);
+        manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -178,3 +178,6 @@ public class MultiCellGridAnchorAndSortTests
         }
     }
 }
+
+
+

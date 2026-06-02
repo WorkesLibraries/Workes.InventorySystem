@@ -13,9 +13,9 @@ namespace Workes.InventorySystem.Tests.Examples.Sorting;
 [Category("Example")]
 public class MultiCellGridSortContextExampleTests
 {
-    private static readonly AttributeKey<int> Width = new("sort-example-width");
-    private static readonly AttributeKey<int> Height = new("sort-example-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("sort-example-footprint").Require(Width).Require(Height);
+    private const string Width = "sort-example-width";
+    private const string Height = "sort-example-height";
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("sort-example-footprint").Require<int>(Width).Require<int>(Height);
 
     [Test]
     public void ComparesItemOrderSortWithCompactSort()
@@ -76,8 +76,8 @@ public class MultiCellGridSortContextExampleTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
-        manager.Catalog.Attributes.Define(Width);
-        manager.Catalog.Attributes.Define(Height);
+        manager.Catalog.Attributes.Define<int>(Width);
+        manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -101,3 +101,6 @@ public class MultiCellGridSortContextExampleTests
         }
     }
 }
+
+
+

@@ -14,9 +14,9 @@ namespace Workes.InventorySystem.Tests.Examples.MultiCellGridLayout;
 [Category("Example")]
 public class MultiCellGridLayoutExampleTests
 {
-    private static readonly AttributeKey<int> Width = new("example-footprint-width");
-    private static readonly AttributeKey<int> Height = new("example-footprint-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("example-footprint").Require(Width).Require(Height);
+    private const string Width = "example-footprint-width";
+    private const string Height = "example-footprint-height";
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("example-footprint").Require<int>(Width).Require<int>(Height);
 
     [Test]
     public void PlacesRectangularItemsAndRejectsOverlaps()
@@ -66,8 +66,8 @@ public class MultiCellGridLayoutExampleTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
-        manager.Catalog.Attributes.Define(Width);
-        manager.Catalog.Attributes.Define(Height);
+        manager.Catalog.Attributes.Define<int>(Width);
+        manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -91,3 +91,6 @@ public class MultiCellGridLayoutExampleTests
         }
     }
 }
+
+
+

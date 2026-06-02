@@ -13,9 +13,9 @@ namespace Workes.InventorySystem.Tests.Examples.MultiCellGridLayout;
 [Category("Example")]
 public class MultiCellGridAnchorExampleTests
 {
-    private static readonly AttributeKey<int> Width = new("anchor-example-width");
-    private static readonly AttributeKey<int> Height = new("anchor-example-height");
-    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("anchor-example-footprint").Require(Width).Require(Height);
+    private const string Width = "anchor-example-width";
+    private const string Height = "anchor-example-height";
+    private static readonly ItemSchema<string> FootprintSchema = ItemSchema<string>.Create("anchor-example-footprint").Require<int>(Width).Require<int>(Height);
 
     [Test]
     public void PlacesByDefaultAndExplicitAnchors()
@@ -75,8 +75,8 @@ public class MultiCellGridAnchorExampleTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
-        manager.Catalog.Attributes.Define(Width);
-        manager.Catalog.Attributes.Define(Height);
+        manager.Catalog.Attributes.Define<int>(Width);
+        manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
@@ -100,3 +100,6 @@ public class MultiCellGridAnchorExampleTests
         }
     }
 }
+
+
+

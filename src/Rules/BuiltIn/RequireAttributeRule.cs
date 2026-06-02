@@ -11,19 +11,22 @@ namespace Workes.InventorySystem.Rules;
 /// <typeparam name="TValue">The attribute value type.</typeparam>
 public class RequireAttributeRule<TKey, TValue> : IRulePolicy<TKey>
 {
-    private readonly AttributeKey<TValue> _attribute;
+    private readonly string _attributeId;
     /// <inheritdoc />
     public string Id { get; }
 
     /// <summary>
     /// Creates a required-attribute rule.
     /// </summary>
-    /// <param name="attribute">The attribute key that must be present.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="attribute"/> is <see langword="null"/>.</exception>
-    public RequireAttributeRule(AttributeKey<TValue> attribute)
+    /// <param name="attributeId">The attribute id that must be present.</param>
+    /// <exception cref="ArgumentException"><paramref name="attributeId"/> is null, empty, or whitespace.</exception>
+    public RequireAttributeRule(string attributeId)
     {
-        _attribute = attribute ?? throw new ArgumentNullException(nameof(attribute));
-        Id = $"RequireAttribute[{_attribute}]";
+        if (string.IsNullOrWhiteSpace(attributeId))
+            throw new ArgumentException("Attribute id cannot be null or empty.", nameof(attributeId));
+
+        _attributeId = attributeId;
+        Id = $"RequireAttribute[{_attributeId}]";
     }
 
     /// <inheritdoc />
@@ -34,9 +37,9 @@ public class RequireAttributeRule<TKey, TValue> : IRulePolicy<TKey>
     {
         foreach (var (definition, _, _) in transaction.Added)
         {
-            if (!definition.Attributes.Contains(_attribute))
+            if (!definition.Attributes.Contains<TValue>(_attributeId))
             {
-                error = $"Expected item definition '{definition.Id}' to have attribute '{_attribute}'.";
+                error = $"Expected item definition '{definition.Id}' to have attribute '{_attributeId}'.";
                 return false;
             }
         }

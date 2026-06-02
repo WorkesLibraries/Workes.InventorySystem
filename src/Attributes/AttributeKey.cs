@@ -5,19 +5,14 @@ namespace Workes.InventorySystem.Attributes;
 /// Identifies a typed attribute value.
 /// </summary>
 /// <typeparam name="T">The value type associated with the attribute.</typeparam>
-public sealed class AttributeKey<T> : IEquatable<AttributeKey<T>>
+internal sealed class AttributeKey<T> : IEquatable<AttributeKey<T>>
 {
     /// <summary>
     /// Gets the stable string identifier for this attribute key.
     /// </summary>
     public string Id { get; }
 
-    /// <summary>
-    /// Creates a typed attribute key.
-    /// </summary>
-    /// <param name="id">The stable attribute identifier.</param>
-    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
-    public AttributeKey(string id)
+    internal AttributeKey(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("AttributeKey id cannot be null or empty");

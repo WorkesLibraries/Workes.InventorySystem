@@ -78,18 +78,17 @@ public sealed class ItemSchema<TKey>
     }
 
     /// <summary>
-    /// Requires a typed attribute on definitions using this schema.
+    /// Requires a typed attribute by string id on definitions using this schema.
     /// </summary>
     /// <typeparam name="T">The required attribute value type.</typeparam>
-    /// <param name="key">The required attribute key.</param>
+    /// <param name="id">The required attribute id.</param>
     /// <param name="inherited">Whether child schemas inherit this requirement.</param>
     /// <returns>This schema for fluent configuration.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
     /// <exception cref="InvalidOperationException">The schema is frozen or already defines the attribute.</exception>
-    public ItemSchema<TKey> RequireAttribute<T>(AttributeKey<T> key, bool inherited = true)
+    public ItemSchema<TKey> RequireAttribute<T>(string id, bool inherited = true)
     {
-        if (key == null)
-            throw new ArgumentNullException(nameof(key));
+        var key = new AttributeKey<T>(id);
 
         EnsureMutable();
         if (_attributes.ContainsKey(key))
@@ -100,14 +99,15 @@ public sealed class ItemSchema<TKey>
     }
 
     /// <summary>
-    /// Requires a typed attribute on definitions using this schema.
+    /// Requires a typed attribute by string id on definitions using this schema.
     /// </summary>
     /// <typeparam name="T">The required attribute value type.</typeparam>
-    /// <param name="key">The required attribute key.</param>
+    /// <param name="id">The required attribute id.</param>
     /// <returns>This schema for fluent configuration.</returns>
-    public ItemSchema<TKey> Require<T>(AttributeKey<T> key)
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    public ItemSchema<TKey> Require<T>(string id)
     {
-        return RequireAttribute(key);
+        return RequireAttribute<T>(id);
     }
 
     /// <summary>

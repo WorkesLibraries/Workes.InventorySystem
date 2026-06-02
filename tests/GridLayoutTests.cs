@@ -561,3 +561,5 @@ public class GridLayoutTests
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(x, y))!.Definition.Id, Is.EqualTo(expectedDefinitionId));
     }
 }
+
+

@@ -12,15 +12,15 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class InventoryRuleTests
 {
-    private static readonly AttributeKey<int> Weight = new("weight");
-    private static readonly AttributeKey<int> Damage = new("damage");
-    private static readonly AttributeKey<string> Slot = new("slot");
+    private const string Weight = "weight";
+    private const string Damage = "damage";
+    private const string Slot = "slot";
 
     private sealed class RuleEquipmentDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> EquipmentSchema =
             ItemSchema<string>.Create("rule-equipment")
-                .RequireAttribute(Weight, inherited: true);
+                .RequireAttribute<int>(Weight, inherited: true);
 
         public RuleEquipmentDefinition(string id, int weight)
             : base(id, EquipmentSchema)
@@ -33,9 +33,9 @@ public class InventoryRuleTests
     {
         public static readonly ItemSchema<string> WeaponSchema =
             ItemSchema<string>.Create("rule-weapon")
-                .RequireAttribute(Weight, inherited: true)
-                .RequireAttribute(Damage, inherited: true)
-                .RequireAttribute(Slot, inherited: true);
+                .RequireAttribute<int>(Weight, inherited: true)
+                .RequireAttribute<int>(Damage, inherited: true)
+                .RequireAttribute<string>(Slot, inherited: true);
 
         public RuleWeaponDefinition(string id, int weight, int damage, string slot)
             : base(id, WeaponSchema)
@@ -70,9 +70,9 @@ public class InventoryRuleTests
             }
         }
 
-        manager.Catalog.Attributes.Define(Weight);
-        manager.Catalog.Attributes.Define(Damage);
-        manager.Catalog.Attributes.Define(Slot);
+        manager.Catalog.Attributes.Define<int>(Weight);
+        manager.Catalog.Attributes.Define<int>(Damage);
+        manager.Catalog.Attributes.Define<string>(Slot);
 
         foreach (var def in definitions)
             manager.Registry.Register(def);
@@ -248,8 +248,8 @@ public class InventoryRuleTests
     public void AttributeRules_ValidateConstructorArguments()
     {
         Assert.Throws<ArgumentException>(() => new RequireAllTagsRule<string>());
-        Assert.Throws<ArgumentNullException>(() => new RequireAttributeRule<string, int>(null!));
-        Assert.Throws<ArgumentNullException>(() => new AttributeEqualsRule<string, int>(null!, 1));
+        Assert.Throws<ArgumentException>(() => new RequireAttributeRule<string, int>(null!));
+        Assert.Throws<ArgumentException>(() => new AttributeEqualsRule<string, int>(null!, 1));
         Assert.Throws<ArgumentException>(() => new AttributeOneOfValuesRule<string, int>(Weight));
         Assert.Throws<ArgumentNullException>(() => new AttributePredicateRule<string, int>(Weight, null!));
     }
@@ -477,3 +477,6 @@ public class InventoryRuleTests
         Assert.That(error2, Is.Not.Null);
     }
 }
+
+
+

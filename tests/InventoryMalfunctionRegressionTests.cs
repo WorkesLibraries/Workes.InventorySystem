@@ -207,18 +207,15 @@ public class InventoryMalfunctionRegressionTests
     }
 
     [Test]
-    public void AttributeContainer_ResolvesEquivalentKeys_ByIdAndValueType()
+    public void AttributeContainer_ResolvesAttributes_ByIdAndValueType()
     {
-        var a = new AttributeKey<int>("weight");
-        var b = new AttributeKey<int>("weight");
-        var stringKey = new AttributeKey<string>("weight");
         var container = new AttributeContainer();
 
-        container.Set(a, 5);
+        container.Set("weight", 5);
 
-        Assert.That(container.TryGet(b, out int value), Is.True);
+        Assert.That(container.TryGet<int>("weight", out int value), Is.True);
         Assert.That(value, Is.EqualTo(5));
-        Assert.That(a.Equals(stringKey), Is.False);
+        Assert.That(container.TryGet<string>("weight", out _), Is.False);
     }
 
     [Test]
@@ -364,3 +361,5 @@ public class InventoryMalfunctionRegressionTests
         Assert.Throws<ArgumentException>(() => new OnlyAllowItemsRule<string>(apple, null!));
     }
 }
+
+

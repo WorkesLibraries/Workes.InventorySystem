@@ -311,3 +311,5 @@ public class InventoryChangedEventTests
             catalog: catalog);
     }
 }
+
+
