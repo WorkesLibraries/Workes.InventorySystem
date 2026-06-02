@@ -210,9 +210,12 @@ public class StandardLayoutPolishTests
 
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
+        manager.Catalog.Attributes.Define(Weight);
+        manager.Catalog.Attributes.Define(FootprintWidth);
+        manager.Catalog.Attributes.Define(FootprintHeight);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager.CreateInventory();
     }
 

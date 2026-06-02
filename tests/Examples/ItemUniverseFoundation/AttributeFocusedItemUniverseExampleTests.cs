@@ -145,6 +145,8 @@ public class AttributeFocusedItemUniverseExampleTests
     public void AttributeContracts_ArePracticalToAuthorAndInspect()
     {
         var catalog = new ItemCatalog<string>();
+        DefineAttributes(catalog);
+        var catalogWeight = catalog.Attributes.Get<int>("weight");
         var ironKnife = new KnifeDefinition("iron_knife", weight: 2, durability: 100, cutPower: 7, damage: 10);
         var obsidianKnife = new KnifeDefinition("obsidian_knife", weight: 2, durability: 80, cutPower: 9, damage: 14);
         var axe = new AxeDefinition("woodcutters_axe", weight: 6, durability: 90, chopPower: 16);
@@ -155,6 +157,7 @@ public class AttributeFocusedItemUniverseExampleTests
         foreach (var definition in definitions)
             catalog.Registry.Register(definition);
 
+        Assert.That(catalogWeight, Is.SameAs(GameAttributes.Weight));
         Assert.DoesNotThrow(() => catalog.Freeze());
 
         AssertHasAttributes(ironKnife, GameAttributes.Weight, GameAttributes.Durability, GameAttributes.CutPower, GameAttributes.Damage);
@@ -227,6 +230,17 @@ public class AttributeFocusedItemUniverseExampleTests
         TestContext.Out.WriteLine("Item universe foundation attributes example output: " + artifactPath);
     }
 
+    private static void DefineAttributes(ItemCatalog<string> catalog)
+    {
+        catalog.Attributes.Define(GameAttributes.Weight);
+        catalog.Attributes.Define(GameAttributes.Durability);
+        catalog.Attributes.Define(GameAttributes.Damage);
+        catalog.Attributes.Define(GameAttributes.CutPower);
+        catalog.Attributes.Define(GameAttributes.ChopPower);
+        catalog.Attributes.Define(GameAttributes.Armor);
+        catalog.Attributes.Define(GameAttributes.CraftingValue);
+    }
+
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog, RuleContainer<string>? rules = null)
     {
         return new InventoryManager<string>(
@@ -274,6 +288,12 @@ public class AttributeFocusedItemUniverseExampleTests
 
         builder.AppendLine("Item Universe Foundation - Attributes Example");
         builder.AppendLine("=============================================");
+        builder.AppendLine();
+        builder.AppendLine("Declared Attributes");
+        builder.AppendLine("-------------------");
+        foreach (var attribute in catalog.Attributes.All.OrderBy(a => a.Id, StringComparer.Ordinal))
+            builder.AppendLine(attribute.Id + " (" + attribute.ValueType.Name + ")");
+
         builder.AppendLine();
         builder.AppendLine("Relevant Schemas");
         builder.AppendLine("----------------");

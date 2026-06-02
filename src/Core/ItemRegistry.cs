@@ -26,13 +26,6 @@ public class ItemRegistry<TKey>
     /// </summary>
     public IEnumerable<ItemDefinition<TKey>> Definitions => _definitions.Values;
 
-    /// <summary>
-    /// Creates an item registry.
-    /// </summary>
-    public ItemRegistry()
-    {
-    }
-
     internal ItemRegistry(Action<ItemDefinition<TKey>> onDefinitionRegistered, Action onFreeze)
     {
         _onDefinitionRegistered = onDefinitionRegistered;
@@ -140,11 +133,7 @@ public class ItemRegistry<TKey>
         return definition;
     }
 
-    /// <summary>
-    /// Freezes the registry so definitions and migrations can no longer be changed.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">Validation performed by the owning catalog fails.</exception>
-    public void Freeze()
+    internal void Freeze()
     {
         if (_frozen)
             return;

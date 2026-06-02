@@ -24,7 +24,7 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
             new EntryLayout<string>());
         manager.Registry.Register(apple);
         manager.Registry.Register(potion);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var backpack = manager.CreateInventory();
 
         var addedApples = backpack.TryAdd(apple, out var appleError, 3);

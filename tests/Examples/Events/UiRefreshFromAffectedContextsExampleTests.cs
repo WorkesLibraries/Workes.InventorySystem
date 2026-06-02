@@ -64,9 +64,11 @@ public class UiRefreshFromAffectedContextsExampleTests
             new DefaultStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
+        manager.Catalog.Attributes.Define(Width);
+        manager.Catalog.Attributes.Define(Height);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager.CreateInventory();
     }
 

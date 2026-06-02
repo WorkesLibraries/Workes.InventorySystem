@@ -12,6 +12,18 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class InventoryQueryTests
 {
+    private sealed class QueryAxeDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> AxeSchema =
+            ItemSchema<string>.Create("query-axe")
+                .AddTag(TagKey.Parse("core:equipment.tools.axe"));
+
+        public QueryAxeDefinition(string id, params TagKey[] tags)
+            : base(id, AxeSchema, tags)
+        {
+        }
+    }
+
     private static InventoryManager<string> CreateManager(ItemCatalog<string>? catalog = null, int maxStack = 10)
     {
         return new InventoryManager<string>(
@@ -27,7 +39,7 @@ public class InventoryQueryTests
         var manager = CreateManager(maxStack: 5);
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         inventory.TryAdd(apple, out _, 12);
@@ -42,7 +54,7 @@ public class InventoryQueryTests
         var registeredApple = new ItemDefinition<string>("apple");
         var otherApple = new ItemDefinition<string>("apple");
         manager.Registry.Register(registeredApple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         inventory.TryAdd(registeredApple, out _, 3);
@@ -57,7 +69,7 @@ public class InventoryQueryTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         inventory.TryAdd(apple, out _, 4);
@@ -72,7 +84,7 @@ public class InventoryQueryTests
         var apple = new ItemDefinition<string>("apple");
         var manager = CreateManager();
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         Assert.Throws<ArgumentOutOfRangeException>(() => inventory.Contains(apple, 0));
@@ -84,7 +96,7 @@ public class InventoryQueryTests
         var manager = CreateManager(maxStack: 10);
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
@@ -111,8 +123,7 @@ public class InventoryQueryTests
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(axeTag);
         catalog.Tags.Define(material);
-        var axeSchema = ItemSchema<string>.Create("query-axe").AddTag(axeTag);
-        var axe = new ItemDefinition<string>("axe", axeSchema, material);
+        var axe = new QueryAxeDefinition("axe", material);
         var apple = new ItemDefinition<string>("apple");
         catalog.Registry.Register(axe);
         catalog.Registry.Register(apple);
@@ -177,7 +188,7 @@ public class InventoryQueryTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         inventory.TryAdd(apple, out _, 4);
@@ -192,7 +203,7 @@ public class InventoryQueryTests
     public void QueryMethods_ValidateArguments()
     {
         var manager = CreateManager();
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
         var tag = TagKey.Parse("core:test");
 

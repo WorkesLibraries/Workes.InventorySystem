@@ -70,9 +70,13 @@ public class InventoryRuleTests
             }
         }
 
+        manager.Catalog.Attributes.Define(Weight);
+        manager.Catalog.Attributes.Define(Damage);
+        manager.Catalog.Attributes.Define(Slot);
+
         foreach (var def in definitions)
             manager.Registry.Register(def);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         return manager.CreateInventory();
     }
@@ -91,7 +95,7 @@ public class InventoryRuleTests
             new EntryLayout<string>(),
             ruleContainer
         );
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         return manager.CreateInventory();
     }

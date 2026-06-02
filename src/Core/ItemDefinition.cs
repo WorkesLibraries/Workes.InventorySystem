@@ -25,8 +25,9 @@ public class ItemDefinition<TKey>
     public ItemSchema<TKey> Schema { get; }
 
     /// <summary>
-    /// Gets the typed attributes defined for this item definition.
+    /// Gets a read-only view of the typed attributes defined for this item definition.
     /// </summary>
+    /// <remarks>Derived definition classes should write schema attributes during construction with <see cref="DefineAttribute{T}(AttributeKey{T}, T)"/>.</remarks>
     public IAttributeView Attributes => _attributes;
 
     /// <summary>
@@ -59,21 +60,10 @@ public class ItemDefinition<TKey>
     /// <param name="id">The item definition identifier.</param>
     /// <param name="schema">The schema that constrains this definition.</param>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <see langword="null"/>.</exception>
-    public ItemDefinition(TKey id, ItemSchema<TKey> schema)
+    protected ItemDefinition(TKey id, ItemSchema<TKey> schema)
     {
         Id = id;
         Schema = schema ?? throw new ArgumentNullException(nameof(schema));
-    }
-
-    /// <summary>
-    /// Creates an item definition using a schema and direct tags.
-    /// </summary>
-    /// <param name="id">The item definition identifier.</param>
-    /// <param name="schema">The schema that constrains this definition.</param>
-    /// <param name="tags">The tags declared directly on the definition.</param>
-    public ItemDefinition(TKey id, ItemSchema<TKey> schema, params TagKey[] tags)
-        : this(id, schema, (IEnumerable<TagKey>?)tags)
-    {
     }
 
     /// <summary>

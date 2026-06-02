@@ -40,7 +40,7 @@ public class InventoryCoreTests
             new EntryLayout<string>());
 
         manager.Registry.Register(new ItemDefinition<string>("apple"));
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         Assert.DoesNotThrow(() => manager.CreateInventory());
     }
@@ -59,7 +59,7 @@ public class InventoryCoreTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -102,7 +102,7 @@ public class InventoryCoreTests
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
         manager.Registry.Register(carrot);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -144,7 +144,7 @@ public class InventoryCoreTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
         inventory.TryAdd(apple, out _, 2);
@@ -179,7 +179,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -214,7 +214,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
         inventory.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(1));
@@ -241,7 +241,7 @@ public class InventoryCoreTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -282,7 +282,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
         inventory.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(0));
@@ -307,7 +307,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -334,7 +334,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -360,7 +360,7 @@ public class InventoryCoreTests
 
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -391,7 +391,7 @@ public class InventoryCoreTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
 
@@ -405,5 +405,82 @@ public class InventoryCoreTests
 
         Assert.That(result, Is.False);
         Assert.That(error, Is.EqualTo("Items are not stack compatible."));
+    }
+
+    [Test]
+    public void Add_CommitsWhenTryAddWouldSucceed()
+    {
+        var manager = CreateSlotInventoryManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        inventory.Add(apple, amount: 2);
+
+        Assert.That(inventory.TotalItemCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Add_ThrowsWhenTryAddWouldFail()
+    {
+        var manager = new InventoryManager<string>(
+            new DefaultStackResolver<string>(10),
+            new MaxTotalItemAmountCapacityPolicy<string>(1),
+            new EntryLayout<string>());
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => inventory.Add(apple, amount: 2));
+
+        Assert.That(exception!.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void RemoveByDefinition_ThrowsWhenItemMissing()
+    {
+        var manager = CreateSlotInventoryManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        Assert.Throws<InvalidOperationException>(() => inventory.RemoveByDefinition(apple, amount: 1, ignoreMetadata: true));
+    }
+
+    [Test]
+    public void Move_ThrowsWhenTryMoveWouldFail()
+    {
+        var manager = CreateSlotInventoryManager(slotCount: 2);
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        inventory.Add(apple, context: new SlotLayoutContext<string>(1));
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            inventory.Move(new SlotLayoutContext<string>(0), new SlotLayoutContext<string>(1)));
+
+        Assert.That(exception!.Message, Is.EqualTo("Item not found in inventory."));
+    }
+
+    [Test]
+    public void Add_WrapperFiresChangedEventLikeTryAdd()
+    {
+        var manager = CreateSlotInventoryManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+        int changedCount = 0;
+        inventory.Changed += (_, _) => changedCount++;
+
+        inventory.Add(apple);
+
+        Assert.That(changedCount, Is.EqualTo(1));
     }
 }

@@ -150,6 +150,7 @@ public class TagFocusedItemUniverseExampleTests
     public void TagHeavyItemUniverse_IsPracticalToAuthorAndInspect()
     {
         var catalog = new ItemCatalog<string>();
+        DefineAttributes(catalog);
         DefineCoreTags(catalog);
         var moddedRitualSacrificial = catalog.Tags.Define("mymod:ritual.sacrificial");
         var moddedRitualComponent = catalog.Tags.Define("mymod:ritual.component");
@@ -256,6 +257,16 @@ public class TagFocusedItemUniverseExampleTests
         catalog.Tags.Define(GameTags.Materials.Raw);
         catalog.Tags.Define(GameTags.Materials.Obsidian);
         catalog.Tags.Define(GameTags.Materials.Steel);
+    }
+
+    private static void DefineAttributes(ItemCatalog<string> catalog)
+    {
+        catalog.Attributes.Define(GameAttributes.Weight);
+        catalog.Attributes.Define(GameAttributes.Durability);
+        catalog.Attributes.Define(GameAttributes.ChopPower);
+        catalog.Attributes.Define(GameAttributes.CutPower);
+        catalog.Attributes.Define(GameAttributes.Damage);
+        catalog.Attributes.Define(GameAttributes.CraftingValue);
     }
 
     private static void AssertSatisfies(ItemCatalog<string> catalog, ItemDefinition<string> definition, params TagKey[] tags)

@@ -76,7 +76,7 @@ public class InventoryTransferExpansionTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         source.TryAdd(apple, out _, 5);
 
@@ -95,7 +95,7 @@ public class InventoryTransferExpansionTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var builder = InventoryTransfer.From(source);
         var detached = new ItemInstance<string>(apple, 1);
@@ -110,7 +110,7 @@ public class InventoryTransferExpansionTests
     public void TryRemoveAtStorageIndex_RejectsInvalidIndex()
     {
         var manager = CreateManager();
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var builder = InventoryTransfer.From(manager.CreateInventory());
 
         Assert.That(builder.TryRemoveAtStorageIndex(0, 1, out var error), Is.False);
@@ -123,7 +123,7 @@ public class InventoryTransferExpansionTests
         var manager = CreateManager(maxStack: 10);
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
@@ -146,7 +146,7 @@ public class InventoryTransferExpansionTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
@@ -203,7 +203,7 @@ public class InventoryTransferExpansionTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
@@ -229,7 +229,7 @@ public class InventoryTransferExpansionTests
         var gem = new ItemDefinition<string>("gem");
         manager.Registry.Register(apple);
         manager.Registry.Register(gem);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var first = manager.CreateInventory();
         var second = manager.CreateInventory();
         first.TryAdd(apple, out _, 5);
@@ -280,7 +280,7 @@ public class InventoryTransferExpansionTests
         var gem = new ItemDefinition<string>("gem");
         manager.Registry.Register(apple);
         manager.Registry.Register(gem);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var first = manager.CreateInventory();
         var second = manager.CreateInventory();
         first.TryAdd(apple, out _, 2);
@@ -310,7 +310,7 @@ public class InventoryTransferExpansionTests
     public void TrySwapInventories_EmptyWithEmptySucceedsWithoutEvents()
     {
         var manager = CreateManager();
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var first = manager.CreateInventory();
         var second = manager.CreateInventory();
         int events = 0;
@@ -336,7 +336,7 @@ public class InventoryTransferExpansionTests
         var gem = new ItemDefinition<string>("gem");
         manager.Registry.Register(apple);
         manager.Registry.Register(gem);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
@@ -407,7 +407,7 @@ public class InventoryTransferExpansionTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1);

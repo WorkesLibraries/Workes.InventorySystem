@@ -3,8 +3,12 @@ using System.Collections.Generic;
 namespace Workes.InventorySystem.Attributes;
 
 /// <summary>
-/// Stores typed attribute values addressed by <see cref="AttributeKey{T}"/>.
+/// Mutable store for typed attribute values addressed by <see cref="AttributeKey{T}"/>.
 /// </summary>
+/// <remarks>
+/// This container remains mutable for inventory-level attributes and other general-purpose holders.
+/// Item definitions expose their attributes as <see cref="IAttributeView"/> and should write schema attributes through their definition-class constructors.
+/// </remarks>
 public sealed class AttributeContainer : IAttributeView
 {
     private readonly Dictionary<object, object?> _values = new();

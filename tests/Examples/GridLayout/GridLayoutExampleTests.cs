@@ -105,7 +105,7 @@ public class GridLayoutExampleTests
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager;
     }
 

@@ -498,7 +498,7 @@ public class SectionedLayoutTests
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager.CreateInventory();
     }
 
@@ -515,7 +515,7 @@ public class SectionedLayoutTests
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager;
     }
 

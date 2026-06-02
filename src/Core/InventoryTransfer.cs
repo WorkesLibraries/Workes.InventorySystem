@@ -673,19 +673,7 @@ public static class InventoryTransfer
 
     private static bool IsMappedPlacementContext<TKey>(ILayoutContext<TKey>? context)
     {
-        if (context is SlotLayoutContext<TKey> slotContext)
-            return slotContext.IsMapped;
-        if (context is EntryLayoutContext<TKey> entryContext)
-            return entryContext.IsMapped;
-        if (context is GridLayoutContext<TKey> gridContext)
-            return gridContext.IsMapped;
-        if (context is EquipmentLayoutContext<TKey> equipmentContext)
-            return equipmentContext.IsMapped;
-        if (context is MultiCellGridLayoutContext<TKey> multiCellGridContext)
-            return multiCellGridContext.IsMapped;
-        if (context is SectionedLayoutContext<TKey> sectionedContext)
-            return sectionedContext.IsMapped;
-        return false;
+        return context?.IsMapped == true;
     }
 
     private static IReadOnlyList<InventoryTransferEntry<TKey>> BuildAllEntries<TKey>(Inventory<TKey> inventory)

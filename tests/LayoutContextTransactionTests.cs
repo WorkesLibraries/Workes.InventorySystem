@@ -24,7 +24,7 @@ public class LayoutContextTransactionTests
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         return manager;
     }
 
@@ -234,6 +234,33 @@ public class LayoutContextTransactionTests
 
         Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(3))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(4))!.Definition.Id, Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void TransferPlanning_UsesLayoutContextMappedContractWithoutConcreteContextSwitch()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var manager = CreateManager(new EntryLayout<string>(), 10, apple, sword);
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory(layout: new SectionedLayout<string>(
+            new SectionDefinition<string>("hotbar", 2),
+            new SectionDefinition<string>("bag", 1)));
+        source.TryAdd(apple, out _, 1);
+        source.TryAdd(sword, out _, 1);
+        var transfer = InventoryTransfer.From(source);
+        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        ILayoutContext<string> context = SectionedLayoutContext<string>.Map()
+            .Add(0, "bag", 0)
+            .Add(1, "hotbar", 1)
+            .Build();
+
+        Assert.That(context.IsMapped, Is.True);
+        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(source.Items, Is.Empty);
+        Assert.That(target.Layout.GetItemAt(target, SectionedLayoutContext<string>.Single("bag", 0))!.Definition.Id, Is.EqualTo("apple"));
+        Assert.That(target.Layout.GetItemAt(target, SectionedLayoutContext<string>.Single("hotbar", 1))!.Definition.Id, Is.EqualTo("sword"));
     }
 
     [Test]

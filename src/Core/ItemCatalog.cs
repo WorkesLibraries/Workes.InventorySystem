@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Tags;
 
 namespace Workes.InventorySystem.Core;
 
 /// <summary>
-/// Owns item definitions, schemas, and tags for a family of inventories.
+/// Owns item definitions, schemas, tags, and attributes for a family of inventories.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class ItemCatalog<TKey>
@@ -24,6 +25,11 @@ public sealed class ItemCatalog<TKey>
     /// Gets the catalog of declared tags.
     /// </summary>
     public TagCatalog Tags { get; } = new();
+
+    /// <summary>
+    /// Gets the catalog of declared definition attributes.
+    /// </summary>
+    public AttributeCatalog Attributes { get; } = new();
 
     /// <summary>
     /// Gets whether the item registry and schema catalog are frozen.
@@ -59,9 +65,22 @@ public sealed class ItemCatalog<TKey>
     private void ValidateDefinitions()
     {
         Schemas.Validate();
+        ValidateReferencedAttributesAreDeclared();
         ValidateReferencedTagsAreDeclared();
         foreach (var definition in Registry.Definitions)
             definition.Validate();
+    }
+
+    private void ValidateReferencedAttributesAreDeclared()
+    {
+        foreach (var schema in Schemas.Schemas)
+        {
+            foreach (var attribute in schema.DirectAttributes)
+            {
+                if (!Attributes.Contains(attribute.Key))
+                    throw new InvalidOperationException($"Attribute '{attribute.Key}' is used by schema '{schema.Id}' but is not declared in the item catalog attribute catalog.");
+            }
+        }
     }
 
     private void ValidateReferencedTagsAreDeclared()

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Capacity;
@@ -38,6 +39,16 @@ public class ItemUniverseFoundationTests
     {
         foreach (var tag in tags)
             catalog.Tags.Define(tag);
+    }
+
+    private static void DefineAttributes(ItemCatalog<string> catalog)
+    {
+        catalog.Attributes.Define(Weight);
+        catalog.Attributes.Define(Durability);
+        catalog.Attributes.Define(ChopPower);
+        catalog.Attributes.Define(Quality);
+        catalog.Attributes.Define(CutPower);
+        catalog.Attributes.Define(Damage);
     }
 
     // Test-only helper for invalid schema edge cases. Normal usage should colocate
@@ -153,6 +164,14 @@ public class ItemUniverseFoundationTests
         }
     }
 
+    private sealed class SchemaTagDefinition : ItemDefinition<string>
+    {
+        public SchemaTagDefinition(string id, ItemSchema<string> schema)
+            : base(id, schema)
+        {
+        }
+    }
+
     [Test]
     public void InventoryManager_CreatesDefaultCatalog_AndRegistryForwardsToCatalog()
     {
@@ -183,15 +202,40 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void RegistryFreeze_RemainsCompatible()
+    public void CatalogFreeze_FreezesRegistry()
     {
         var manager = CreateManager();
         manager.Registry.Register(new ItemDefinition<string>("apple"));
 
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
 
         Assert.That(manager.Catalog.Frozen, Is.True);
         Assert.DoesNotThrow(() => manager.CreateInventory());
+    }
+
+    [Test]
+    public void ManagerWithoutCatalog_StillRequiresFreezeBeforeInventoryCreation()
+    {
+        var manager = CreateManager();
+
+        manager.Registry.Register(new ItemDefinition<string>("apple"));
+
+        Assert.That(manager.Catalog, Is.Not.Null);
+        Assert.Throws<InvalidOperationException>(() => manager.CreateInventory());
+
+        manager.Catalog.Freeze();
+
+        Assert.DoesNotThrow(() => manager.CreateInventory());
+    }
+
+    [Test]
+    public void ItemDefinition_PublicConstructors_DoNotExposeSchemaParameters()
+    {
+        var publicConstructors = typeof(ItemDefinition<string>).GetConstructors();
+        var protectedConstructors = typeof(ItemDefinition<string>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.That(publicConstructors.SelectMany(c => c.GetParameters()).Any(p => p.ParameterType == typeof(ItemSchema<string>)), Is.False);
+        Assert.That(protectedConstructors.SelectMany(c => c.GetParameters()).Any(p => p.ParameterType == typeof(ItemSchema<string>)), Is.True);
     }
 
     [Test]
@@ -200,6 +244,7 @@ public class ItemUniverseFoundationTests
         var catalog = new ItemCatalog<string>();
         var axe = new AxeDefinition("axe", weight: 5, durability: 10, chopPower: 20);
 
+        DefineAttributes(catalog);
         DefineTags(catalog, AxeDefinition.AxeTag);
         catalog.Registry.Register(axe);
         catalog.Freeze();
@@ -216,6 +261,7 @@ public class ItemUniverseFoundationTests
         var catalog = new ItemCatalog<string>();
         var hammer = new HammerDefinition("hammer", weight: 6, durability: 12);
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(hammer);
         catalog.Freeze();
 
@@ -235,6 +281,7 @@ public class ItemUniverseFoundationTests
         var definition = new SchemaValidationDefinition("broken-tool", child, defineDurability: true);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
@@ -248,6 +295,7 @@ public class ItemUniverseFoundationTests
         var definition = new SchemaValidationDefinition("broken-equipment", schema);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
@@ -259,6 +307,7 @@ public class ItemUniverseFoundationTests
         var definition = new PolishedEquipmentDefinition("equipment", weight: 5, quality: 4);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
@@ -280,11 +329,94 @@ public class ItemUniverseFoundationTests
         var definition = new EquipmentDefinition("equipment", weight: 5);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.DoesNotThrow(() => catalog.Freeze());
         Assert.That(definition.Attributes.TryGet(Weight, out var weight), Is.True);
         Assert.That(weight, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void AttributeCatalog_DefineString_ReturnsCanonicalTypedKey()
+    {
+        var catalog = new ItemCatalog<string>();
+
+        var defined = catalog.Attributes.Define<int>("weight");
+        var definedAgain = catalog.Attributes.Define<int>("weight");
+
+        Assert.That(defined.Id, Is.EqualTo("weight"));
+        Assert.That(definedAgain, Is.SameAs(defined));
+        Assert.That(catalog.Attributes.Contains(defined), Is.True);
+    }
+
+    [Test]
+    public void AttributeCatalog_Get_ReturnsDeclaredTypedKey()
+    {
+        var catalog = new ItemCatalog<string>();
+        var defined = catalog.Attributes.Define(Weight);
+
+        var resolved = catalog.Attributes.Get<int>("weight");
+
+        Assert.That(resolved, Is.SameAs(defined));
+    }
+
+    [Test]
+    public void AttributeCatalog_Get_ThrowsForUnknownAttribute()
+    {
+        var catalog = new ItemCatalog<string>();
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Attributes.Get<int>("missing"));
+    }
+
+    [Test]
+    public void AttributeCatalog_DefineRejectsSameIdWithDifferentType()
+    {
+        var catalog = new ItemCatalog<string>();
+
+        catalog.Attributes.Define<int>("weight");
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Attributes.Define<float>("weight"));
+        Assert.That(catalog.Attributes.TryGet<float>("weight", out _), Is.False);
+    }
+
+    [Test]
+    public void CatalogFreeze_FailsWhenSchemaAttributeIsNotDeclared()
+    {
+        var definition = new EquipmentDefinition("equipment", weight: 5);
+        var catalog = new ItemCatalog<string>();
+
+        catalog.Registry.Register(definition);
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_SucceedsWhenSchemaAttributesAreDeclared()
+    {
+        var definition = new EquipmentDefinition("equipment", weight: 5);
+        var catalog = new ItemCatalog<string>();
+
+        catalog.Attributes.Define(Weight);
+        catalog.Registry.Register(definition);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_RegistersAndValidatesInheritedSchemaAttributes()
+    {
+        var definition = new AxeDefinition("axe", weight: 5, durability: 10, chopPower: 20);
+        var catalog = new ItemCatalog<string>();
+
+        DefineAttributes(catalog);
+        DefineTags(catalog, AxeDefinition.AxeTag);
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        Assert.That(catalog.Schemas.Contains(EquipmentDefinition.EquipmentSchema.Id), Is.True);
+        Assert.That(catalog.Schemas.Contains(ToolDefinition.ToolSchema.Id), Is.True);
+        Assert.That(catalog.Schemas.Contains(AxeDefinition.AxeSchema.Id), Is.True);
     }
 
     [Test]
@@ -295,6 +427,7 @@ public class ItemUniverseFoundationTests
         var definition = new SchemaValidationDefinition("equipment", schema, defineWeight: true, defineQuality: true);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
@@ -311,6 +444,7 @@ public class ItemUniverseFoundationTests
         var definition = new SchemaValidationDefinition("broken-child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
@@ -327,6 +461,7 @@ public class ItemUniverseFoundationTests
         var definition = new SchemaValidationDefinition("child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         catalog.Registry.Register(definition);
 
         Assert.DoesNotThrow(() => catalog.Freeze());
@@ -383,6 +518,7 @@ public class ItemUniverseFoundationTests
         var catalog = new ItemCatalog<string>();
         var obsidianKnife = new RepositoryKnifeDefinition("obsidian_knife", 2, 80, 9, 14, ObsidianTag);
 
+        DefineAttributes(catalog);
         DefineTags(catalog, KnifeTag, ObsidianTag);
         catalog.Registry.Register(obsidianKnife);
         catalog.Freeze();
@@ -399,6 +535,7 @@ public class ItemUniverseFoundationTests
         var steelKnife = new RepositoryKnifeDefinition("steel_knife", 2, 120, 7, 10, SteelTag);
         var obsidianKnife = new RepositoryKnifeDefinition("obsidian_knife", 2, 80, 9, 14, ObsidianTag);
 
+        DefineAttributes(catalog);
         DefineTags(catalog, KnifeTag, SteelTag, ObsidianTag);
         catalog.Registry.Register(steelKnife);
         catalog.Registry.Register(obsidianKnife);
@@ -413,6 +550,39 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
+    public void ItemCatalog_SupportsGuidDefinitionIds()
+    {
+        var id = Guid.NewGuid();
+        var definition = new ItemDefinition<Guid>(id);
+        var catalog = new ItemCatalog<Guid>();
+
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        Assert.That(catalog.Registry.Resolve(id), Is.SameAs(definition));
+    }
+
+    [Test]
+    public void InventoryManager_SupportsGuidDefinitionIds()
+    {
+        var id = Guid.NewGuid();
+        var definition = new ItemDefinition<Guid>(id);
+        var catalog = new ItemCatalog<Guid>();
+        var manager = new InventoryManager<Guid>(
+            new DefaultStackResolver<Guid>(10),
+            new UnlimitedCapacityPolicy<Guid>(),
+            new EntryLayout<Guid>(),
+            catalog: catalog);
+
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        Assert.That(inventory.TryAdd(definition, out var error), Is.True, error);
+        Assert.That(inventory.Items.Single().Definition.Id, Is.EqualTo(id));
+    }
+
+    [Test]
     public void TagKey_Parse_RequiresValidNamespacedId()
     {
         var tag = TagKey.Parse("core:equipment.tools.axe");
@@ -424,6 +594,22 @@ public class ItemUniverseFoundationTests
         Assert.That(TagKey.TryParse("Food", out _), Is.False);
         Assert.That(TagKey.TryParse("core:", out _), Is.False);
         Assert.That(TagKey.TryParse("core:equipment..axe", out _), Is.False);
+    }
+
+    [Test]
+    public void TagKey_Constructor_AllowsFlatCompatibilityTag()
+    {
+        var tag = new TagKey("Food");
+
+        Assert.That(tag.Id, Is.EqualTo("Food"));
+        Assert.That(tag.IsNamespaced, Is.False);
+    }
+
+    [Test]
+    public void TagKey_Parse_RejectsFlatTag()
+    {
+        Assert.That(TagKey.TryParse("Food", out _), Is.False);
+        Assert.Throws<ArgumentException>(() => TagKey.Parse("Food"));
     }
 
     [Test]
@@ -483,7 +669,7 @@ public class ItemUniverseFoundationTests
     {
         var schema = ItemSchema<string>.Create("undeclared-schema-tag")
             .AddTag(KnifeTag);
-        var definition = new ItemDefinition<string>("knife", schema);
+        var definition = new SchemaTagDefinition("knife", schema);
         var catalog = new ItemCatalog<string>();
 
         catalog.Registry.Register(definition);
@@ -503,11 +689,23 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
+    public void CatalogFreeze_FailsWhenDefinitionUsesFlatUndeclaredTag()
+    {
+        var definition = new ItemDefinition<string>("food", new TagKey("Food"));
+        var catalog = new ItemCatalog<string>();
+
+        catalog.Registry.Register(definition);
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+    }
+
+    [Test]
     public void CatalogFreeze_SucceedsWhenSchemaAndDefinitionTagsAreDeclared()
     {
         var catalog = new ItemCatalog<string>();
         var definition = new RepositoryKnifeDefinition("obsidian_knife", 2, 80, 9, 14, ObsidianTag);
 
+        DefineAttributes(catalog);
         DefineTags(catalog, KnifeTag, ObsidianTag);
         catalog.Registry.Register(definition);
 
@@ -521,6 +719,7 @@ public class ItemUniverseFoundationTests
         var modTag = catalog.Tags.Define("mymod:ritual.sacrificial_blade");
         var definition = new RepositoryKnifeDefinition("mymod_obsidian_ritual_knife", 2, 80, 9, 14, modTag);
 
+        DefineAttributes(catalog);
         DefineTags(catalog, KnifeTag);
         catalog.Registry.Register(definition);
         catalog.Freeze();
@@ -536,6 +735,7 @@ public class ItemUniverseFoundationTests
         definition.Tags.Add(material);
         var catalog = new ItemCatalog<string>();
 
+        DefineAttributes(catalog);
         DefineTags(catalog, AxeDefinition.AxeTag, material);
         catalog.Registry.Register(definition);
         catalog.Freeze();
@@ -562,9 +762,10 @@ public class ItemUniverseFoundationTests
         rules.Add("require-tool", new RequireAllTagsRule<string>(requiredTool));
         var manager = CreateManager(rules: rules);
 
+        DefineAttributes(manager.Catalog);
         DefineTags(manager.Catalog, AxeDefinition.AxeTag);
         manager.Registry.Register(axe);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
@@ -580,9 +781,10 @@ public class ItemUniverseFoundationTests
             TagKey.Parse("core:equipment")));
         var manager = CreateManager(rules: rules);
 
+        DefineAttributes(manager.Catalog);
         DefineTags(manager.Catalog, AxeDefinition.AxeTag);
         manager.Registry.Register(axe);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);

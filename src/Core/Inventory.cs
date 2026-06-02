@@ -850,6 +850,19 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Adds an amount of an item definition to the inventory or throws when the add is rejected.
+    /// </summary>
+    /// <param name="definition">The item definition to add.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <exception cref="InvalidOperationException">The add operation is rejected by validation, rules, capacity, or layout.</exception>
+    public void Add(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
+    {
+        if (!TryAdd(definition, out var error, amount, context))
+            ThrowMutationFailure(error, "Add operation failed.");
+    }
+
+    /// <summary>
     /// Attempts to remove an amount from a specific item instance.
     /// </summary>
     /// <param name="instance">The item instance to remove from.</param>
@@ -862,6 +875,18 @@ public class Inventory<TKey>
             return false;
         CommitTransaction(tx);
         return true;
+    }
+
+    /// <summary>
+    /// Removes an amount from a specific item instance or throws when the removal is rejected.
+    /// </summary>
+    /// <param name="instance">The item instance to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    public void Remove(ItemInstance<TKey> instance, int amount = 1)
+    {
+        if (!TryRemove(instance, out var error, amount))
+            ThrowMutationFailure(error, "Remove operation failed.");
     }
 
     /// <summary>
@@ -880,6 +905,18 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Removes an amount from the item at a storage index or throws when the removal is rejected.
+    /// </summary>
+    /// <param name="index">The storage index to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    public void RemoveAtStorageIndex(int index, int amount = 1)
+    {
+        if (!TryRemoveAtStorageIndex(index, out var error, amount))
+            ThrowMutationFailure(error, "Remove operation failed.");
+    }
+
+    /// <summary>
     /// Attempts to remove an amount by item definition.
     /// </summary>
     /// <param name="definition">The item definition to remove.</param>
@@ -893,6 +930,19 @@ public class Inventory<TKey>
             return false;
         CommitTransaction(tx);
         return true;
+    }
+
+    /// <summary>
+    /// Removes an amount by item definition or throws when the removal is rejected.
+    /// </summary>
+    /// <param name="definition">The item definition to remove.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
+    {
+        if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var error))
+            ThrowMutationFailure(error, "Remove operation failed.");
     }
 
     /// <summary>
@@ -939,6 +989,18 @@ public class Inventory<TKey>
         Changed?.Invoke(this, changedEventArgs);
 
         return true;
+    }
+
+    /// <summary>
+    /// Moves an item between two layout contexts or throws when the move is rejected.
+    /// </summary>
+    /// <param name="contextFrom">The source layout context.</param>
+    /// <param name="contextTo">The destination layout context.</param>
+    /// <exception cref="InvalidOperationException">The move is rejected by validation or layout.</exception>
+    public void Move(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
+    {
+        if (!TryMove(contextFrom, contextTo, out var error))
+            ThrowMutationFailure(error, "Move operation failed.");
     }
 
     /// <summary>
@@ -989,6 +1051,18 @@ public class Inventory<TKey>
         Changed?.Invoke(this, changedEventArgs);
 
         return true;
+    }
+
+    /// <summary>
+    /// Swaps two items between layout contexts or throws when the swap is rejected.
+    /// </summary>
+    /// <param name="contextFrom">The first layout context.</param>
+    /// <param name="contextTo">The second layout context.</param>
+    /// <exception cref="InvalidOperationException">The swap is rejected by validation or layout.</exception>
+    public void Swap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
+    {
+        if (!TrySwap(contextFrom, contextTo, out var error))
+            ThrowMutationFailure(error, "Swap operation failed.");
     }
 
     /// <summary>
@@ -1068,6 +1142,19 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Moves an amount from one compatible stack into another or throws when the merge move is rejected.
+    /// </summary>
+    /// <param name="contextFrom">The source stack layout context.</param>
+    /// <param name="contextTo">The destination stack layout context.</param>
+    /// <param name="amount">Optional exact amount to move; when omitted, as much as possible is moved.</param>
+    /// <exception cref="InvalidOperationException">The merge move is rejected by validation, rules, capacity, or layout.</exception>
+    public void MergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, int? amount = null)
+    {
+        if (!TryMergeMove(contextFrom, contextTo, out var error, amount))
+            ThrowMutationFailure(error, "Merge move operation failed.");
+    }
+
+    /// <summary>
     /// Attempts to sort the current layout without mutating inventory storage order.
     /// </summary>
     /// <param name="comparer">The item comparer used to order placed items.</param>
@@ -1086,6 +1173,17 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Sorts the current layout with an item comparer or throws when sorting is rejected.
+    /// </summary>
+    /// <param name="comparer">The item comparer used to order placed items.</param>
+    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    public void SortLayout(IComparer<ItemInstance<TKey>> comparer)
+    {
+        if (!TrySortLayout(comparer, out var error))
+            ThrowMutationFailure(error, "Sort operation failed.");
+    }
+
+    /// <summary>
     /// Attempts to sort the current layout without mutating inventory storage order.
     /// </summary>
     /// <param name="comparison">The item comparison used to order placed items.</param>
@@ -1101,6 +1199,17 @@ public class Inventory<TKey>
         }
 
         return TrySortLayout(ItemSortContext<TKey>.FromComparison(comparison), out error);
+    }
+
+    /// <summary>
+    /// Sorts the current layout with an item comparison or throws when sorting is rejected.
+    /// </summary>
+    /// <param name="comparison">The item comparison used to order placed items.</param>
+    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    public void SortLayout(Comparison<ItemInstance<TKey>> comparison)
+    {
+        if (!TrySortLayout(comparison, out var error))
+            ThrowMutationFailure(error, "Sort operation failed.");
     }
 
     /// <summary>
@@ -1135,6 +1244,22 @@ public class Inventory<TKey>
 
         error = null;
         return true;
+    }
+
+    /// <summary>
+    /// Sorts the current layout with layout-specific sorting instructions or throws when sorting is rejected.
+    /// </summary>
+    /// <param name="sortContext">The sort context interpreted by the current layout.</param>
+    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    public void SortLayout(IInventorySortContext<TKey> sortContext)
+    {
+        if (!TrySortLayout(sortContext, out var error))
+            ThrowMutationFailure(error, "Sort operation failed.");
+    }
+
+    private static void ThrowMutationFailure(string? error, string fallbackMessage)
+    {
+        throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? fallbackMessage : error);
     }
 
     private List<IReadOnlyList<ILayoutContext<TKey>>> CaptureLayoutContextsByStorageIndex()

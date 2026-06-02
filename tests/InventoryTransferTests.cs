@@ -70,7 +70,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 5);
@@ -109,8 +109,8 @@ public class InventoryTransferTests
         var targetManager = CreateManager();
         sourceManager.Registry.Register(sourceApple);
         targetManager.Registry.Register(targetApple);
-        sourceManager.Registry.Freeze();
-        targetManager.Registry.Freeze();
+        sourceManager.Catalog.Freeze();
+        targetManager.Catalog.Freeze();
         var source = sourceManager.CreateInventory();
         var target = targetManager.CreateInventory();
         source.TryAdd(sourceApple, out _, 2);
@@ -129,7 +129,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
@@ -148,7 +148,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         var detached = new ItemInstance<string>(apple, 1);
@@ -192,7 +192,7 @@ public class InventoryTransferTests
         var berry = new ItemDefinition<string>("berry");
         manager.Registry.Register(apple);
         manager.Registry.Register(berry);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(0));
@@ -213,7 +213,7 @@ public class InventoryTransferTests
         var manager = CreateManager(maxStack: 10);
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 3);
@@ -252,7 +252,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         var metadata = new InstanceMetadata();
@@ -274,7 +274,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
@@ -296,7 +296,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1);
@@ -318,7 +318,7 @@ public class InventoryTransferTests
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
-        manager.Registry.Freeze();
+        manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
