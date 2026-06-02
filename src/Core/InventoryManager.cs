@@ -80,7 +80,7 @@ public class InventoryManager<TKey>
             DefaultStackResolver,
             DefaultCapacityPolicy,
             DefaultLayout.Clone(),
-            DefaultRules);
+            DefaultRules.Clone());
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public class InventoryManager<TKey>
             stackResolver ?? DefaultStackResolver,
             capacityPolicy ?? DefaultCapacityPolicy,
             (layout ?? DefaultLayout).Clone(),
-            rules ?? DefaultRules);
+            (rules ?? DefaultRules).Clone());
     }
 
     private void EnsureFrozen()

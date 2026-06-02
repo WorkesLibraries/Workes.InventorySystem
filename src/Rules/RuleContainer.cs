@@ -38,6 +38,26 @@ public class RuleContainer<TKey>
     /// </summary>
     public RuleContainer() { }
 
+    internal RuleContainer<TKey> Clone()
+    {
+        var clone = new RuleContainer<TKey>();
+        clone._sequence = _sequence;
+        foreach (var rule in _rules)
+            clone._rules.Add(rule.Key, rule.Value);
+        return clone;
+    }
+
+    internal void ReplaceWith(RuleContainer<TKey> source)
+    {
+        if (source == null)
+            throw new ArgumentNullException(nameof(source));
+
+        _rules.Clear();
+        foreach (var rule in source._rules)
+            _rules.Add(rule.Key, rule.Value);
+        _sequence = source._sequence;
+    }
+
     /*
     public RuleContainer(params IRulePolicy<TKey>[] rules)
     {

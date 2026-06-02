@@ -93,6 +93,11 @@ public class Inventory<TKey>
     public IInventoryLayout<TKey> Layout => _layout;
 
     /// <summary>
+    /// Gets the inventory-owned rules by rule id.
+    /// </summary>
+    public IReadOnlyDictionary<string, IRulePolicy<TKey>> Rules => _rules.Rules;
+
+    /// <summary>
     /// Counts the total amount of items that use the exact item definition instance.
     /// </summary>
     /// <param name="definition">The item definition instance to count.</param>
@@ -306,7 +311,7 @@ public class Inventory<TKey>
     internal static Inventory<TKey> CreateSimulationClone(Inventory<TKey> source)
     {
         var clonedLayout = source._layout.Clone();
-        var clone = new Inventory<TKey>(source.Manager, source._stackResolver, source._capacityPolicy, clonedLayout, source._rules);
+        var clone = new Inventory<TKey>(source.Manager, source._stackResolver, source._capacityPolicy, clonedLayout, source._rules.Clone());
 
         foreach (var item in source._items)
         {
@@ -622,6 +627,228 @@ public class Inventory<TKey>
         if (!_layout.CanSatisfyPlacement(this, tx, out error))
             return false;
         return true;
+    }
+
+    /// <summary>
+    /// Adds or replaces an inventory rule after validating the current inventory contents against the proposed rule set.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add or replace.</param>
+    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, out string? error)
+    {
+        return TryApplyRuleMutation(
+            rules => rules.Set(id, rule),
+            out error);
+    }
+
+    /// <summary>
+    /// Adds or replaces an inventory rule with explicit priority and enabled state after validating current contents.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add or replace.</param>
+    /// <param name="priority">The rule priority. Higher values run first.</param>
+    /// <param name="enabled">Whether the rule participates in validation.</param>
+    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out string? error)
+    {
+        return TryApplyRuleMutation(
+            rules => rules.Set(id, rule, priority, enabled),
+            out error);
+    }
+
+    /// <summary>
+    /// Removes an inventory rule by id after validating current contents against the proposed rule set.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the rule exists and is removed; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveRule(string id, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            error = "Rule id cannot be null or empty.";
+            return false;
+        }
+
+        if (!Rules.ContainsKey(id))
+        {
+            error = $"Rule '{id}' was not found.";
+            return false;
+        }
+
+        return TryApplyRuleMutation(
+            rules => rules.Remove(id),
+            out error);
+    }
+
+    /// <summary>
+    /// Changes whether an inventory rule is enabled after validating current contents against the proposed rule set.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="enabled">The new enabled state.</param>
+    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetRuleEnabled(string id, bool enabled, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            error = "Rule id cannot be null or empty.";
+            return false;
+        }
+
+        if (!Rules.ContainsKey(id))
+        {
+            error = $"Rule '{id}' was not found.";
+            return false;
+        }
+
+        return TryApplyRuleMutation(
+            rules => rules.TrySetEnabled(id, enabled),
+            out error);
+    }
+
+    /// <summary>
+    /// Changes an inventory rule priority after validating current contents against the proposed rule set.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="priority">The new priority. Higher values run first.</param>
+    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetRulePriority(string id, int priority, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            error = "Rule id cannot be null or empty.";
+            return false;
+        }
+
+        if (!Rules.ContainsKey(id))
+        {
+            error = $"Rule '{id}' was not found.";
+            return false;
+        }
+
+        return TryApplyRuleMutation(
+            rules => rules.TrySetPriority(id, priority),
+            out error);
+    }
+
+    /// <summary>
+    /// Adds or replaces an inventory rule, throwing when the rule change is rejected.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add or replace.</param>
+    /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
+    public void SetRule(string id, IRulePolicy<TKey> rule)
+    {
+        if (!TrySetRule(id, rule, out var error))
+            ThrowMutationFailure(error, "Rule change failed.");
+    }
+
+    /// <summary>
+    /// Adds or replaces an inventory rule with explicit priority and enabled state, throwing when the rule change is rejected.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="rule">The rule to add or replace.</param>
+    /// <param name="priority">The rule priority. Higher values run first.</param>
+    /// <param name="enabled">Whether the rule participates in validation.</param>
+    /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
+    public void SetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled)
+    {
+        if (!TrySetRule(id, rule, priority, enabled, out var error))
+            ThrowMutationFailure(error, "Rule change failed.");
+    }
+
+    /// <summary>
+    /// Removes an inventory rule by id, throwing when the rule change is rejected.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    public void RemoveRule(string id)
+    {
+        if (!TryRemoveRule(id, out var error))
+            ThrowMutationFailure(error, "Rule change failed.");
+    }
+
+    /// <summary>
+    /// Changes whether an inventory rule is enabled, throwing when the rule change is rejected.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="enabled">The new enabled state.</param>
+    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    public void SetRuleEnabled(string id, bool enabled)
+    {
+        if (!TrySetRuleEnabled(id, enabled, out var error))
+            ThrowMutationFailure(error, "Rule change failed.");
+    }
+
+    /// <summary>
+    /// Changes an inventory rule priority, throwing when the rule change is rejected.
+    /// </summary>
+    /// <param name="id">The rule id.</param>
+    /// <param name="priority">The new priority. Higher values run first.</param>
+    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    public void SetRulePriority(string id, int priority)
+    {
+        if (!TrySetRulePriority(id, priority, out var error))
+            ThrowMutationFailure(error, "Rule change failed.");
+    }
+
+    private bool TryApplyRuleMutation(Action<RuleContainer<TKey>> mutate, out string? error)
+    {
+        if (mutate == null)
+            throw new ArgumentNullException(nameof(mutate));
+
+        var proposedRules = _rules.Clone();
+        try
+        {
+            mutate(proposedRules);
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is ArgumentNullException)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (!ValidateCurrentContentsAgainstRules(proposedRules, out error))
+            return false;
+
+        _rules.ReplaceWith(proposedRules);
+        error = null;
+        return true;
+    }
+
+    private bool ValidateCurrentContentsAgainstRules(RuleContainer<TKey> rules, out string? error)
+    {
+        var validationInventory = new Inventory<TKey>(
+            Manager,
+            _stackResolver,
+            _capacityPolicy,
+            _layout.Clone(),
+            rules);
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+
+        foreach (var item in _items)
+        {
+            var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
+            added.Add((new ItemInstance<TKey>(item.Definition, item.Amount, metadata), null));
+        }
+
+        var transaction = new InventoryTransaction<TKey>(
+            validationInventory,
+            new List<(int index, int delta)>(),
+            new List<(int index, ItemInstance<TKey> instance)>(),
+            added);
+        var normalized = validationInventory.GenerateNormalizedInventoryTransaction(transaction);
+
+        if (rules.CanApply(validationInventory, normalized, transaction, out error))
+            return true;
+
+        error = $"Rule change would make current inventory contents invalid: {error}";
+        return false;
     }
 
     /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>
