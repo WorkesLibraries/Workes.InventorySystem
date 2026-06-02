@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
 
@@ -8,8 +9,14 @@ namespace Workes.InventorySystem.Capacity;
 /// Capacity policy that limits the projected total item amount in an inventory.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
-public class MaxTotalItemAmountCapacityPolicy<TKey> : ICapacityPolicy<TKey>
+public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TKey>
 {
+    private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+        new[]
+        {
+            new InventoryParameterDefinition("maxTotalItemAmount", typeof(int), "Maximum total item amount allowed in the inventory.")
+        };
+
     /// <summary>
     /// Creates a capacity policy with a maximum total item amount.
     /// </summary>
@@ -27,6 +34,9 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : ICapacityPolicy<TKey>
     /// Gets the maximum total item amount allowed after a transaction.
     /// </summary>
     public int MaxTotalItemAmount { get; }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <inheritdoc />
     public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
@@ -64,6 +74,38 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : ICapacityPolicy<TKey>
             return false;
         }
 
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out ICapacityPolicy<TKey>? policy,
+        out string? error)
+    {
+        policy = null;
+        if (parameterId != "maxTotalItemAmount")
+        {
+            error = $"Parameter '{parameterId}' is not supported by MaxTotalItemAmountCapacityPolicy.";
+            return false;
+        }
+
+        if (value is not int maxTotalItemAmount)
+        {
+            error = "Parameter 'maxTotalItemAmount' expects value type 'Int32'.";
+            return false;
+        }
+
+        if (maxTotalItemAmount < 0)
+        {
+            error = "Maximum total item amount cannot be negative.";
+            return false;
+        }
+
+        policy = new MaxTotalItemAmountCapacityPolicy<TKey>(maxTotalItemAmount);
         error = null;
         return true;
     }

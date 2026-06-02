@@ -203,6 +203,7 @@ public class InventoryMalfunctionRegressionTests
         Assert.That(args.Modified, Is.Not.Null);
         Assert.That(args.Moved, Is.Not.Null);
         Assert.That(args.Swapped, Is.Not.Null);
+        Assert.That(args.ConfigurationChanged, Is.Not.Null);
         Assert.That(args.Cleared, Is.True);
     }
 

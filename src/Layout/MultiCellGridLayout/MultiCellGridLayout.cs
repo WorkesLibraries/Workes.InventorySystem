@@ -13,9 +13,17 @@ namespace Workes.InventorySystem.Layout;
 /// <see cref="PlacementOrder"/> controls context-less placement and sort repacking scan order.
 /// Explicit placement contexts are interpreted through <see cref="DefaultAnchor"/> unless they specify their own anchor.
 /// </remarks>
-public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
+public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TKey>
 {
     private readonly List<int?> _cellMap;
+    private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+        new[]
+        {
+            new InventoryParameterDefinition("width", typeof(int), "Number of cells across the grid."),
+            new InventoryParameterDefinition("height", typeof(int), "Number of cells down the grid."),
+            new InventoryParameterDefinition("placementOrder", typeof(GridPlacementOrder), "Context-less placement and sort repacking scan order."),
+            new InventoryParameterDefinition("defaultAnchor", typeof(GridAnchor), "Default anchor for explicit placement contexts that omit an anchor.")
+        };
 
     /// <summary>
     /// Gets the number of cells across the grid.
@@ -72,6 +80,116 @@ public sealed class MultiCellGridLayout<TKey> : IInventoryLayout<TKey>
         _cellMap = new List<int?>(width * height);
         for (int i = 0; i < width * height; i++)
             _cellMap.Add(null);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        int width = Width;
+        int height = Height;
+        var placementOrder = PlacementOrder;
+        var defaultAnchor = DefaultAnchor;
+
+        if (parameterId == "width")
+        {
+            if (value is not int widthValue)
+            {
+                error = "Parameter 'width' expects value type 'Int32'.";
+                return false;
+            }
+
+            width = widthValue;
+        }
+        else if (parameterId == "height")
+        {
+            if (value is not int heightValue)
+            {
+                error = "Parameter 'height' expects value type 'Int32'.";
+                return false;
+            }
+
+            height = heightValue;
+        }
+        else if (parameterId == "placementOrder")
+        {
+            if (value is not GridPlacementOrder placementOrderValue)
+            {
+                error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
+                return false;
+            }
+
+            placementOrder = placementOrderValue;
+        }
+        else if (parameterId == "defaultAnchor")
+        {
+            if (value is not GridAnchor defaultAnchorValue)
+            {
+                error = "Parameter 'defaultAnchor' expects value type 'GridAnchor'.";
+                return false;
+            }
+
+            defaultAnchor = defaultAnchorValue;
+        }
+        else
+        {
+            error = $"Parameter '{parameterId}' is not supported by MultiCellGridLayout.";
+            return false;
+        }
+
+        if (width <= 0)
+        {
+            error = "Grid width must be greater than zero.";
+            return false;
+        }
+
+        if (height <= 0)
+        {
+            error = "Grid height must be greater than zero.";
+            return false;
+        }
+
+        var newMap = new List<int?>(width * height);
+        for (int i = 0; i < width * height; i++)
+            newMap.Add(null);
+
+        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
+        {
+            if (!_cellMap[oldCell].HasValue)
+                continue;
+
+            int x = oldCell % Width;
+            int y = oldCell / Width;
+            if (x >= width || y >= height)
+            {
+                error = "Cannot resize multi-cell grid layout because an occupied cell would be outside the new bounds.";
+                return false;
+            }
+
+            newMap[y * width + x] = _cellMap[oldCell];
+        }
+
+        var replacement = new MultiCellGridLayout<TKey>(width, height, FootprintProvider, placementOrder, defaultAnchor);
+        replacement.RestorePersistentData(new MultiCellGridLayoutPersistentData
+        {
+            Width = width,
+            Height = height,
+            PlacementOrder = placementOrder,
+            DefaultAnchor = defaultAnchor,
+            CellMap = newMap
+        });
+
+        layout = replacement;
+        error = null;
+        return true;
     }
 
     /// <inheritdoc />

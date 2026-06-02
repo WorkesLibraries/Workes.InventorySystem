@@ -15,7 +15,7 @@ namespace Workes.InventorySystem.Layout;
 /// tags. Sorting compacts placed items into compatible section slots without
 /// changing inventory storage order.
 /// </remarks>
-public sealed class SectionedLayout<TKey> : IInventoryLayout<TKey>
+public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
 {
     private readonly List<SectionDefinition<TKey>> _sections;
     private readonly List<int?> _slotMap;
@@ -26,6 +26,15 @@ public sealed class SectionedLayout<TKey> : IInventoryLayout<TKey>
     /// Gets the sections in layout order.
     /// </summary>
     public IReadOnlyList<SectionDefinition<TKey>> Sections => _sections;
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters =>
+        _sections
+            .Select(section => new InventoryParameterDefinition(
+                $"section:{section.Id}.slotCount",
+                typeof(int),
+                $"Number of slots in section '{section.Id}'."))
+            .ToList();
 
     /// <summary>
     /// Creates a sectioned layout.
@@ -66,6 +75,107 @@ public sealed class SectionedLayout<TKey> : IInventoryLayout<TKey>
                 _slotMap.Add(null);
             offset += section.SlotCount;
         }
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
+        {
+            error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
+            return false;
+        }
+
+        if (value is not int slotCount)
+        {
+            error = $"Parameter '{parameterId}' expects value type 'Int32'.";
+            return false;
+        }
+
+        if (slotCount <= 0)
+        {
+            error = "Section slot count must be greater than zero.";
+            return false;
+        }
+
+        int targetSectionIndex = _sections.FindIndex(section => string.Equals(section.Id, sectionId, StringComparison.Ordinal));
+        if (targetSectionIndex < 0)
+        {
+            error = $"Section '{sectionId}' was not found.";
+            return false;
+        }
+
+        var newSections = new List<SectionDefinition<TKey>>(_sections.Count);
+        for (int i = 0; i < _sections.Count; i++)
+        {
+            var section = _sections[i];
+            int newSlotCount = i == targetSectionIndex ? slotCount : section.SlotCount;
+            newSections.Add(new SectionDefinition<TKey>(section.Id, newSlotCount, section.RequiredTags.ToArray()));
+        }
+
+        int newTotalSlots = newSections.Sum(section => section.SlotCount);
+        var newMap = new List<int?>(newTotalSlots);
+        for (int i = 0; i < newTotalSlots; i++)
+            newMap.Add(null);
+
+        int oldOffset = 0;
+        int newOffset = 0;
+        for (int sectionIndex = 0; sectionIndex < _sections.Count; sectionIndex++)
+        {
+            var oldSection = _sections[sectionIndex];
+            var newSection = newSections[sectionIndex];
+            for (int slot = 0; slot < oldSection.SlotCount; slot++)
+            {
+                var storageIndex = _slotMap[oldOffset + slot];
+                if (!storageIndex.HasValue)
+                    continue;
+
+                if (slot >= newSection.SlotCount)
+                {
+                    error = $"Cannot shrink section '{oldSection.Id}' because a removed slot is occupied.";
+                    return false;
+                }
+
+                newMap[newOffset + slot] = storageIndex;
+            }
+
+            oldOffset += oldSection.SlotCount;
+            newOffset += newSection.SlotCount;
+        }
+
+        var replacement = new SectionedLayout<TKey>(newSections);
+        replacement.RestorePersistentData(new SectionedLayoutPersistentData
+        {
+            SectionIds = newSections.Select(section => section.Id).ToList(),
+            SectionSlotCounts = newSections.Select(section => section.SlotCount).ToList(),
+            SlotMap = newMap
+        });
+
+        layout = replacement;
+        error = null;
+        return true;
+    }
+
+    private static bool TryParseSectionSlotCountParameter(string parameterId, out string sectionId)
+    {
+        sectionId = string.Empty;
+        const string prefix = "section:";
+        const string suffix = ".slotCount";
+        if (string.IsNullOrWhiteSpace(parameterId) ||
+            !parameterId.StartsWith(prefix, StringComparison.Ordinal) ||
+            !parameterId.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        sectionId = parameterId.Substring(prefix.Length, parameterId.Length - prefix.Length - suffix.Length);
+        return !string.IsNullOrWhiteSpace(sectionId);
     }
 
     /// <inheritdoc />

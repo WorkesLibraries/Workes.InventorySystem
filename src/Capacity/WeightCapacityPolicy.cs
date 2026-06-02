@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Core;
@@ -13,8 +14,15 @@ namespace Workes.InventorySystem.Capacity;
 /// Per-unit weight is read from a definition attribute. Missing weights
 /// contribute zero by default unless strict missing-weight handling is enabled.
 /// </remarks>
-public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
+public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TKey>
 {
+    private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+        new[]
+        {
+            new InventoryParameterDefinition("maxWeight", typeof(double), "Maximum total item weight allowed in the inventory."),
+            new InventoryParameterDefinition("treatMissingWeightAsZero", typeof(bool), "Whether definitions missing the weight attribute contribute zero weight.")
+        };
+
     /// <summary>
     /// Gets the definition attribute used as per-unit item weight.
     /// </summary>
@@ -29,6 +37,9 @@ public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
     /// Gets whether definitions missing the weight attribute contribute zero weight.
     /// </summary>
     public bool TreatMissingWeightAsZero { get; }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <summary>
     /// Creates a weight capacity policy.
@@ -150,6 +161,75 @@ public sealed class WeightCapacityPolicy<TKey> : ICapacityPolicy<TKey>
         }
 
         error = "Item weight attribute missing.";
+        return false;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out ICapacityPolicy<TKey>? policy,
+        out string? error)
+    {
+        policy = null;
+        if (parameterId == "maxWeight")
+        {
+            if (!TryGetDouble(value, out double maxWeight))
+            {
+                error = "Parameter 'maxWeight' expects value type 'Double'.";
+                return false;
+            }
+
+            if (maxWeight < 0)
+            {
+                error = "Maximum weight cannot be negative.";
+                return false;
+            }
+
+            policy = new WeightCapacityPolicy<TKey>(WeightAttributeId, maxWeight, TreatMissingWeightAsZero);
+            error = null;
+            return true;
+        }
+
+        if (parameterId == "treatMissingWeightAsZero")
+        {
+            if (value is not bool treatMissingWeightAsZero)
+            {
+                error = "Parameter 'treatMissingWeightAsZero' expects value type 'Boolean'.";
+                return false;
+            }
+
+            policy = new WeightCapacityPolicy<TKey>(WeightAttributeId, MaxWeight, treatMissingWeightAsZero);
+            error = null;
+            return true;
+        }
+
+        error = $"Parameter '{parameterId}' is not supported by WeightCapacityPolicy.";
+        return false;
+    }
+
+    private static bool TryGetDouble(object? value, out double result)
+    {
+        if (value is double doubleValue)
+        {
+            result = doubleValue;
+            return true;
+        }
+
+        if (value is int intValue)
+        {
+            result = intValue;
+            return true;
+        }
+
+        if (value is float floatValue)
+        {
+            result = floatValue;
+            return true;
+        }
+
+        result = 0;
         return false;
     }
 }

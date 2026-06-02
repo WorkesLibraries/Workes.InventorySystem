@@ -9,9 +9,14 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>Slot contexts must be <see cref="SlotLayoutContext{TKey}"/> instances. Invalid or empty slots return <see langword="null"/> from lookups.</remarks>
-public class SlotLayout<TKey> : IInventoryLayout<TKey>
+public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
 {
     private readonly List<int?> _slotMap;
+    private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+        new[]
+        {
+            new InventoryParameterDefinition("slotCount", typeof(int), "Number of addressable slots in the layout.")
+        };
 
     /// <summary>
     /// Creates a slot layout with a fixed number of slots.
@@ -31,6 +36,54 @@ public class SlotLayout<TKey> : IInventoryLayout<TKey>
     public SlotLayout(object? persistentContext)
     {
         _slotMap = (List<int?>)persistentContext!;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (parameterId != "slotCount")
+        {
+            error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
+            return false;
+        }
+
+        if (value is not int slotCount)
+        {
+            error = "Parameter 'slotCount' expects value type 'Int32'.";
+            return false;
+        }
+
+        if (slotCount <= 0)
+        {
+            error = "Slot count must be greater than zero.";
+            return false;
+        }
+
+        for (int slot = slotCount; slot < _slotMap.Count; slot++)
+        {
+            if (_slotMap[slot].HasValue)
+            {
+                error = "Cannot shrink slot layout because a removed slot is occupied.";
+                return false;
+            }
+        }
+
+        var newMap = new List<int?>(slotCount);
+        for (int slot = 0; slot < slotCount; slot++)
+            newMap.Add(slot < _slotMap.Count ? _slotMap[slot] : null);
+
+        layout = new SlotLayout<TKey>(newMap);
+        error = null;
+        return true;
     }
 
     /// <inheritdoc />

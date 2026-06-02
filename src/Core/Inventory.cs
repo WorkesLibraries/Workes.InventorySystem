@@ -20,9 +20,9 @@ public class Inventory<TKey>
 {
     private readonly List<ItemInstance<TKey>> _items = new();
 
-    private readonly IStackResolver<TKey> _stackResolver;
-    private readonly ICapacityPolicy<TKey> _capacityPolicy;
-    private readonly IInventoryLayout<TKey> _layout;
+    private IStackResolver<TKey> _stackResolver;
+    private ICapacityPolicy<TKey> _capacityPolicy;
+    private IInventoryLayout<TKey> _layout;
     private readonly RuleContainer<TKey> _rules;
 
     /// <summary>
@@ -91,6 +91,16 @@ public class Inventory<TKey>
     /// Gets the layout used by this inventory.
     /// </summary>
     public IInventoryLayout<TKey> Layout => _layout;
+
+    /// <summary>
+    /// Gets the stack resolver used by this inventory.
+    /// </summary>
+    public IStackResolver<TKey> StackResolver => _stackResolver;
+
+    /// <summary>
+    /// Gets the capacity policy used by this inventory.
+    /// </summary>
+    public ICapacityPolicy<TKey> CapacityPolicy => _capacityPolicy;
 
     /// <summary>
     /// Gets the inventory-owned rules by rule id.
@@ -849,6 +859,221 @@ public class Inventory<TKey>
 
         error = $"Rule change would make current inventory contents invalid: {error}";
         return false;
+    }
+
+    /// <summary>
+    /// Attempts to change a stack resolver parameter after validating current stack amounts.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetStackResolverParameter(string parameterId, object? value, out string? error)
+    {
+        if (!ValidateParameterId(parameterId, out error))
+            return false;
+
+        if (_stackResolver is not IParameterizedStackResolver<TKey> parameterized)
+        {
+            error = "Current stack resolver does not support runtime parameters.";
+            return false;
+        }
+
+        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedResolver, out error) || proposedResolver == null)
+            return false;
+
+        if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
+            return false;
+
+        var previous = _stackResolver;
+        _stackResolver = proposedResolver;
+        FireConfigurationChanged(InventoryConfigurationChangeKind.StackResolver, parameterId, value, previous, proposedResolver, requiresFullRefresh: false);
+        return true;
+    }
+
+    /// <summary>
+    /// Changes a stack resolver parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetStackResolverParameter(string parameterId, object? value)
+    {
+        if (!TrySetStackResolverParameter(parameterId, value, out var error))
+            ThrowMutationFailure(error, "Stack resolver parameter change failed.");
+    }
+
+    /// <summary>
+    /// Attempts to change a capacity policy parameter after validating current contents against the proposed policy.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out string? error)
+    {
+        if (!ValidateParameterId(parameterId, out error))
+            return false;
+
+        if (_capacityPolicy is not IParameterizedCapacityPolicy<TKey> parameterized)
+        {
+            error = "Current capacity policy does not support runtime parameters.";
+            return false;
+        }
+
+        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedPolicy, out error) || proposedPolicy == null)
+            return false;
+
+        if (!ValidateCurrentContentsAgainstCapacityPolicy(proposedPolicy, out error))
+            return false;
+
+        var previous = _capacityPolicy;
+        _capacityPolicy = proposedPolicy;
+        FireConfigurationChanged(InventoryConfigurationChangeKind.CapacityPolicy, parameterId, value, previous, proposedPolicy, requiresFullRefresh: false);
+        return true;
+    }
+
+    /// <summary>
+    /// Changes a capacity policy parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetCapacityPolicyParameter(string parameterId, object? value)
+    {
+        if (!TrySetCapacityPolicyParameter(parameterId, value, out var error))
+            ThrowMutationFailure(error, "Capacity policy parameter change failed.");
+    }
+
+    /// <summary>
+    /// Attempts to change a layout parameter after validating that current placements are preserved.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TrySetLayoutParameter(string parameterId, object? value, out string? error)
+    {
+        if (!ValidateParameterId(parameterId, out error))
+            return false;
+
+        if (_layout is not IParameterizedInventoryLayout<TKey> parameterized)
+        {
+            error = "Current layout does not support runtime parameters.";
+            return false;
+        }
+
+        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedLayout, out error) || proposedLayout == null)
+            return false;
+
+        if (!ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
+            return false;
+
+        var previous = _layout;
+        _layout = proposedLayout;
+        FireConfigurationChanged(InventoryConfigurationChangeKind.Layout, parameterId, value, previous, proposedLayout, requiresFullRefresh: true);
+        return true;
+    }
+
+    /// <summary>
+    /// Changes a layout parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetLayoutParameter(string parameterId, object? value)
+    {
+        if (!TrySetLayoutParameter(parameterId, value, out var error))
+            ThrowMutationFailure(error, "Layout parameter change failed.");
+    }
+
+    private static bool ValidateParameterId(string parameterId, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(parameterId))
+        {
+            error = "Parameter id cannot be null or empty.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out string? error)
+    {
+        foreach (var item in _items)
+        {
+            int maxStack = resolver.ResolveMaxStackSize(this, item);
+            if (maxStack <= 0)
+            {
+                error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{item.Definition.Id}'.";
+                return false;
+            }
+
+            if (item.Amount > maxStack)
+            {
+                error = $"Stack resolver parameter change would make current stack '{item.Definition.Id}' amount {item.Amount} exceed max stack size {maxStack}.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    private bool ValidateCurrentContentsAgainstCapacityPolicy(ICapacityPolicy<TKey> policy, out string? error)
+    {
+        var normalized = new NormalizedInventoryTransaction<TKey>(
+            new List<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)>(),
+            new List<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)>());
+
+        if (policy.CanApply(this, normalized, out error))
+            return true;
+
+        error = $"Capacity policy parameter change would make current inventory contents invalid: {error}";
+        return false;
+    }
+
+    private bool ValidateCurrentContentsAgainstLayout(IInventoryLayout<TKey> layout, out string? error)
+    {
+        if (layout.GetType() != _layout.GetType())
+        {
+            error = "Layout parameter change must keep the same layout type.";
+            return false;
+        }
+
+        for (int storageIndex = 0; storageIndex < _items.Count; storageIndex++)
+        {
+            var before = _layout.GetContextsForStorageIndex(this, storageIndex);
+            var after = layout.GetContextsForStorageIndex(this, storageIndex);
+            if (!ContextListsEqual(before, after))
+            {
+                error = $"Layout parameter change would not preserve placement for item definition '{_items[storageIndex].Definition.Id}'.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    private void FireConfigurationChanged(
+        InventoryConfigurationChangeKind kind,
+        string parameterId,
+        object? value,
+        object previousComponent,
+        object currentComponent,
+        bool requiresFullRefresh)
+    {
+        var change = new InventoryConfigurationChanged<TKey>(
+            kind,
+            parameterId,
+            value,
+            previousComponent,
+            currentComponent,
+            requiresFullRefresh);
+
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(configurationChanged: new[] { change }));
     }
 
     /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>

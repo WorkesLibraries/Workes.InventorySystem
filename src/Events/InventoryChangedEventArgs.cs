@@ -47,6 +47,11 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     public bool Cleared { get; }
 
     /// <summary>
+    /// Gets runtime inventory configuration changes produced by the operation.
+    /// </summary>
+    public IReadOnlyList<InventoryConfigurationChanged<TKey>> ConfigurationChanged { get; }
+
+    /// <summary>
     /// Gets the distinct layout contexts affected by this change notification.
     /// </summary>
     public IReadOnlyList<ILayoutContext<TKey>> AffectedLayoutContexts { get; }
@@ -67,6 +72,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Moved = new List<ItemMoved<TKey>>();
         Swapped = new List<ItemSwapped<TKey>>();
         Cleared = false;
+        ConfigurationChanged = new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = new List<ILayoutContext<TKey>>();
         RequiresFullRefresh = false;
     }
@@ -80,6 +86,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// <param name="moved">The item instances moved between layout contexts.</param>
     /// <param name="swapped">The item instances swapped between layout contexts.</param>
     /// <param name="cleared">Whether the inventory was fully cleared.</param>
+    /// <param name="configurationChanged">Runtime inventory configuration changes.</param>
     /// <param name="affectedLayoutContexts">Optional explicit affected layout contexts.</param>
     /// <param name="requiresFullRefresh">Whether consumers should refresh the whole inventory view.</param>
     public InventoryChangedEventArgs(
@@ -89,6 +96,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         IEnumerable<ItemMoved<TKey>>? moved = null,
         IEnumerable<ItemSwapped<TKey>>? swapped = null,
         bool cleared = false,
+        IEnumerable<InventoryConfigurationChanged<TKey>>? configurationChanged = null,
         IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null,
         bool requiresFullRefresh = false)
     {
@@ -98,8 +106,9 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Moved = moved != null ? moved.ToList() : new List<ItemMoved<TKey>>();
         Swapped = swapped != null ? swapped.ToList() : new List<ItemSwapped<TKey>>();
         Cleared = cleared;
+        ConfigurationChanged = configurationChanged != null ? configurationChanged.ToList() : new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = BuildAffectedContexts(affectedLayoutContexts);
-        RequiresFullRefresh = requiresFullRefresh || cleared;
+        RequiresFullRefresh = requiresFullRefresh || cleared || ConfigurationChanged.Any(change => change.RequiresFullRefresh);
     }
 
     private IReadOnlyList<ILayoutContext<TKey>> BuildAffectedContexts(IEnumerable<ILayoutContext<TKey>>? explicitContexts)

@@ -10,9 +10,16 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>Grid contexts must be <see cref="GridLayoutContext{TKey}"/> instances.</remarks>
-public class GridLayout<TKey> : IInventoryLayout<TKey>
+public class GridLayout<TKey> : IParameterizedInventoryLayout<TKey>
 {
     private readonly List<int?> _cellMap;
+    private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+        new[]
+        {
+            new InventoryParameterDefinition("width", typeof(int), "Number of cells across the grid."),
+            new InventoryParameterDefinition("height", typeof(int), "Number of cells down the grid."),
+            new InventoryParameterDefinition("placementOrder", typeof(GridPlacementOrder), "Automatic placement and sorting scan order.")
+        };
 
     /// <summary>
     /// Gets the number of cells across the grid.
@@ -52,6 +59,104 @@ public class GridLayout<TKey> : IInventoryLayout<TKey>
         _cellMap = new List<int?>(width * height);
         for (int i = 0; i < width * height; i++)
             _cellMap.Add(null);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
+
+    /// <inheritdoc />
+    public bool TryCreateWithParameter(
+        Inventory<TKey> inventory,
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        int width = Width;
+        int height = Height;
+        var placementOrder = PlacementOrder;
+
+        if (parameterId == "width")
+        {
+            if (value is not int widthValue)
+            {
+                error = "Parameter 'width' expects value type 'Int32'.";
+                return false;
+            }
+
+            width = widthValue;
+        }
+        else if (parameterId == "height")
+        {
+            if (value is not int heightValue)
+            {
+                error = "Parameter 'height' expects value type 'Int32'.";
+                return false;
+            }
+
+            height = heightValue;
+        }
+        else if (parameterId == "placementOrder")
+        {
+            if (value is not GridPlacementOrder placementOrderValue)
+            {
+                error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
+                return false;
+            }
+
+            placementOrder = placementOrderValue;
+        }
+        else
+        {
+            error = $"Parameter '{parameterId}' is not supported by GridLayout.";
+            return false;
+        }
+
+        if (width <= 0)
+        {
+            error = "Grid width must be greater than zero.";
+            return false;
+        }
+
+        if (height <= 0)
+        {
+            error = "Grid height must be greater than zero.";
+            return false;
+        }
+
+        var newMap = new List<int?>(width * height);
+        for (int i = 0; i < width * height; i++)
+            newMap.Add(null);
+
+        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
+        {
+            if (!_cellMap[oldCell].HasValue)
+                continue;
+
+            int x = oldCell % Width;
+            int y = oldCell / Width;
+            if (x >= width || y >= height)
+            {
+                error = "Cannot resize grid layout because an occupied cell would be outside the new bounds.";
+                return false;
+            }
+
+            newMap[y * width + x] = _cellMap[oldCell];
+        }
+
+        var replacement = new GridLayout<TKey>(width, height, placementOrder);
+        replacement.RestorePersistentData(new GridLayoutPersistentData
+        {
+            Width = width,
+            Height = height,
+            PlacementOrder = placementOrder,
+            CellMap = newMap
+        });
+
+        layout = replacement;
+        error = null;
+        return true;
     }
 
     /// <inheritdoc />

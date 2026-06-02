@@ -25,6 +25,7 @@ public class InventoryChangedEventTests
         Assert.That(args.Modified, Is.Empty);
         Assert.That(args.Moved, Is.Empty);
         Assert.That(args.Swapped, Is.Empty);
+        Assert.That(args.ConfigurationChanged, Is.Empty);
         Assert.That(args.Cleared, Is.True);
     }
 
