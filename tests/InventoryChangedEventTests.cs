@@ -136,6 +136,60 @@ public class InventoryChangedEventTests
     }
 
     [Test]
+    public void TryMove_FiresMovedEventWithIsSortResultFalse()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(new SlotLayout<string>(3), new UnlimitedCapacityPolicy<string>(), apple);
+        inventory.TryAdd(apple, out _, 1, SlotLayoutContext<string>.Single(0));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, e) => captured = e;
+
+        var result = inventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(captured!.Moved.Single().IsSortResult, Is.False);
+    }
+
+    [Test]
+    public void TrySortLayout_FiresMovedEventsWithIsSortResultTrue()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var inventory = CreateInventory(new SlotLayout<string>(3), new UnlimitedCapacityPolicy<string>(), berry, apple);
+        inventory.TryAdd(berry, out _, 1, SlotLayoutContext<string>.Single(0));
+        inventory.TryAdd(apple, out _, 1, SlotLayoutContext<string>.Single(1));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, e) => captured = e;
+
+        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(captured!.Moved, Is.Not.Empty);
+        Assert.That(captured.Moved.All(move => move.IsSortResult), Is.True);
+    }
+
+    [Test]
+    public void InventoryChangedEventArgs_AffectedContextsStillIncludeSortMovedContexts()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var inventory = CreateInventory(new SlotLayout<string>(3), new UnlimitedCapacityPolicy<string>(), berry, apple);
+        inventory.TryAdd(berry, out _, 1, SlotLayoutContext<string>.Single(0));
+        inventory.TryAdd(apple, out _, 1, SlotLayoutContext<string>.Single(1));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, e) => captured = e;
+
+        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
+
+        Assert.That(result, Is.True, error);
+        var movedContexts = captured!.Moved
+            .SelectMany(move => move.FromLayoutContexts.Concat(move.ToLayoutContexts))
+            .ToList();
+        foreach (var context in movedContexts)
+            Assert.That(captured.AffectedLayoutContexts, Does.Contain(context));
+    }
+
+    [Test]
     public void FailedCapacityValidation_FiresNoChangedEvent()
     {
         var apple = new ItemDefinition<string>("apple");

@@ -36,13 +36,23 @@ public class ItemMoved<TKey>
     public ILayoutContext<TKey>? ToPosition => ToLayoutContexts.Count == 1 ? ToLayoutContexts[0] : null;
 
     /// <summary>
+    /// Gets whether this movement was produced by inventory layout sorting rather than direct movement.
+    /// </summary>
+    public bool IsSortResult { get; }
+
+    /// <summary>
     /// Creates an item-moved event payload.
     /// </summary>
     /// <param name="instance">The item instance that was moved.</param>
     /// <param name="fromPosition">The source layout context.</param>
     /// <param name="toPosition">The destination layout context.</param>
-    public ItemMoved(ItemInstance<TKey> instance, ILayoutContext<TKey> fromPosition, ILayoutContext<TKey> toPosition)
-        : this(instance, new[] { fromPosition }, new[] { toPosition })
+    /// <param name="isSortResult">Whether this movement was produced by sorting.</param>
+    public ItemMoved(
+        ItemInstance<TKey> instance,
+        ILayoutContext<TKey> fromPosition,
+        ILayoutContext<TKey> toPosition,
+        bool isSortResult = false)
+        : this(instance, new[] { fromPosition }, new[] { toPosition }, isSortResult)
     {
     }
 
@@ -52,13 +62,16 @@ public class ItemMoved<TKey>
     /// <param name="instance">The item instance that was moved.</param>
     /// <param name="fromLayoutContexts">The source layout contexts.</param>
     /// <param name="toLayoutContexts">The destination layout contexts.</param>
+    /// <param name="isSortResult">Whether this movement was produced by sorting.</param>
     public ItemMoved(
         ItemInstance<TKey> instance,
         IEnumerable<ILayoutContext<TKey>>? fromLayoutContexts,
-        IEnumerable<ILayoutContext<TKey>>? toLayoutContexts)
+        IEnumerable<ILayoutContext<TKey>>? toLayoutContexts,
+        bool isSortResult = false)
     {
         Instance = instance;
         FromLayoutContexts = fromLayoutContexts != null ? fromLayoutContexts.ToList() : new List<ILayoutContext<TKey>>();
         ToLayoutContexts = toLayoutContexts != null ? toLayoutContexts.ToList() : new List<ILayoutContext<TKey>>();
+        IsSortResult = isSortResult;
     }
 }

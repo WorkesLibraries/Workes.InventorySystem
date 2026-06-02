@@ -31,6 +31,12 @@ public class UiMoveAnimationEventExampleTests
 
             foreach (var move in args.Moved)
             {
+                if (move.IsSortResult)
+                {
+                    animations.Add($"skip sort animation for {move.Instance.Definition.Id}");
+                    continue;
+                }
+
                 var from = (GridLayoutContext<string>)move.FromPosition!;
                 var to = (GridLayoutContext<string>)move.ToPosition!;
                 animations.Add($"animate {move.Instance.Definition.Id}: ({from.X},{from.Y}) -> ({to.X},{to.Y})");

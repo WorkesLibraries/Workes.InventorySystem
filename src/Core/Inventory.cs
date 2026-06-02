@@ -1236,7 +1236,7 @@ public class Inventory<TKey>
         for (int i = 0; i < _items.Count; i++)
         {
             if (!ContextListsEqual(before[i], after[i]))
-                moved.Add(new ItemMoved<TKey>(_items[i], before[i], after[i]));
+                moved.Add(new ItemMoved<TKey>(_items[i], before[i], after[i], isSortResult: true));
         }
 
         if (moved.Count > 0)
