@@ -16,7 +16,7 @@ namespace Workes.InventorySystem.Core;
 /// Mutable inventory that owns item instances, layout state, capacity validation, stacking behavior, rules, and change events.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
-public class Inventory<TKey>
+public class Inventory<TKey> : IInstanceMetadataOwner
 {
     private readonly List<ItemInstance<TKey>> _items = new();
 
@@ -275,6 +275,7 @@ public class Inventory<TKey>
 
     private void RemoveAt(int index)
     {
+        _items[index].DetachOwner(this);
         _items.RemoveAt(index);
         _layout.OnItemRemoved(this, index);
     }
@@ -293,6 +294,7 @@ public class Inventory<TKey>
     private void AddItem(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)
     {
         _items.Add(instance);
+        instance.AttachOwner(this);
         _layout.OnItemAdded(this, _items.Count - 1, context);
     }
 
@@ -300,6 +302,7 @@ public class Inventory<TKey>
     internal void AddItemSilent(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)
     {
         _items.Add(instance);
+        instance.AttachOwner(this);
         _layout.OnItemAdded(this, _items.Count - 1, context);
     }
 
@@ -320,6 +323,7 @@ public class Inventory<TKey>
         removed.Sort((a, b) => b.index.CompareTo(a.index));
         foreach (var (index, _) in removed)
         {
+            _items[index].DetachOwner(this);
             _items.RemoveAt(index);
             _layout.OnItemRemoved(this, index);
         }
@@ -327,6 +331,7 @@ public class Inventory<TKey>
         foreach (var (instance, context) in transaction.Added)
         {
             _items.Add(instance);
+            instance.AttachOwner(this);
             _layout.OnItemAdded(this, _items.Count - 1, context);
         }
 
@@ -344,6 +349,7 @@ public class Inventory<TKey>
             var meta = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
             var clonedInstance = new ItemInstance<TKey>(item.Definition, item.Amount, meta);
             clone._items.Add(clonedInstance);
+            clonedInstance.AttachOwner(clone);
         }
 
         return clone;
@@ -420,9 +426,8 @@ public class Inventory<TKey>
 
         var prototypeMeta = metadata != null && !metadata.IsEmpty ? CloneMetadata(metadata) : null;
         var prototype = new ItemInstance<TKey>(definition, 1, prototypeMeta);
-        int maxStack = _stackResolver != null
-            ? _stackResolver.ResolveMaxStackSize(this, prototype)
-            : 1;
+        if (!TryResolveMaxStackSize(prototype, out int maxStack, out error))
+            return false;
 
         var amountDeltas = new List<(int index, int delta)>();
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
@@ -465,6 +470,167 @@ public class Inventory<TKey>
         if (source != null && !source.IsEmpty)
             clone.RestoreMetadata(new Dictionary<string, object>(source.ToDictionary()));
         return clone;
+    }
+
+    internal bool TryApplyMetadataMutation(
+        InstanceMetadata metadata,
+        Func<InstanceMetadata, bool> mutate,
+        out string? error)
+    {
+        if (metadata == null)
+        {
+            error = "Metadata cannot be null.";
+            return false;
+        }
+
+        if (mutate == null)
+            throw new ArgumentNullException(nameof(mutate));
+
+        int index = -1;
+        ItemInstance<TKey>? item = null;
+        for (int i = 0; i < _items.Count; i++)
+        {
+            if (ReferenceEquals(_items[i].Metadata, metadata))
+            {
+                index = i;
+                item = _items[i];
+                break;
+            }
+        }
+
+        if (item == null)
+        {
+            error = "Metadata does not belong to this inventory.";
+            return false;
+        }
+
+        var beforeMetadata = metadata.ToDictionary();
+        var proposedMetadata = metadata.Clone();
+        if (!mutate(proposedMetadata))
+        {
+            error = "Metadata mutation was rejected.";
+            return false;
+        }
+
+        if (metadata.StructuralEquals(proposedMetadata))
+        {
+            error = null;
+            return true;
+        }
+
+        var proposedInstance = new ItemInstance<TKey>(
+            item.Definition,
+            item.Amount,
+            proposedMetadata.IsEmpty ? null : proposedMetadata);
+        if (!TryResolveMaxStackSize(proposedInstance, out int maxStack, out error))
+            return false;
+
+        if (item.Amount > maxStack)
+        {
+            error = $"Metadata mutation would make stack amount {item.Amount} exceed maximum stack size {maxStack}.";
+            return false;
+        }
+
+        _layout.TryGetContextForStorageIndex(this, index, out var context);
+        var transaction = new InventoryTransaction<TKey>(
+            this,
+            new List<(int index, int delta)>(),
+            new List<(int index, ItemInstance<TKey> instance)> { (index, item) },
+            new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> { (proposedInstance, context) });
+
+        if (!TryPrepareTransaction(transaction, null, out _, out error))
+            return false;
+
+        var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+        metadata.ReplaceDirect(proposedMetadata.AsReadOnly());
+        var metadataChanged = new ItemMetadataChanged<TKey>(
+            item,
+            index,
+            beforeMetadata,
+            metadata.ToDictionary(),
+            layoutContexts);
+
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(metadataChanged: new[] { metadataChanged }));
+        error = null;
+        return true;
+    }
+
+    bool IInstanceMetadataOwner.TryApplyMetadataMutation(
+        InstanceMetadata metadata,
+        Func<InstanceMetadata, bool> mutate,
+        out string? error)
+    {
+        return TryApplyMetadataMutation(metadata, mutate, out error);
+    }
+
+    internal bool TrySplitAndSetMetadata(
+        ItemInstance<TKey> instance,
+        int amount,
+        string key,
+        object? value,
+        out ItemInstance<TKey>? metadataStack,
+        out string? error)
+    {
+        metadataStack = null;
+        if (instance == null)
+        {
+            error = "Item instance cannot be null.";
+            return false;
+        }
+
+        int index = GetItemIndex(instance);
+        if (index < 0)
+        {
+            error = "Item not found in inventory.";
+            return false;
+        }
+
+        if (amount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+
+        if (amount > instance.Amount)
+        {
+            error = "Not enough quantity to split.";
+            return false;
+        }
+
+        if (amount == instance.Amount)
+        {
+            if (!instance.Metadata.TrySet(key, value, out error))
+                return false;
+
+            metadataStack = instance;
+            return true;
+        }
+
+        var splitMetadata = instance.Metadata.Clone();
+        splitMetadata.SetDirect(key, value);
+        var splitInstance = new ItemInstance<TKey>(instance.Definition, amount, splitMetadata);
+        if (!TryResolveMaxStackSize(splitInstance, out int maxStack, out error))
+            return false;
+
+        if (amount > maxStack)
+        {
+            error = $"Split amount {amount} exceeds maximum stack size {maxStack}.";
+            return false;
+        }
+
+        var transaction = new InventoryTransaction<TKey>(
+            this,
+            new List<(int index, int delta)> { (index, -amount) },
+            new List<(int index, ItemInstance<TKey> instance)>(),
+            new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> { (splitInstance, null) });
+
+        if (!TryPrepareTransaction(transaction, null, out var mappedTransaction, out error) || mappedTransaction == null)
+            return false;
+
+        ApplyPreparedTransaction(mappedTransaction);
+        metadataStack = splitInstance;
+        error = null;
+        return true;
     }
 
     internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryTransaction<TKey>? transaction, out string? error)
@@ -1152,16 +1318,46 @@ public class Inventory<TKey>
         return true;
     }
 
+    private bool TryResolveMaxStackSize(ItemInstance<TKey> instance, out int maxStack, out string? error)
+    {
+        return TryResolveMaxStackSize(_stackResolver, instance, out maxStack, out error);
+    }
+
+    private bool TryResolveMaxStackSize(IStackResolver<TKey> resolver, ItemInstance<TKey> instance, out int maxStack, out string? error)
+    {
+        maxStack = 0;
+        if (resolver == null)
+        {
+            error = "Stack resolver cannot be null.";
+            return false;
+        }
+
+        try
+        {
+            maxStack = resolver.ResolveMaxStackSize(this, instance);
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (maxStack <= 0)
+        {
+            error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{instance.Definition.Id}'.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
     private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out string? error)
     {
         foreach (var item in _items)
         {
-            int maxStack = resolver.ResolveMaxStackSize(this, item);
-            if (maxStack <= 0)
-            {
-                error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{item.Definition.Id}'.";
+            if (!TryResolveMaxStackSize(resolver, item, out int maxStack, out error))
                 return false;
-            }
 
             if (item.Amount > maxStack)
             {
@@ -1237,10 +1433,8 @@ public class Inventory<TKey>
         {
             var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
             var prototype = new ItemInstance<TKey>(item.Definition, 1, metadata);
-            int maxStack = resolver.ResolveMaxStackSize(this, prototype);
-            if (maxStack <= 0)
+            if (!TryResolveMaxStackSize(resolver, prototype, out int maxStack, out error))
             {
-                error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{item.Definition.Id}'.";
                 proposedContents = null;
                 return false;
             }
@@ -1606,6 +1800,8 @@ public class Inventory<TKey>
         _stackResolver = stackResolver;
         _capacityPolicy = capacityPolicy;
         _layout = layout;
+        foreach (var item in _items)
+            item.DetachOwner(this);
         _items.Clear();
 
         var addedEvents = new List<ItemAdded<TKey>>(proposedContents.Count);
@@ -2192,7 +2388,8 @@ public class Inventory<TKey>
         }
 
         int targetStack = itemTo.Amount;
-        int targetMaxStack = _stackResolver.ResolveMaxStackSize(this, itemTo);
+        if (!TryResolveMaxStackSize(itemTo, out int targetMaxStack, out error))
+            return false;
 
         if (targetStack == targetMaxStack)
         {
@@ -2411,6 +2608,8 @@ public class Inventory<TKey>
         for (int index = 0; index < _items.Count; index++)
             removedEvents.Add(new ItemRemoved<TKey>(_items[index], index, _layout.GetContextsForStorageIndex(this, index)));
 
+        foreach (var item in _items)
+            item.DetachOwner(this);
         _items.Clear();
         _layout.OnInventoryCleared(this);
         Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(removed: removedEvents, cleared: true));

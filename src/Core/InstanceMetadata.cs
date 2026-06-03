@@ -1,17 +1,27 @@
+using System;
 using System.Collections.Generic;
 namespace Workes.InventorySystem.Core;
+
+internal interface IInstanceMetadataOwner
+{
+    bool TryApplyMetadataMutation(
+        InstanceMetadata metadata,
+        Func<InstanceMetadata, bool> mutate,
+        out string? error);
+}
 
 /// <summary>
 /// Stores per-instance item metadata used for structural equality and serialization.
 /// </summary>
 /// <remarks>
-/// Metadata is mutable caller-owned state. Mutating metadata on an inserted
-/// item changes future structural equality checks but does not currently fire
-/// inventory change events.
+/// Detached metadata mutates directly. Metadata owned by an inventory item routes
+/// mutation through the owning inventory so rules, layout, capacity, and events
+/// remain consistent.
 /// </remarks>
 public class InstanceMetadata
 {
     private Dictionary<string, object>? _data;
+    private IInstanceMetadataOwner? _owner;
 
     private Dictionary<string, object> Data =>
         _data ??= new Dictionary<string, object>();
@@ -28,7 +38,71 @@ public class InstanceMetadata
     /// <param name="value">The metadata value.</param>
     public void Set(string key, object value)
     {
-        Data[key] = value;
+        if (!TrySet(key, value, out var error))
+            throw new InvalidOperationException(error);
+    }
+
+    /// <summary>
+    /// Attempts to add a metadata value.
+    /// </summary>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the value is added; otherwise, <see langword="false"/>.</returns>
+    public bool TryAdd(string key, object? value, out string? error)
+    {
+        return TryMutate(
+            clone =>
+            {
+                if (clone.AsReadOnly().ContainsKey(key))
+                    return false;
+
+                clone.SetDirect(key, value);
+                return true;
+            },
+            $"Metadata key '{key}' already exists.",
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to add or replace a metadata value.
+    /// </summary>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the value is stored; otherwise, <see langword="false"/>.</returns>
+    public bool TrySet(string key, object? value, out string? error)
+    {
+        return TryMutate(
+            clone =>
+            {
+                clone.SetDirect(key, value);
+                return true;
+            },
+            null,
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to replace an existing metadata value.
+    /// </summary>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the value is changed; otherwise, <see langword="false"/>.</returns>
+    public bool TryChange(string key, object? value, out string? error)
+    {
+        return TryMutate(
+            clone =>
+            {
+                if (!clone.AsReadOnly().ContainsKey(key))
+                    return false;
+
+                clone.SetDirect(key, value);
+                return true;
+            },
+            $"Metadata key '{key}' was not found.",
+            out error);
     }
 
     /// <summary>
@@ -59,7 +133,83 @@ public class InstanceMetadata
     /// <returns><see langword="true"/> when a value was removed; otherwise, <see langword="false"/>.</returns>
     public bool Remove(string key)
     {
-        return _data != null && _data.Remove(key);
+        return TryRemove(key, out _);
+    }
+
+    /// <summary>
+    /// Attempts to remove a metadata value.
+    /// </summary>
+    /// <param name="key">The metadata key to remove.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the value is removed; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemove(string key, out string? error)
+    {
+        return TryMutate(
+            clone =>
+            {
+                if (!clone.RemoveDirect(key))
+                    return false;
+
+                return true;
+            },
+            $"Metadata key '{key}' was not found.",
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to remove every metadata value.
+    /// </summary>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when metadata is cleared or already empty; otherwise, <see langword="false"/>.</returns>
+    public bool TryClear(out string? error)
+    {
+        if (IsEmpty)
+        {
+            error = null;
+            return true;
+        }
+
+        return TryReplace(null, out error);
+    }
+
+    /// <summary>
+    /// Attempts to replace the entire metadata dictionary.
+    /// </summary>
+    /// <param name="values">The replacement values.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when metadata is replaced; otherwise, <see langword="false"/>.</returns>
+    public bool TryReplace(IReadOnlyDictionary<string, object>? values, out string? error)
+    {
+        return TryMutate(
+            clone =>
+            {
+                clone.ReplaceDirect(values);
+                return true;
+            },
+            null,
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to transform metadata using a mutable clone.
+    /// </summary>
+    /// <param name="transform">The mutation to apply to a proposed metadata copy.</param>
+    /// <param name="error">A consumer-facing reason when the mutation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transformed metadata is committed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="transform"/> is <see langword="null"/>.</exception>
+    public bool TryTransform(Action<InstanceMetadata> transform, out string? error)
+    {
+        if (transform == null)
+            throw new ArgumentNullException(nameof(transform));
+
+        return TryMutate(
+            clone =>
+            {
+                transform(clone);
+                return true;
+            },
+            null,
+            out error);
     }
 
     /// <summary>
@@ -109,7 +259,11 @@ public class InstanceMetadata
     /// </summary>
     /// <remarks>The dictionary container is copied, but stored values are not deep-cloned.</remarks>
     /// <param name="data">The metadata dictionary to restore.</param>
-    public void RestoreMetadata(Dictionary<string, object> data) => _data = data != null ? new Dictionary<string, object>(data) : null;
+    public void RestoreMetadata(Dictionary<string, object> data)
+    {
+        if (!TryReplace(data, out var error))
+            throw new InvalidOperationException(error);
+    }
 
     /// <summary>
     /// Copies the stored metadata into a mutable dictionary.
@@ -117,4 +271,89 @@ public class InstanceMetadata
     /// <remarks>The dictionary container is copied, but stored values are not deep-cloned.</remarks>
     /// <returns>A dictionary containing the current metadata values.</returns>
     public Dictionary<string, object> ToDictionary() => new(Data);
+
+    internal void AttachOwner(IInstanceMetadataOwner owner)
+    {
+        _owner = owner;
+    }
+
+    internal void DetachOwner(IInstanceMetadataOwner owner)
+    {
+        if (ReferenceEquals(_owner, owner))
+            _owner = null;
+    }
+
+    internal void SetDirect(string key, object? value)
+    {
+        Data[key] = value!;
+    }
+
+    internal bool RemoveDirect(string key)
+    {
+        return _data != null && _data.Remove(key);
+    }
+
+    internal void ReplaceDirect(IReadOnlyDictionary<string, object>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            _data?.Clear();
+            _data = null;
+            return;
+        }
+
+        if (_data == null)
+        {
+            _data = new Dictionary<string, object>(values);
+            return;
+        }
+
+        _data.Clear();
+        foreach (var pair in values)
+            _data[pair.Key] = pair.Value;
+    }
+
+    internal InstanceMetadata Clone()
+    {
+        var clone = new InstanceMetadata();
+        clone.ReplaceDirect(_data);
+        return clone;
+    }
+
+    private bool TryMutate(Func<InstanceMetadata, bool> mutate, string? falseError, out string? error)
+    {
+        if (mutate == null)
+            throw new ArgumentNullException(nameof(mutate));
+
+        if (_owner != null)
+        {
+            var rejectedByMutation = false;
+            bool accepted = _owner.TryApplyMetadataMutation(
+                this,
+                clone =>
+                {
+                    bool mutated = mutate(clone);
+                    if (!mutated)
+                        rejectedByMutation = true;
+                    return mutated;
+                },
+                out error);
+
+            if (!accepted && rejectedByMutation && !string.IsNullOrWhiteSpace(falseError))
+                error = falseError;
+
+            return accepted;
+        }
+
+        var clone = Clone();
+        if (!mutate(clone))
+        {
+            error = falseError ?? "Metadata mutation was rejected.";
+            return false;
+        }
+
+        ReplaceDirect(clone.AsReadOnly());
+        error = null;
+        return true;
+    }
 }

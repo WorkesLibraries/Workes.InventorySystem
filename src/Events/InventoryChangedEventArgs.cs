@@ -42,6 +42,11 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     public IReadOnlyList<ItemSwapped<TKey>> Swapped { get; }
 
     /// <summary>
+    /// Gets item instances whose metadata changed.
+    /// </summary>
+    public IReadOnlyList<ItemMetadataChanged<TKey>> MetadataChanged { get; }
+
+    /// <summary>
     /// Gets whether the inventory was fully cleared.
     /// </summary>
     public bool Cleared { get; }
@@ -71,6 +76,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Modified = new List<ItemModified<TKey>>();
         Moved = new List<ItemMoved<TKey>>();
         Swapped = new List<ItemSwapped<TKey>>();
+        MetadataChanged = new List<ItemMetadataChanged<TKey>>();
         Cleared = false;
         ConfigurationChanged = new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = new List<ILayoutContext<TKey>>();
@@ -85,6 +91,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// <param name="modified">The item instances whose amounts changed.</param>
     /// <param name="moved">The item instances moved between layout contexts.</param>
     /// <param name="swapped">The item instances swapped between layout contexts.</param>
+    /// <param name="metadataChanged">The item instances whose metadata changed.</param>
     /// <param name="cleared">Whether the inventory was fully cleared.</param>
     /// <param name="configurationChanged">Runtime inventory configuration changes.</param>
     /// <param name="affectedLayoutContexts">Optional explicit affected layout contexts.</param>
@@ -95,6 +102,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         IEnumerable<ItemModified<TKey>>? modified = null,
         IEnumerable<ItemMoved<TKey>>? moved = null,
         IEnumerable<ItemSwapped<TKey>>? swapped = null,
+        IEnumerable<ItemMetadataChanged<TKey>>? metadataChanged = null,
         bool cleared = false,
         IEnumerable<InventoryConfigurationChanged<TKey>>? configurationChanged = null,
         IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null,
@@ -105,6 +113,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Modified = modified != null ? modified.ToList() : new List<ItemModified<TKey>>();
         Moved = moved != null ? moved.ToList() : new List<ItemMoved<TKey>>();
         Swapped = swapped != null ? swapped.ToList() : new List<ItemSwapped<TKey>>();
+        MetadataChanged = metadataChanged != null ? metadataChanged.ToList() : new List<ItemMetadataChanged<TKey>>();
         Cleared = cleared;
         ConfigurationChanged = configurationChanged != null ? configurationChanged.ToList() : new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = BuildAffectedContexts(affectedLayoutContexts);
@@ -131,6 +140,8 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         }
         foreach (var swapped in Swapped)
             AddRange(contexts, swapped.AffectedLayoutContexts);
+        foreach (var metadataChanged in MetadataChanged)
+            AddRange(contexts, metadataChanged.LayoutContexts);
         return contexts;
     }
 

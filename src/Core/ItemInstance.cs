@@ -27,11 +27,13 @@ public class ItemInstance<TKey>
     /// Gets the per-instance metadata for this item.
     /// </summary>
     /// <remarks>
-    /// The returned metadata object is live and mutable. Mutating it after insertion
-    /// is visible to future stack compatibility and structural equality checks, but
-    /// does not currently fire <see cref="Inventory{TKey}.Changed"/>.
+    /// Detached metadata mutates directly. Once the item belongs to an inventory,
+    /// metadata mutations validate through that inventory and can fire
+    /// <see cref="Inventory{TKey}.Changed"/>.
     /// </remarks>
     public InstanceMetadata Metadata { get; } = new();
+
+    internal Inventory<TKey>? Owner { get; private set; }
 
     /// <summary>
     /// Creates an item instance.
@@ -50,6 +52,48 @@ public class ItemInstance<TKey>
         Amount = amount;
         InstanceId = Guid.NewGuid();
         Metadata = metadata ?? new InstanceMetadata();
+    }
+
+    /// <summary>
+    /// Attempts to split this stack and set metadata on the split amount.
+    /// </summary>
+    /// <param name="amount">The amount to split and mutate.</param>
+    /// <param name="key">The metadata key to add or replace.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <param name="metadataStack">The stack that received the metadata when the operation succeeds.</param>
+    /// <param name="error">A consumer-facing reason when the operation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the operation succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TrySplitAndSetMetadata(
+        int amount,
+        string key,
+        object? value,
+        out ItemInstance<TKey>? metadataStack,
+        out string? error)
+    {
+        metadataStack = null;
+        if (Owner == null)
+        {
+            error = "Item instance does not belong to an inventory.";
+            return false;
+        }
+
+        return Owner.TrySplitAndSetMetadata(this, amount, key, value, out metadataStack, out error);
+    }
+
+    /// <summary>
+    /// Splits this stack and sets metadata on the split amount, or throws when the operation is rejected.
+    /// </summary>
+    /// <param name="amount">The amount to split and mutate.</param>
+    /// <param name="key">The metadata key to add or replace.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <returns>The stack that received the metadata.</returns>
+    /// <exception cref="InvalidOperationException">The split or metadata mutation is rejected.</exception>
+    public ItemInstance<TKey> SplitAndSetMetadata(int amount, string key, object? value)
+    {
+        if (!TrySplitAndSetMetadata(amount, key, value, out var metadataStack, out var error) || metadataStack == null)
+            throw new InvalidOperationException(error);
+
+        return metadataStack;
     }
 
     /// <summary>
@@ -103,5 +147,20 @@ public class ItemInstance<TKey>
             return false;
 
         return Metadata.StructuralEquals(other.Metadata);
+    }
+
+    internal void AttachOwner(Inventory<TKey> inventory)
+    {
+        Owner = inventory ?? throw new ArgumentNullException(nameof(inventory));
+        Metadata.AttachOwner(inventory);
+    }
+
+    internal void DetachOwner(Inventory<TKey> inventory)
+    {
+        if (ReferenceEquals(Owner, inventory))
+        {
+            Owner = null;
+            Metadata.DetachOwner(inventory);
+        }
     }
 }
