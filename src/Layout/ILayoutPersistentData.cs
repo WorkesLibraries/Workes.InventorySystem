@@ -3,6 +3,10 @@ namespace Workes.InventorySystem.Layout;
 /// <summary>
 /// Represents layout-specific data that can be stored and restored.
 /// </summary>
+/// <remarks>
+/// This is infrastructure for layout persistence and custom layout implementations.
+/// Normal inventory mutation should still go through <c>Inventory&lt;TKey&gt;</c>.
+/// </remarks>
 public interface ILayoutPersistentData
 {
     /// <summary>

@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System.Collections.Generic;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Stacking;
 
 /// <summary>
@@ -37,9 +38,11 @@ public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public int ResolveMaxStackSize(Inventory<TKey> inventory, ItemInstance<TKey> instance) => _defaultMaxStack;
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,

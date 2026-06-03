@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -32,6 +33,7 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -41,6 +43,7 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -51,6 +54,7 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

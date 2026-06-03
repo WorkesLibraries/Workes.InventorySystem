@@ -5,6 +5,11 @@ namespace Workes.InventorySystem.Rules;
 /// Optional interface for rules that can validate using a projected inventory snapshot.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract for rules that need inventory-wide state after
+/// a projected transaction. Normal application code should use inventory mutation
+/// APIs; the inventory builds snapshots for registered rules during validation.
+/// </remarks>
 public interface IInventorySnapshotRulePolicy<TKey>
 {
     /// <summary>

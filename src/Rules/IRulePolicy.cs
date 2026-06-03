@@ -5,6 +5,12 @@ namespace Workes.InventorySystem.Rules;
 /// Defines a rule that can accept or reject semantic inventory transactions.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract for custom rules. Application code should add
+/// or change rules through <see cref="RuleContainer{TKey}"/> during setup or
+/// inventory-owned rule mutation methods such as <see cref="Inventory{TKey}.TrySetRule(string, IRulePolicy{TKey}, out string?)"/>.
+/// Inventory transaction methods invoke rules as part of validation.
+/// </remarks>
 public interface IRulePolicy<TKey>
 {
     /// <summary>

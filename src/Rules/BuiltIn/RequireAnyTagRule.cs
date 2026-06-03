@@ -1,6 +1,7 @@
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Tags;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -35,6 +36,7 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

@@ -1,4 +1,5 @@
 using Workes.InventorySystem.Core;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Capacity;
 
 /// <summary>
@@ -8,6 +9,7 @@ namespace Workes.InventorySystem.Capacity;
 public class UnlimitedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 {
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
     {
         error = null;
@@ -15,6 +17,7 @@ public class UnlimitedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
     {
         error = null;

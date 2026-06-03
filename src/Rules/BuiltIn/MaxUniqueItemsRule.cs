@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>

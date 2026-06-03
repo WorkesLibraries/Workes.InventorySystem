@@ -346,6 +346,47 @@ public class InventoryChangedEventTests
         Assert.That(inventory.InstanceCount, Is.EqualTo(0));
     }
 
+    [Test]
+    public void MetadataChangedEvent_ContainsBeforeAndAfterMetadata()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new SlotLayout<string>(2), new UnlimitedCapacityPolicy<string>(), gem);
+        inventory.TryAdd(gem, out _, 1, SlotLayoutContext<string>.Single(1));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, e) => captured = e;
+
+        Assert.That(inventory.Items[0].Metadata.TrySet("quality", "polished", out var error), Is.True, error);
+
+        var changed = captured!.MetadataChanged.Single();
+        Assert.That(changed.Instance, Is.SameAs(inventory.Items[0]));
+        Assert.That(changed.BeforeMetadata, Is.Empty);
+        Assert.That(changed.AfterMetadata["quality"], Is.EqualTo("polished"));
+        Assert.That(((SlotLayoutContext<string>)changed.LayoutContext!).SlotIndex, Is.EqualTo(1));
+        Assert.That(captured.AffectedLayoutContexts.OfType<SlotLayoutContext<string>>().Single().SlotIndex, Is.EqualTo(1));
+        Assert.That(captured.RequiresFullRefresh, Is.False);
+    }
+
+    [Test]
+    public void SplitAndSetMetadata_ReportsAddedAndModifiedForUiButNoMetadataChanged()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new SlotLayout<string>(2), new UnlimitedCapacityPolicy<string>(), gem);
+        inventory.TryAdd(gem, out _, 3, SlotLayoutContext<string>.Single(0));
+        inventory.Items[0].Metadata.TrySet("quality", "polished", out _);
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, e) => captured = e;
+
+        Assert.That(inventory.Items[0].TrySplitAndSetMetadata(1, "quest-item", true, out _, out var error), Is.True, error);
+
+        Assert.That(captured!.Added, Has.Count.EqualTo(1));
+        Assert.That(captured.Modified, Has.Count.EqualTo(1));
+        Assert.That(captured.MetadataChanged, Is.Empty);
+        Assert.That(captured.Modified.Single().BeforeAmount, Is.EqualTo(3));
+        Assert.That(captured.Modified.Single().AfterAmount, Is.EqualTo(2));
+        Assert.That(captured.Added.Single().Instance.Metadata.TryGet<bool>("quest-item", out var questItem), Is.True);
+        Assert.That(questItem, Is.True);
+    }
+
     private static Inventory<string> CreateInventory(IInventoryLayout<string> layout, ICapacityPolicy<string> capacityPolicy, params ItemDefinition<string>[] definitions)
     {
         var manager = CreateManager(layout, capacityPolicy);

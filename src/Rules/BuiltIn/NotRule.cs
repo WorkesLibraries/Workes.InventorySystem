@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -24,6 +25,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -47,6 +49,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -69,6 +72,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

@@ -1,4 +1,5 @@
 using Workes.InventorySystem.Core;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -6,12 +7,18 @@ namespace Workes.InventorySystem.Rules;
 /// Projection is still lazy and only materializes if a derived rule queries it.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension base class. Normal application code should register rules
+/// and mutate inventories through <see cref="Inventory{TKey}"/> rather than calling
+/// rule validation directly.
+/// </remarks>
 public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey>
 {
     /// <inheritdoc />
     public string Id { get; protected set; } = string.Empty;
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -22,6 +29,7 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

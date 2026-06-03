@@ -8,7 +8,15 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
-/// Layout implementations own placement, sorting, empty positions, and UI addressability. Inventory storage order is item ownership state and should not be treated as presentation order.
+/// This is an extension contract for custom layouts. Normal application code should
+/// usually call inventory-level methods such as <see cref="Inventory{TKey}.TryAdd"/>,
+/// <see cref="Inventory{TKey}.TryMove"/>, <see cref="Inventory{TKey}.TrySwap"/>, and
+/// <see cref="Inventory{TKey}.TrySortLayout(Workes.InventorySystem.Sorting.IInventorySortContext{TKey}, out string?)"/>
+/// instead of invoking layout mutation methods directly. UI code may use layout query
+/// methods such as <see cref="GetAddressableContexts"/>, <see cref="GetItemAt"/>,
+/// <see cref="GetContextsForStorageIndex"/>, and <see cref="TryGetContextForStorageIndex"/>
+/// to render inventory state. Inventory storage order is item ownership state and
+/// should not be treated as presentation order.
 /// </remarks>
 public interface IInventoryLayout<TKey>
 {

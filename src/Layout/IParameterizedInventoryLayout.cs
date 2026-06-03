@@ -7,6 +7,11 @@ namespace Workes.InventorySystem.Layout;
 /// Inventory layout that can create a replacement layout with one runtime parameter changed.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract. Normal runtime layout tuning should go through
+/// <see cref="Inventory{TKey}.TrySetLayoutParameter(string, object?, out string?)"/>
+/// so the inventory can validate current contents before committing the change.
+/// </remarks>
 public interface IParameterizedInventoryLayout<TKey> : IInventoryLayout<TKey>
 {
     /// <summary>

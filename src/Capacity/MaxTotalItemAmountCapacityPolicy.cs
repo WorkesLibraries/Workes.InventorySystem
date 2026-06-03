@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Capacity;
 
@@ -39,6 +40,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
     public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
     {
         if (inventory == null)
@@ -61,6 +63,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
     {
         if (inventory == null)
@@ -79,6 +82,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,

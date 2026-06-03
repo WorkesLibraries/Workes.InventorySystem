@@ -7,6 +7,11 @@ namespace Workes.InventorySystem.Stacking;
 /// Stack resolver that can create a replacement resolver with one runtime parameter changed.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract. Normal runtime stack tuning should go through
+/// <see cref="Inventory{TKey}.TrySetStackResolverParameter(string, object?, out string?)"/>
+/// so the inventory can validate current contents before committing the change.
+/// </remarks>
 public interface IParameterizedStackResolver<TKey> : IStackResolver<TKey>
 {
     /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Core;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Capacity;
 
@@ -65,6 +66,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
     {
         if (inventory == null)
@@ -90,6 +92,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
     {
         if (inventory == null)
@@ -165,6 +168,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,

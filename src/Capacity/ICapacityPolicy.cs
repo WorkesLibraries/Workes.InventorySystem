@@ -5,6 +5,11 @@ namespace Workes.InventorySystem.Capacity;
 /// Validates whether an inventory has enough capacity for item additions or transactions.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract for custom capacity policies. Normal inventory
+/// mutation should go through <see cref="Inventory{TKey}"/>, which invokes capacity
+/// validation before committing changes.
+/// </remarks>
 public interface ICapacityPolicy<TKey>
 {
     /// <summary>

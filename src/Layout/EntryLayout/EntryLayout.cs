@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
@@ -69,6 +70,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         // If we have an entry layout context, the only valid merge candidate is the
@@ -93,6 +95,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         error = null;
@@ -160,6 +163,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryApplyPlacementContext(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
@@ -328,6 +332,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -347,6 +352,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -382,6 +388,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -415,6 +422,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
@@ -442,6 +450,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         if (context is EntryLayoutContext<TKey> entryContext && !entryContext.IsMapped)
@@ -454,6 +463,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemRemoved(Inventory<TKey> inventory, int index)
     {
         ApplyRemovalToOrder(_order, index);
@@ -476,15 +486,18 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         _order.Clear();
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public ILayoutPersistentData GetPersistentData() => new EntryLayoutPersistentData { Order = new List<int>(_order) };
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void RestorePersistentData(ILayoutPersistentData? data)
     {
         if (data is not EntryLayoutPersistentData entryData)
@@ -495,6 +508,7 @@ public class EntryLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IInventoryLayout<TKey> Clone()
     {
         var data = (EntryLayoutPersistentData)GetPersistentData();

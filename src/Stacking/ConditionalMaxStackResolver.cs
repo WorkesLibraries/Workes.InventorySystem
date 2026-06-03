@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Stacking;
 
@@ -64,6 +65,7 @@ public sealed class ConditionalMaxStackResolver<TKey> : IParameterizedStackResol
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public int ResolveMaxStackSize(Inventory<TKey> inventory, ItemInstance<TKey> instance)
     {
         if (instance == null)
@@ -76,6 +78,7 @@ public sealed class ConditionalMaxStackResolver<TKey> : IParameterizedStackResol
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,

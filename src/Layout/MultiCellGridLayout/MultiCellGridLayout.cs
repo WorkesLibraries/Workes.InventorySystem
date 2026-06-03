@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
 
@@ -255,6 +256,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         if (context is MultiCellGridLayoutContext<TKey> gridContext && !gridContext.IsMapped)
@@ -281,12 +283,14 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         return TrySimulatePlacement(inventory, transaction, out _, out error);
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryApplyPlacementContext(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
@@ -383,6 +387,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         var footprint = FootprintProvider.GetFootprint(instance.Definition);
@@ -418,6 +423,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
@@ -458,6 +464,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = "Layout does not support swapping multi-cell items.";
@@ -465,6 +472,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
         MultiCellGridSortPriority priority;
@@ -536,6 +544,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         var footprint = FootprintProvider.GetFootprint(inventory.Items[index].Definition);
@@ -561,6 +570,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemRemoved(Inventory<TKey> inventory, int index)
     {
         ClearStorageIndex(_cellMap, index);
@@ -572,6 +582,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         for (int i = 0; i < _cellMap.Count; i++)
@@ -579,6 +590,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public ILayoutPersistentData GetPersistentData()
     {
         return new MultiCellGridLayoutPersistentData
@@ -592,6 +604,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void RestorePersistentData(ILayoutPersistentData? persistentData)
     {
         if (persistentData is not MultiCellGridLayoutPersistentData data ||
@@ -610,6 +623,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IInventoryLayout<TKey> Clone()
     {
         var clone = new MultiCellGridLayout<TKey>(Width, Height, FootprintProvider, PlacementOrder, DefaultAnchor);

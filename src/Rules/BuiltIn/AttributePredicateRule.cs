@@ -1,6 +1,7 @@
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Rules;
 
@@ -42,6 +43,7 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

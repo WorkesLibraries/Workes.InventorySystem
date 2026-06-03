@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
@@ -138,6 +139,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         if (context is SlotLayoutContext<TKey> slotContext)
@@ -160,6 +162,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         error = null;
@@ -245,6 +248,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryApplyPlacementContext(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
@@ -393,6 +397,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         error = null;
@@ -453,6 +458,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -497,6 +503,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         error = null;
@@ -536,6 +543,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
@@ -565,6 +573,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         int slot = context is SlotLayoutContext<TKey> slotContext && !slotContext.IsMapped
@@ -574,12 +583,14 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemRemoved(Inventory<TKey> inventory, int removedIndex)
     {
         ApplyRemovalToSlotMap(_slotMap, removedIndex);
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         for (int i = 0; i < _slotMap.Count; i++)
@@ -587,6 +598,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public ILayoutPersistentData GetPersistentData()
     {
         return new SlotLayoutPersistentData
@@ -596,6 +608,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void RestorePersistentData(ILayoutPersistentData? data)
     {
         if (data is not SlotLayoutPersistentData slotData)
@@ -606,6 +619,7 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IInventoryLayout<TKey> Clone()
     {
         var data = (SlotLayoutPersistentData)GetPersistentData();

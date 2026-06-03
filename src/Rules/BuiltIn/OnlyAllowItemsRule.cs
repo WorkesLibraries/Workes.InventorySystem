@@ -2,6 +2,7 @@ using Workes.InventorySystem.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -36,6 +37,7 @@ public class OnlyAllowItemsRule<TKey> : IRulePolicy<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
 
@@ -108,6 +109,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IEnumerable<int> GetMergeCandidates(Inventory<TKey> inventory, ItemInstance<TKey> prototype, ILayoutContext<TKey>? context)
     {
         if (context is EquipmentLayoutContext<TKey> equipmentContext && !equipmentContext.IsMapped)
@@ -132,6 +134,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
     {
         error = null;
@@ -218,6 +221,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryApplyPlacementContext(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
@@ -316,6 +320,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
     {
         if (context is EquipmentLayoutContext<TKey> equipmentContext && !equipmentContext.IsMapped)
@@ -357,6 +362,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
@@ -399,6 +405,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
@@ -439,6 +446,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
     {
         error = "Layout does not support sorting.";
@@ -446,6 +454,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemAdded(Inventory<TKey> inventory, int index, ILayoutContext<TKey>? context)
     {
         int slotIndex;
@@ -470,12 +479,14 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnItemRemoved(Inventory<TKey> inventory, int index)
     {
         ApplyRemovalToSlotMap(_slotMap, index);
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void OnInventoryCleared(Inventory<TKey> inventory)
     {
         for (int i = 0; i < _slotMap.Count; i++)
@@ -483,6 +494,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public ILayoutPersistentData GetPersistentData()
     {
         return new EquipmentLayoutPersistentData
@@ -493,6 +505,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public void RestorePersistentData(ILayoutPersistentData? persistentData)
     {
         if (persistentData is not EquipmentLayoutPersistentData equipmentData ||
@@ -515,6 +528,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IInventoryLayout<TKey> Clone()
     {
         var clone = new EquipmentLayout<TKey>(_slots);

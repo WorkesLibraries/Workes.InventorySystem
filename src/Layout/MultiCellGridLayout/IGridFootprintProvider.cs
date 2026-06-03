@@ -6,6 +6,11 @@ namespace Workes.InventorySystem.Layout;
 /// Resolves grid footprints for item definitions.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract used by <see cref="MultiCellGridLayout{TKey}"/>.
+/// Normal application code configures a footprint provider when creating the layout;
+/// the layout calls the provider during inventory validation and placement.
+/// </remarks>
 public interface IGridFootprintProvider<TKey>
 {
     /// <summary>

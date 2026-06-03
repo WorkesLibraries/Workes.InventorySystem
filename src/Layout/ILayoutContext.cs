@@ -11,6 +11,8 @@ namespace Workes.InventorySystem.Layout;
 /// Context meaning is owned by each layout implementation. The shared
 /// <see cref="IsMapped"/> flag only tells inventory orchestration whether this
 /// context represents transaction-level added-entry mapping.
+/// Normal application code can pass context values to inventory-level methods;
+/// custom layouts define context types when built-in addressing models are not enough.
 /// </remarks>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public interface ILayoutContext<TKey>

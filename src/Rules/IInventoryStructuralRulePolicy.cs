@@ -6,6 +6,11 @@ namespace Workes.InventorySystem.Rules;
 /// such as rules based on item instance count rather than item quantity.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract. Normal application code should commit changes
+/// through <see cref="Inventory{TKey}"/>; inventory validation invokes structural
+/// rules when they are registered.
+/// </remarks>
 public interface IInventoryStructuralRulePolicy<TKey>
 {
     /// <summary>

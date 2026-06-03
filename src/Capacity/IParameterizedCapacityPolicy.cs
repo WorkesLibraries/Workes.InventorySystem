@@ -7,6 +7,11 @@ namespace Workes.InventorySystem.Capacity;
 /// Capacity policy that can create a replacement policy with one runtime parameter changed.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// This is an extension contract. Normal runtime capacity tuning should go through
+/// <see cref="Inventory{TKey}.TrySetCapacityPolicyParameter(string, object?, out string?)"/>
+/// so the inventory can validate current contents before committing the change.
+/// </remarks>
 public interface IParameterizedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 {
     /// <summary>

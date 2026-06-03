@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -29,6 +30,7 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -38,6 +40,7 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,

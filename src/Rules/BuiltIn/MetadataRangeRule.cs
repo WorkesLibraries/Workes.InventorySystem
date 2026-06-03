@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using System;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -38,6 +39,7 @@ public class MetadataRangeRule<TKey, T> : IRulePolicy<TKey>
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,

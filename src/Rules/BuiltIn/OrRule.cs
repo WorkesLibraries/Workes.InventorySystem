@@ -1,6 +1,7 @@
 using Workes.InventorySystem.Core;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -27,6 +28,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -80,6 +82,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
@@ -130,6 +133,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     }
 
     /// <inheritdoc />
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
