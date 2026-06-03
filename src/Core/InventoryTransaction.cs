@@ -5,7 +5,7 @@ namespace Workes.InventorySystem.Core;
 
 /// <summary>
 /// Represents a structural change to an inventory (deltas, removals, additions).
-/// Transactions are formulated by the inventory and committed via <see cref="Inventory{TKey}.CommitTransaction"/>.
+/// Transactions are formulated by the inventory and committed through inventory commit methods.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class InventoryTransaction<TKey>
@@ -49,6 +49,11 @@ public class InventoryTransaction<TKey>
     /// Gets whether this transaction has already been committed.
     /// </summary>
     public bool IsApplied { get; private set; }
+
+    /// <summary>
+    /// Gets whether this transaction contains no structural changes.
+    /// </summary>
+    public bool IsEmpty => AmountDeltas.Count == 0 && Removed.Count == 0 && Added.Count == 0;
 
     internal InventoryTransaction(
         Inventory<TKey> inventory,

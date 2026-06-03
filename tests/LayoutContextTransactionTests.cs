@@ -42,6 +42,84 @@ public class LayoutContextTransactionTests
     }
 
     [Test]
+    public void InventoryTransactionBuilder_Build_EqualsToInventoryTransaction()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _, 2);
+
+        var legacy = builder.ToInventoryTransaction();
+        var built = builder.Build();
+
+        Assert.That(built.Added.Count, Is.EqualTo(legacy.Added.Count));
+        Assert.That(built.Added.Single().instance.Definition, Is.SameAs(apple));
+        Assert.That(built.Added.Single().instance.Amount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void InventoryTransactionBuilder_TryBuild_AppliesPlacementContext()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new SlotLayout<string>(2), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+
+        Assert.That(builder.TryBuild(SlotLayoutContext<string>.Single(1), out var transaction, out var error), Is.True, error);
+        Assert.That(transaction!.Added.Single().context, Is.TypeOf<SlotLayoutContext<string>>());
+        Assert.That(((SlotLayoutContext<string>)transaction.Added.Single().context!).SlotIndex, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransactionBuilder_CommitsBuiltTransaction()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _, 3);
+
+        Assert.That(inventory.TryCommitTransaction(builder, out var error), Is.True, error);
+
+        Assert.That(inventory.Count(apple), Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransactionBuilder_WithPlacementContext_CommitsMappedTransaction()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new SlotLayout<string>(2), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+
+        Assert.That(inventory.TryCommitTransaction(builder, SlotLayoutContext<string>.Single(1), out var error), Is.True, error);
+
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
+    }
+
+    [Test]
+    public void InventoryTransaction_IsEmpty_IsTrueForNoOpBuilder()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+
+        Assert.That(builder.IsEmpty, Is.True);
+        Assert.That(builder.Build().IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void InventoryTransaction_IsEmpty_IsFalseWhenBuilderHasChanges()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, out _);
+
+        Assert.That(builder.IsEmpty, Is.False);
+        Assert.That(builder.Build().IsEmpty, Is.False);
+    }
+
+    [Test]
     public void SlotLayoutContext_Map_StoresAddedEntrySlotMappings()
     {
         var context = SlotLayoutContext<string>.Map()

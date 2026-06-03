@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
@@ -14,6 +15,8 @@ namespace Workes.InventorySystem.Tests;
 public class InventoryPolicyParameterMutationTests
 {
     private const string Weight = "weight";
+    private const string FootprintWidth = "policy-mutation-footprint-width";
+    private const string FootprintHeight = "policy-mutation-footprint-height";
 
     private sealed class WeightedDefinition : ItemDefinition<string>
     {
@@ -25,6 +28,21 @@ public class InventoryPolicyParameterMutationTests
             : base(id, WeightedSchema)
         {
             DefineAttribute(Weight, weight);
+        }
+    }
+
+    private sealed class FootprintDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> FootprintSchema =
+            ItemSchema<string>.Create("policy-mutation-footprint")
+                .RequireAttribute<int>(FootprintWidth, inherited: true)
+                .RequireAttribute<int>(FootprintHeight, inherited: true);
+
+        public FootprintDefinition(string id, int width, int height)
+            : base(id, FootprintSchema)
+        {
+            DefineAttribute(FootprintWidth, width);
+            DefineAttribute(FootprintHeight, height);
         }
     }
 
@@ -61,6 +79,64 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(error, Does.Contain("exceed max stack size"));
         Assert.That(events, Is.EqualTo(0));
         Assert.That(((DefaultStackResolver<string>)inventory.StackResolver).DefaultMaxStack, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void TrySetStackResolverParameter_SplitsOversizedStacksWithCompressionAndRepack()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "mint");
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryAdd(coin, 10, null, metadata, out var buildError), Is.True, buildError);
+        inventory.CommitTransaction(builder.Build());
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
+
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Items, Has.Count.EqualTo(2));
+        Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 5, 5 }));
+        Assert.That(inventory.Items.All(item => item.Metadata.TryGet<string>("quality", out var quality) && quality == "mint"), Is.True);
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.StackResolver));
+        Assert.That(captured.RequiresFullRefresh, Is.True);
+    }
+
+    [Test]
+    public void TrySetStackResolverParameter_RejectsCompressionWhenRepackDisabledAndSplitNeeded()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        inventory.Add(coin, amount: 10);
+        var options = new InventoryParameterMutationOptions { CompressStacks = true, RepackLayout = false };
+
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, options, out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Is.EqualTo("Stack compression would create additional stacks and requires layout repack."));
+        Assert.That(inventory.Items, Has.Count.EqualTo(1));
+        Assert.That(inventory.Items[0].Amount, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void TrySetStackResolverParameter_RejectsCompressionWhenLayoutCannotFitSplitStacks()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
+        int events = 0;
+        inventory.Add(coin, amount: 10);
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("Not enough empty slots"));
+        Assert.That(events, Is.EqualTo(0));
+        Assert.That(inventory.Items, Has.Count.EqualTo(1));
+        Assert.That(inventory.Items[0].Amount, Is.EqualTo(10));
     }
 
     [Test]
@@ -153,6 +229,52 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
+    public void TrySetLayoutParameter_ReflowsSlotLayoutWhenRepackEnabled()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
+        inventory.Changed += (_, args) => captured = args;
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "slotCount",
+            2,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(2));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(coin));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.Layout));
+        Assert.That(captured.RequiresFullRefresh, Is.True);
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_RejectsRepackWhenShrunkSlotLayoutCannotFitAllItems()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(1), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin, gem);
+        int events = 0;
+        inventory.Add(coin, context: SlotLayoutContext<string>.Single(0));
+        inventory.Add(gem, context: SlotLayoutContext<string>.Single(1));
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "slotCount",
+            1,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("Not enough empty slots"));
+        Assert.That(events, Is.EqualTo(0));
+        Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(2));
+    }
+
+    [Test]
     public void TrySetLayoutParameter_ShrinksSlotLayoutWhenRemovedSlotsAreEmpty()
     {
         var coin = new ItemDefinition<string>("coin");
@@ -177,6 +299,69 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.False);
         Assert.That(error, Does.Contain("outside the new bounds"));
         Assert.That(((GridLayout<string>)inventory.Layout).Width, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_ReflowsGridLayoutWhenRepackEnabled()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(3, 1), coin);
+        inventory.Add(coin, context: GridLayoutContext<string>.Single(2, 0));
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "width",
+            2,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(((GridLayout<string>)inventory.Layout).Width, Is.EqualTo(2));
+        Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(coin));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_ReflowsMultiCellGridLayoutFootprintsWhenRepackEnabled()
+    {
+        var table = new FootprintDefinition("table", 2, 1);
+        var inventory = CreateInventory(
+            new DefaultStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new MultiCellGridLayout<string>(3, 1, new AttributeGridFootprintProvider<string>(FootprintWidth, FootprintHeight)),
+            table);
+        inventory.Add(table, context: MultiCellGridLayoutContext<string>.Single(1, 0));
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "width",
+            2,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(((MultiCellGridLayout<string>)inventory.Layout).Width, Is.EqualTo(2));
+        Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(table));
+        Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(1, 0))!.Definition, Is.SameAs(table));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_RejectsMultiCellRepackWhenFootprintsCannotFit()
+    {
+        var table = new FootprintDefinition("table", 2, 1);
+        var inventory = CreateInventory(
+            new DefaultStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new MultiCellGridLayout<string>(3, 1, new AttributeGridFootprintProvider<string>(FootprintWidth, FootprintHeight)),
+            table);
+        inventory.Add(table, context: MultiCellGridLayoutContext<string>.Single(1, 0));
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "width",
+            1,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("Not enough empty grid space"));
+        Assert.That(((MultiCellGridLayout<string>)inventory.Layout).Width, Is.EqualTo(3));
     }
 
     [Test]
@@ -219,6 +404,25 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.False);
         Assert.That(error, Does.Contain("removed slot is occupied"));
         Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_ReflowsSectionedLayoutIntoCompatibleSlots()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var layout = new SectionedLayout<string>(new SectionDefinition<string>("bag", 2));
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
+        inventory.Add(coin, context: SectionedLayoutContext<string>.Single("bag", 1));
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "section:bag.slotCount",
+            1,
+            new InventoryParameterMutationOptions { RepackLayout = true },
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(1));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single("bag", 0))!.Definition, Is.SameAs(coin));
     }
 
     [Test]
@@ -268,6 +472,20 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
+    public void RejectedRepackOrCompression_FiresNoChangedEvent()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
+        inventory.Add(coin, amount: 10);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        Assert.That(inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out _), Is.False);
+
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
     public void TrySetLayoutParameter_ReturnsFalseForUnsupportedLayout()
     {
         var coin = new ItemDefinition<string>("coin");
@@ -309,6 +527,11 @@ public class InventoryPolicyParameterMutationTests
 
         if (definitions.Any(definition => definition is WeightedDefinition))
             manager.Catalog.Attributes.Define<double>(Weight);
+        if (definitions.Any(definition => definition is FootprintDefinition))
+        {
+            manager.Catalog.Attributes.Define<int>(FootprintWidth);
+            manager.Catalog.Attributes.Define<int>(FootprintHeight);
+        }
 
         manager.Catalog.Freeze();
         return manager.CreateInventory();

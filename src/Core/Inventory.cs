@@ -25,6 +25,22 @@ public class Inventory<TKey>
     private IInventoryLayout<TKey> _layout;
     private readonly RuleContainer<TKey> _rules;
 
+    private sealed class ProposedItemState
+    {
+        public ProposedItemState(ItemDefinition<TKey> definition, int amount, InstanceMetadata? metadata)
+        {
+            Definition = definition;
+            Amount = amount;
+            Metadata = metadata;
+        }
+
+        public ItemDefinition<TKey> Definition { get; }
+
+        public int Amount { get; }
+
+        public InstanceMetadata? Metadata { get; }
+    }
+
     /// <summary>
     /// Gets inventory-level attributes.
     /// </summary>
@@ -869,7 +885,25 @@ public class Inventory<TKey>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetStackResolverParameter(string parameterId, object? value, out string? error)
+        => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+
+    /// <summary>
+    /// Attempts to change a stack resolver parameter after validating current stack amounts, optionally rebuilding current stacks.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options controlling whether current stacks may be compressed and re-packed.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public bool TrySetStackResolverParameter(
+        string parameterId,
+        object? value,
+        InventoryParameterMutationOptions options,
+        out string? error)
     {
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
 
@@ -882,12 +916,43 @@ public class Inventory<TKey>
         if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedResolver, out error) || proposedResolver == null)
             return false;
 
-        if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
+        var previous = _stackResolver;
+        if (!options.CompressStacks)
+        {
+            if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
+                return false;
+
+            _stackResolver = proposedResolver;
+            FireConfigurationChanged(InventoryConfigurationChangeKind.StackResolver, parameterId, value, previous, proposedResolver, requiresFullRefresh: false);
+            return true;
+        }
+
+        if (!TryCreateCompressedContents(proposedResolver, options, out var proposedContents, out var changedShape, out error) || proposedContents == null)
             return false;
 
-        var previous = _stackResolver;
-        _stackResolver = proposedResolver;
-        FireConfigurationChanged(InventoryConfigurationChangeKind.StackResolver, parameterId, value, previous, proposedResolver, requiresFullRefresh: false);
+        if (!changedShape)
+        {
+            _stackResolver = proposedResolver;
+            FireConfigurationChanged(InventoryConfigurationChangeKind.StackResolver, parameterId, value, previous, proposedResolver, requiresFullRefresh: false);
+            return true;
+        }
+
+        if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+            return false;
+
+        if (!TryValidateProposedContents(proposedContents, proposedResolver, _capacityPolicy, proposedLayout, out error))
+            return false;
+
+        ApplyConfigurationRebuild(
+            proposedContents,
+            proposedResolver,
+            _capacityPolicy,
+            proposedLayout,
+            InventoryConfigurationChangeKind.StackResolver,
+            parameterId,
+            value,
+            previous,
+            proposedResolver);
         return true;
     }
 
@@ -898,8 +963,19 @@ public class Inventory<TKey>
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value)
+        => SetStackResolverParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+
+    /// <summary>
+    /// Changes a stack resolver parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options controlling whether current stacks may be compressed and re-packed.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
     {
-        if (!TrySetStackResolverParameter(parameterId, value, out var error))
+        if (!TrySetStackResolverParameter(parameterId, value, options, out var error))
             ThrowMutationFailure(error, "Stack resolver parameter change failed.");
     }
 
@@ -911,7 +987,25 @@ public class Inventory<TKey>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out string? error)
+        => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+
+    /// <summary>
+    /// Attempts to change a capacity policy parameter after validating current contents against the proposed policy.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options accepted for consistency with stack and layout parameter changes.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public bool TrySetCapacityPolicyParameter(
+        string parameterId,
+        object? value,
+        InventoryParameterMutationOptions options,
+        out string? error)
     {
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
 
@@ -940,8 +1034,19 @@ public class Inventory<TKey>
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value)
+        => SetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+
+    /// <summary>
+    /// Changes a capacity policy parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options accepted for consistency with stack and layout parameter changes.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
     {
-        if (!TrySetCapacityPolicyParameter(parameterId, value, out var error))
+        if (!TrySetCapacityPolicyParameter(parameterId, value, options, out var error))
             ThrowMutationFailure(error, "Capacity policy parameter change failed.");
     }
 
@@ -953,7 +1058,25 @@ public class Inventory<TKey>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetLayoutParameter(string parameterId, object? value, out string? error)
+        => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+
+    /// <summary>
+    /// Attempts to change a layout parameter after validating current contents, optionally re-packing placements.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options controlling whether current items may be re-packed into the proposed layout.</param>
+    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public bool TrySetLayoutParameter(
+        string parameterId,
+        object? value,
+        InventoryParameterMutationOptions options,
+        out string? error)
     {
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
 
@@ -963,15 +1086,34 @@ public class Inventory<TKey>
             return false;
         }
 
-        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedLayout, out error) || proposedLayout == null)
+        if (!TryCreateLayoutWithParameter(parameterized, parameterId, value, options, out var proposedLayout, out error) || proposedLayout == null)
             return false;
 
-        if (!ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
+        if (!options.RepackLayout && !ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
             return false;
 
         var previous = _layout;
-        _layout = proposedLayout;
-        FireConfigurationChanged(InventoryConfigurationChangeKind.Layout, parameterId, value, previous, proposedLayout, requiresFullRefresh: true);
+        if (!options.RepackLayout)
+        {
+            _layout = proposedLayout;
+            FireConfigurationChanged(InventoryConfigurationChangeKind.Layout, parameterId, value, previous, proposedLayout, requiresFullRefresh: true);
+            return true;
+        }
+
+        var proposedContents = CreateCurrentContentsSnapshot();
+        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
+            return false;
+
+        ApplyConfigurationRebuild(
+            proposedContents,
+            _stackResolver,
+            _capacityPolicy,
+            proposedLayout,
+            InventoryConfigurationChangeKind.Layout,
+            parameterId,
+            value,
+            previous,
+            proposedLayout);
         return true;
     }
 
@@ -982,8 +1124,19 @@ public class Inventory<TKey>
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value)
+        => SetLayoutParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+
+    /// <summary>
+    /// Changes a layout parameter or throws when the parameter change is rejected.
+    /// </summary>
+    /// <param name="parameterId">The parameter id.</param>
+    /// <param name="value">The proposed parameter value.</param>
+    /// <param name="options">Options controlling whether current items may be re-packed into the proposed layout.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
     {
-        if (!TrySetLayoutParameter(parameterId, value, out var error))
+        if (!TrySetLayoutParameter(parameterId, value, options, out var error))
             ThrowMutationFailure(error, "Layout parameter change failed.");
     }
 
@@ -1055,6 +1208,429 @@ public class Inventory<TKey>
 
         error = null;
         return true;
+    }
+
+    private List<ProposedItemState> CreateCurrentContentsSnapshot()
+    {
+        var contents = new List<ProposedItemState>(_items.Count);
+        foreach (var item in _items)
+        {
+            var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
+            contents.Add(new ProposedItemState(item.Definition, item.Amount, metadata));
+        }
+
+        return contents;
+    }
+
+    private bool TryCreateCompressedContents(
+        IStackResolver<TKey> resolver,
+        InventoryParameterMutationOptions options,
+        out List<ProposedItemState>? proposedContents,
+        out bool changedShape,
+        out string? error)
+    {
+        proposedContents = new List<ProposedItemState>();
+        changedShape = false;
+        error = null;
+
+        foreach (var item in _items)
+        {
+            var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
+            var prototype = new ItemInstance<TKey>(item.Definition, 1, metadata);
+            int maxStack = resolver.ResolveMaxStackSize(this, prototype);
+            if (maxStack <= 0)
+            {
+                error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{item.Definition.Id}'.";
+                proposedContents = null;
+                return false;
+            }
+
+            if (item.Amount <= maxStack)
+            {
+                proposedContents.Add(new ProposedItemState(item.Definition, item.Amount, metadata));
+                continue;
+            }
+
+            if (!options.CompressStacks)
+            {
+                error = $"Stack resolver parameter change would make current stack '{item.Definition.Id}' amount {item.Amount} exceed max stack size {maxStack}.";
+                proposedContents = null;
+                return false;
+            }
+
+            if (!options.RepackLayout)
+            {
+                error = "Stack compression would create additional stacks and requires layout repack.";
+                proposedContents = null;
+                return false;
+            }
+
+            changedShape = true;
+            int remaining = item.Amount;
+            while (remaining > 0)
+            {
+                int chunk = Math.Min(remaining, maxStack);
+                var chunkMetadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
+                proposedContents.Add(new ProposedItemState(item.Definition, chunk, chunkMetadata));
+                remaining -= chunk;
+            }
+        }
+
+        if (proposedContents.Count != _items.Count)
+            changedShape = true;
+
+        return true;
+    }
+
+    private bool TryValidateProposedContents(
+        IReadOnlyList<ProposedItemState> proposedContents,
+        IStackResolver<TKey> stackResolver,
+        ICapacityPolicy<TKey> capacityPolicy,
+        IInventoryLayout<TKey> layout,
+        out string? error)
+    {
+        var validationInventory = new Inventory<TKey>(
+            Manager,
+            stackResolver,
+            capacityPolicy,
+            layout,
+            _rules.Clone());
+
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>(proposedContents.Count);
+        foreach (var state in proposedContents)
+        {
+            var metadata = state.Metadata != null && !state.Metadata.IsEmpty ? CloneMetadata(state.Metadata) : null;
+            added.Add((new ItemInstance<TKey>(state.Definition, state.Amount, metadata), null));
+        }
+
+        var transaction = new InventoryTransaction<TKey>(
+            validationInventory,
+            new List<(int index, int delta)>(),
+            new List<(int index, ItemInstance<TKey> instance)>(),
+            added);
+
+        return validationInventory.TryPrepareTransaction(transaction, null, out _, out error);
+    }
+
+    private bool TryCreateLayoutWithParameter(
+        IParameterizedInventoryLayout<TKey> parameterized,
+        string parameterId,
+        object? value,
+        InventoryParameterMutationOptions options,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        if (!options.RepackLayout)
+            return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out error);
+
+        return TryCreateEmptyLayoutWithParameter(parameterId, value, out layout, out error);
+    }
+
+    private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+
+        if (source is SlotLayout<TKey>)
+        {
+            layout = new SlotLayout<TKey>(source.GetPositionCount(this));
+            return true;
+        }
+
+        if (source is GridLayout<TKey> grid)
+        {
+            layout = new GridLayout<TKey>(grid.Width, grid.Height, grid.PlacementOrder);
+            return true;
+        }
+
+        if (source is MultiCellGridLayout<TKey> multiCell)
+        {
+            layout = new MultiCellGridLayout<TKey>(
+                multiCell.Width,
+                multiCell.Height,
+                multiCell.FootprintProvider,
+                multiCell.PlacementOrder,
+                multiCell.DefaultAnchor);
+            return true;
+        }
+
+        if (source is SectionedLayout<TKey> sectioned)
+        {
+            layout = new SectionedLayout<TKey>(
+                sectioned.Sections.Select(section => new SectionDefinition<TKey>(
+                    section.Id,
+                    section.SlotCount,
+                    section.RequiredTags.ToArray())));
+            return true;
+        }
+
+        if (source is EntryLayout<TKey>)
+        {
+            layout = new EntryLayout<TKey>();
+            return true;
+        }
+
+        if (source is EquipmentLayout<TKey> equipment)
+        {
+            layout = new EquipmentLayout<TKey>(equipment.Slots);
+            return true;
+        }
+
+        error = $"Current layout type '{source.GetType().Name}' does not support inventory-owned repack.";
+        return false;
+    }
+
+    private bool TryCreateEmptyLayoutWithParameter(string parameterId, object? value, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+
+        if (_layout is SlotLayout<TKey>)
+        {
+            if (parameterId != "slotCount")
+            {
+                error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
+                return false;
+            }
+
+            if (value is not int slotCount)
+            {
+                error = "Parameter 'slotCount' expects value type 'Int32'.";
+                return false;
+            }
+
+            if (slotCount <= 0)
+            {
+                error = "Slot count must be greater than zero.";
+                return false;
+            }
+
+            layout = new SlotLayout<TKey>(slotCount);
+            return true;
+        }
+
+        if (_layout is GridLayout<TKey> grid)
+        {
+            int width = grid.Width;
+            int height = grid.Height;
+            var placementOrder = grid.PlacementOrder;
+
+            if (parameterId == "width")
+            {
+                if (value is not int widthValue)
+                {
+                    error = "Parameter 'width' expects value type 'Int32'.";
+                    return false;
+                }
+
+                width = widthValue;
+            }
+            else if (parameterId == "height")
+            {
+                if (value is not int heightValue)
+                {
+                    error = "Parameter 'height' expects value type 'Int32'.";
+                    return false;
+                }
+
+                height = heightValue;
+            }
+            else if (parameterId == "placementOrder")
+            {
+                if (value is not GridPlacementOrder placementOrderValue)
+                {
+                    error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
+                    return false;
+                }
+
+                placementOrder = placementOrderValue;
+            }
+            else
+            {
+                error = $"Parameter '{parameterId}' is not supported by GridLayout.";
+                return false;
+            }
+
+            if (width <= 0 || height <= 0)
+            {
+                error = "Grid width and height must be greater than zero.";
+                return false;
+            }
+
+            layout = new GridLayout<TKey>(width, height, placementOrder);
+            return true;
+        }
+
+        if (_layout is MultiCellGridLayout<TKey> multiCell)
+        {
+            int width = multiCell.Width;
+            int height = multiCell.Height;
+            var placementOrder = multiCell.PlacementOrder;
+            var defaultAnchor = multiCell.DefaultAnchor;
+
+            if (parameterId == "width")
+            {
+                if (value is not int widthValue)
+                {
+                    error = "Parameter 'width' expects value type 'Int32'.";
+                    return false;
+                }
+
+                width = widthValue;
+            }
+            else if (parameterId == "height")
+            {
+                if (value is not int heightValue)
+                {
+                    error = "Parameter 'height' expects value type 'Int32'.";
+                    return false;
+                }
+
+                height = heightValue;
+            }
+            else if (parameterId == "placementOrder")
+            {
+                if (value is not GridPlacementOrder placementOrderValue)
+                {
+                    error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
+                    return false;
+                }
+
+                placementOrder = placementOrderValue;
+            }
+            else if (parameterId == "defaultAnchor")
+            {
+                if (value is not GridAnchor defaultAnchorValue)
+                {
+                    error = "Parameter 'defaultAnchor' expects value type 'GridAnchor'.";
+                    return false;
+                }
+
+                defaultAnchor = defaultAnchorValue;
+            }
+            else
+            {
+                error = $"Parameter '{parameterId}' is not supported by MultiCellGridLayout.";
+                return false;
+            }
+
+            if (width <= 0 || height <= 0)
+            {
+                error = "Grid width and height must be greater than zero.";
+                return false;
+            }
+
+            layout = new MultiCellGridLayout<TKey>(width, height, multiCell.FootprintProvider, placementOrder, defaultAnchor);
+            return true;
+        }
+
+        if (_layout is SectionedLayout<TKey> sectioned)
+        {
+            if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
+            {
+                error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
+                return false;
+            }
+
+            if (value is not int slotCount)
+            {
+                error = $"Parameter '{parameterId}' expects value type 'Int32'.";
+                return false;
+            }
+
+            if (slotCount <= 0)
+            {
+                error = "Section slot count must be greater than zero.";
+                return false;
+            }
+
+            var newSections = new List<SectionDefinition<TKey>>();
+            bool found = false;
+            foreach (var section in sectioned.Sections)
+            {
+                int newSlotCount = section.SlotCount;
+                if (string.Equals(section.Id, sectionId, StringComparison.Ordinal))
+                {
+                    newSlotCount = slotCount;
+                    found = true;
+                }
+
+                newSections.Add(new SectionDefinition<TKey>(section.Id, newSlotCount, section.RequiredTags.ToArray()));
+            }
+
+            if (!found)
+            {
+                error = $"Section '{sectionId}' was not found.";
+                return false;
+            }
+
+            layout = new SectionedLayout<TKey>(newSections);
+            return true;
+        }
+
+        error = $"Current layout type '{_layout.GetType().Name}' does not support inventory-owned repack.";
+        return false;
+    }
+
+    private static bool TryParseSectionSlotCountParameter(string parameterId, out string sectionId)
+    {
+        sectionId = string.Empty;
+        const string prefix = "section:";
+        const string suffix = ".slotCount";
+        if (string.IsNullOrWhiteSpace(parameterId) ||
+            !parameterId.StartsWith(prefix, StringComparison.Ordinal) ||
+            !parameterId.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        sectionId = parameterId.Substring(prefix.Length, parameterId.Length - prefix.Length - suffix.Length);
+        return !string.IsNullOrWhiteSpace(sectionId);
+    }
+
+    private void ApplyConfigurationRebuild(
+        IReadOnlyList<ProposedItemState> proposedContents,
+        IStackResolver<TKey> stackResolver,
+        ICapacityPolicy<TKey> capacityPolicy,
+        IInventoryLayout<TKey> layout,
+        InventoryConfigurationChangeKind kind,
+        string parameterId,
+        object? value,
+        object previousComponent,
+        object currentComponent)
+    {
+        var removedEvents = new List<ItemRemoved<TKey>>(_items.Count);
+        for (int i = 0; i < _items.Count; i++)
+            removedEvents.Add(new ItemRemoved<TKey>(_items[i], i, _layout.GetContextsForStorageIndex(this, i)));
+
+        _stackResolver = stackResolver;
+        _capacityPolicy = capacityPolicy;
+        _layout = layout;
+        _items.Clear();
+
+        var addedEvents = new List<ItemAdded<TKey>>(proposedContents.Count);
+        foreach (var state in proposedContents)
+        {
+            var metadata = state.Metadata != null && !state.Metadata.IsEmpty ? CloneMetadata(state.Metadata) : null;
+            var instance = new ItemInstance<TKey>(state.Definition, state.Amount, metadata);
+            AddItem(instance, null);
+            int index = _items.Count - 1;
+            addedEvents.Add(new ItemAdded<TKey>(instance, index, _layout.GetContextsForStorageIndex(this, index)));
+        }
+
+        var change = new InventoryConfigurationChanged<TKey>(
+            kind,
+            parameterId,
+            value,
+            previousComponent,
+            currentComponent,
+            requiresFullRefresh: true);
+
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+            added: addedEvents,
+            removed: removedEvents,
+            configurationChanged: new[] { change },
+            requiresFullRefresh: true));
     }
 
     private void FireConfigurationChanged(
@@ -1166,6 +1742,33 @@ public class Inventory<TKey>
     }
 
     /// <summary>
+    /// Builds and commits a transaction builder or throws when commit is rejected.
+    /// </summary>
+    /// <param name="builder">The builder targeting this inventory.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The built transaction is rejected.</exception>
+    public void CommitTransaction(InventoryTransactionBuilder<TKey> builder)
+    {
+        CommitTransaction(builder, null);
+    }
+
+    /// <summary>
+    /// Builds and commits a transaction builder after applying a transaction-level placement context.
+    /// </summary>
+    /// <param name="builder">The builder targeting this inventory.</param>
+    /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The built transaction is rejected.</exception>
+    public void CommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext)
+    {
+        if (builder == null)
+            throw new ArgumentNullException(nameof(builder));
+
+        if (!TryCommitTransaction(builder, placementContext, out var error))
+            throw new InvalidOperationException(error);
+    }
+
+    /// <summary>
     /// Attempts to execute a transaction after validating all inventory constraints.
     /// </summary>
     /// <param name="transaction">The structural transaction to commit.</param>
@@ -1174,6 +1777,38 @@ public class Inventory<TKey>
     public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out string? error)
     {
         return TryCommitTransaction(transaction, null, out error);
+    }
+
+    /// <summary>
+    /// Attempts to build and commit a transaction builder.
+    /// </summary>
+    /// <param name="builder">The builder targeting this inventory.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out string? error)
+    {
+        return TryCommitTransaction(builder, null, out error);
+    }
+
+    /// <summary>
+    /// Attempts to build and commit a transaction builder after applying a transaction-level placement context.
+    /// </summary>
+    /// <param name="builder">The builder targeting this inventory.</param>
+    /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out string? error)
+    {
+        if (builder == null)
+        {
+            error = "Transaction builder cannot be null.";
+            return false;
+        }
+
+        if (!builder.TryBuild(placementContext, out var transaction, out error) || transaction == null)
+            return false;
+
+        return TryCommitTransaction(transaction, out error);
     }
 
     /// <summary>

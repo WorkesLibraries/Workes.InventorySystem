@@ -280,9 +280,7 @@ public static class InventoryTransfer
         if (!TryCreateInventoryExchangeTransaction(second, new[] { secondEntry }, new[] { firstEntry }, secondTargetContext, out var secondTx, out error))
             return false;
 
-        first.TryCommitTransaction(firstTx!, out error);
-        second.TryCommitTransaction(secondTx!, out error);
-        return true;
+        return TryCommitPair(first, firstTx!, second, secondTx!, out error);
     }
 
     /// <summary>
@@ -318,9 +316,7 @@ public static class InventoryTransfer
         if (!TryCreateInventoryExchangeTransaction(second, secondEntries, firstEntries, secondTargetContext, out var secondTx, out error))
             return false;
 
-        first.TryCommitTransaction(firstTx!, out error);
-        second.TryCommitTransaction(secondTx!, out error);
-        return true;
+        return TryCommitPair(first, firstTx!, second, secondTx!, out error);
     }
 
     /// <summary>
@@ -636,8 +632,27 @@ public static class InventoryTransfer
     private static bool TryCommitPlan<TKey>(InventoryTransferPlan<TKey> plan, out string? error)
     {
         error = null;
-        plan.Source.CommitTransaction(plan.SourceTransaction);
-        plan.Target.CommitTransaction(plan.TargetTransaction);
+        if (!plan.Source.TryCommitTransaction(plan.SourceTransaction, out error))
+            return false;
+        if (!plan.Target.TryCommitTransaction(plan.TargetTransaction, out error))
+            return false;
+
+        return true;
+    }
+
+    private static bool TryCommitPair<TKey>(
+        Inventory<TKey> first,
+        InventoryTransaction<TKey> firstTransaction,
+        Inventory<TKey> second,
+        InventoryTransaction<TKey> secondTransaction,
+        out string? error)
+    {
+        if (!first.TryCommitTransaction(firstTransaction, out error))
+            return false;
+        if (!second.TryCommitTransaction(secondTransaction, out error))
+            return false;
+
+        error = null;
         return true;
     }
 
