@@ -8,6 +8,10 @@ namespace Workes.InventorySystem.Core;
 /// <summary>
 /// Defines attribute and tag requirements shared by item definitions.
 /// </summary>
+/// <remarks>
+/// Custom item definition classes should normally own their schemas with <see cref="CreateFor{TDefinition}(string)"/>.
+/// Use <see cref="Create(string)"/> for advanced shared-schema scenarios where no definition type owns the schema.
+/// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class ItemSchema<TKey>
 {
@@ -30,6 +34,15 @@ public sealed class ItemSchema<TKey>
     public ItemSchema<TKey>? Parent { get; private set; }
 
     /// <summary>
+    /// Gets the item definition type that owns this schema, or <see langword="null"/> for unowned shared schemas.
+    /// </summary>
+    /// <remarks>
+    /// Owned schemas are intended to be declared as static members on item definition classes. Catalog validation
+    /// rejects an owned schema when it is used by an unrelated definition type.
+    /// </remarks>
+    public Type? OwnerDefinitionType { get; }
+
+    /// <summary>
     /// Gets whether this schema is frozen and can no longer be modified.
     /// </summary>
     public bool Frozen { get; private set; }
@@ -44,23 +57,45 @@ public sealed class ItemSchema<TKey>
     /// </summary>
     public IReadOnlyCollection<SchemaAttribute> DirectAttributes => _attributes.Values;
 
-    private ItemSchema(string id)
+    private ItemSchema(string id, Type? ownerDefinitionType = null)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Schema id cannot be null or empty.", nameof(id));
 
         Id = id;
+        OwnerDefinitionType = ownerDefinitionType;
     }
 
     /// <summary>
-    /// Creates a mutable schema with the specified id.
+    /// Creates a mutable unowned schema with the specified id.
     /// </summary>
+    /// <remarks>
+    /// Prefer <see cref="CreateFor{TDefinition}(string)"/> for schemas that belong to a specific
+    /// <see cref="ItemDefinition{TKey}"/> subclass. Unowned schemas remain useful for advanced shared-schema workflows.
+    /// </remarks>
     /// <param name="id">The schema identifier.</param>
     /// <returns>The created schema.</returns>
     /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
     public static ItemSchema<TKey> Create(string id)
     {
         return new ItemSchema<TKey>(id);
+    }
+
+    /// <summary>
+    /// Creates a mutable schema owned by an item definition type.
+    /// </summary>
+    /// <typeparam name="TDefinition">The item definition type that owns the schema.</typeparam>
+    /// <param name="id">The schema identifier.</param>
+    /// <returns>The created schema.</returns>
+    /// <remarks>
+    /// This is the preferred schema authoring path for custom definition classes. Catalog validation allows the
+    /// schema only on <typeparamref name="TDefinition"/> or types derived from it.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    public static ItemSchema<TKey> CreateFor<TDefinition>(string id)
+        where TDefinition : ItemDefinition<TKey>
+    {
+        return new ItemSchema<TKey>(id, typeof(TDefinition));
     }
 
     /// <summary>
@@ -73,7 +108,11 @@ public sealed class ItemSchema<TKey>
     public ItemSchema<TKey> WithParent(ItemSchema<TKey> parent)
     {
         EnsureMutable();
-        Parent = parent ?? throw new ArgumentNullException(nameof(parent));
+        if (parent == null)
+            throw new ArgumentNullException(nameof(parent));
+
+        ValidateParentOwnership(parent);
+        Parent = parent;
         return this;
     }
 
@@ -210,5 +249,17 @@ public sealed class ItemSchema<TKey>
     {
         if (Frozen)
             throw new InvalidOperationException($"Schema '{Id}' is frozen and cannot be modified.");
+    }
+
+    private void ValidateParentOwnership(ItemSchema<TKey> parent)
+    {
+        if (OwnerDefinitionType == null || parent.OwnerDefinitionType == null)
+            return;
+
+        if (parent.OwnerDefinitionType.IsAssignableFrom(OwnerDefinitionType))
+            return;
+
+        throw new InvalidOperationException(
+            $"Schema '{Id}' is owned by definition type '{OwnerDefinitionType.Name}' and cannot use parent schema '{parent.Id}' owned by definition type '{parent.OwnerDefinitionType.Name}'.");
     }
 }
