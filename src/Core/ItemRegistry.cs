@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 namespace Workes.InventorySystem.Core;
 
 /// <summary>
@@ -15,11 +14,26 @@ public class ItemRegistry<TKey>
     private readonly Action? _onFreeze;
 
     private bool _frozen = false;
+    private bool _autoIncrementEnabled;
+    private bool _autoIncrementExhausted;
+    private AutoIncrementMode? _autoIncrementMode;
+    private TKey _nextAutoIncrementId = default!;
 
     /// <summary>
     /// Gets whether the registry is frozen and can no longer be modified.
     /// </summary>
     public bool Frozen => _frozen;
+
+    /// <summary>
+    /// Gets whether registry-owned auto-increment identity assignment is enabled.
+    /// </summary>
+    /// <remarks>Auto-increment supports only <see cref="int"/> and <see cref="long"/> identifiers.</remarks>
+    public bool AutoIncrementEnabled => _autoIncrementEnabled;
+
+    /// <summary>
+    /// Gets the active auto-increment mode, or <see langword="null"/> when auto-increment is disabled.
+    /// </summary>
+    public AutoIncrementMode? AutoIncrementMode => _autoIncrementMode;
 
     /// <summary>
     /// Gets the registered item definitions.
@@ -40,11 +54,21 @@ public class ItemRegistry<TKey>
     /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
     public void Register(ItemDefinition<TKey> definition)
     {
+        Register(definition, isAutoIncrementRegistration: false);
+    }
+
+    private void Register(ItemDefinition<TKey> definition, bool isAutoIncrementRegistration)
+    {
         if (_frozen)
             throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
 
         if (definition == null)
             throw new ArgumentNullException("Definition cannot be null");
+
+        if (_autoIncrementEnabled &&
+            _autoIncrementMode == Core.AutoIncrementMode.Strict &&
+            !isAutoIncrementRegistration)
+            throw new InvalidOperationException("Explicit registration is not allowed when auto-increment is enabled in strict mode.");
 
         if (_definitions.ContainsKey(definition.Id))
             throw new InvalidOperationException("Duplicate item ID.");
@@ -55,6 +79,84 @@ public class ItemRegistry<TKey>
             _onDefinitionRegistered.Invoke(definition);
 
         _definitions.Add(definition.Id, definition);
+        AdvanceAutoIncrementCounterAfterExplicitRegistration(definition.Id, isAutoIncrementRegistration);
+    }
+
+    /// <summary>
+    /// Enables registry-owned auto-increment identity assignment using the default first id, which is 1.
+    /// </summary>
+    /// <param name="mode">How explicit registrations should interact with generated ids.</param>
+    /// <exception cref="InvalidOperationException">The registry is frozen, auto-increment is already enabled, the key type is unsupported, or strict mode is enabled after definitions are registered.</exception>
+    public void EnableAutoIncrement(AutoIncrementMode mode = Core.AutoIncrementMode.FollowExplicitRegistrations)
+    {
+        EnableAutoIncrement(CreateDefaultFirstAutoIncrementId(), mode);
+    }
+
+    /// <summary>
+    /// Enables registry-owned auto-increment identity assignment using the provided first id.
+    /// </summary>
+    /// <param name="firstId">The first id to generate. Must be greater than zero.</param>
+    /// <param name="mode">How explicit registrations should interact with generated ids.</param>
+    /// <exception cref="InvalidOperationException">The registry is frozen, auto-increment is already enabled, the key type is unsupported, or strict mode is enabled after definitions are registered.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="firstId"/> is less than or equal to zero.</exception>
+    public void EnableAutoIncrement(TKey firstId, AutoIncrementMode mode = Core.AutoIncrementMode.FollowExplicitRegistrations)
+    {
+        if (_frozen)
+            throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
+
+        if (_autoIncrementEnabled)
+            throw new InvalidOperationException("Auto-increment registration is already enabled for this item registry.");
+
+        EnsureSupportedAutoIncrementKeyType();
+
+        if (!IsPositive(firstId))
+            throw new ArgumentOutOfRangeException(nameof(firstId), "Auto-increment first id must be greater than zero.");
+
+        if (mode == Core.AutoIncrementMode.Strict && _definitions.Count > 0)
+            throw new InvalidOperationException("Strict auto-increment mode cannot be enabled after definitions have already been registered.");
+
+        _autoIncrementEnabled = true;
+        _autoIncrementExhausted = false;
+        _autoIncrementMode = mode;
+        _nextAutoIncrementId = firstId;
+
+        if (mode == Core.AutoIncrementMode.FollowExplicitRegistrations)
+            AdvanceAutoIncrementCounterPastExistingDefinitions();
+    }
+
+    /// <summary>
+    /// Registers a definition by generating its id first and passing that id to a factory.
+    /// </summary>
+    /// <param name="factory">Creates the definition for the generated id.</param>
+    /// <returns>The registered definition.</returns>
+    /// <remarks>
+    /// This keeps <see cref="ItemDefinition{TKey}.Id"/> immutable while allowing registry-owned id generation.
+    /// Auto-increment supports only <see cref="int"/> and <see cref="long"/> identifiers.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Auto-increment is disabled, the registry is frozen, the factory returns null, the returned definition uses a different id, or the counter overflows.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="factory"/> is <see langword="null"/>.</exception>
+    public ItemDefinition<TKey> RegisterAuto(Func<TKey, ItemDefinition<TKey>> factory)
+    {
+        if (_frozen)
+            throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
+
+        if (!_autoIncrementEnabled)
+            throw new InvalidOperationException("Auto-increment registration has not been enabled for this item registry.");
+
+        if (factory == null)
+            throw new ArgumentNullException(nameof(factory));
+
+        var id = GetNextAvailableAutoIncrementId();
+        var definition = factory(id);
+
+        if (definition == null)
+            throw new InvalidOperationException("Auto-increment definition factory returned null.");
+
+        if (!EqualityComparer<TKey>.Default.Equals(definition.Id, id))
+            throw new InvalidOperationException("Auto-increment definition factory must create a definition with the generated id.");
+
+        Register(definition, isAutoIncrementRegistration: true);
+        return definition;
     }
 
     /// <summary>
@@ -140,5 +242,135 @@ public class ItemRegistry<TKey>
 
         _onFreeze?.Invoke();
         _frozen = true;
+    }
+
+    private TKey GetNextAvailableAutoIncrementId()
+    {
+        if (_autoIncrementExhausted)
+            throw new InvalidOperationException("Auto-increment item definition id overflowed.");
+
+        var id = _nextAutoIncrementId;
+        while (_definitions.ContainsKey(id))
+        {
+            if (!TryIncrementAutoIncrementId(id, out id))
+                throw new InvalidOperationException("Auto-increment item definition id overflowed.");
+
+            _nextAutoIncrementId = id;
+        }
+
+        return id;
+    }
+
+    private void AdvanceAutoIncrementCounterAfterExplicitRegistration(TKey id, bool isAutoIncrementRegistration)
+    {
+        if (!_autoIncrementEnabled)
+            return;
+
+        if (isAutoIncrementRegistration)
+        {
+            SetNextAutoIncrementIdAfter(id);
+            return;
+        }
+
+        if (_autoIncrementMode != Core.AutoIncrementMode.FollowExplicitRegistrations)
+            return;
+
+        if (!_autoIncrementExhausted && CompareAutoIncrementIds(id, _nextAutoIncrementId) >= 0)
+            SetNextAutoIncrementIdAfter(id);
+    }
+
+    private void SetNextAutoIncrementIdAfter(TKey id)
+    {
+        if (TryIncrementAutoIncrementId(id, out var nextId))
+        {
+            _nextAutoIncrementId = nextId;
+            return;
+        }
+
+        _autoIncrementExhausted = true;
+    }
+
+    private void AdvanceAutoIncrementCounterPastExistingDefinitions()
+    {
+        foreach (var id in _definitions.Keys)
+        {
+            if (CompareAutoIncrementIds(id, _nextAutoIncrementId) >= 0)
+                SetNextAutoIncrementIdAfter(id);
+        }
+    }
+
+    private static void EnsureSupportedAutoIncrementKeyType()
+    {
+        if (!IsSupportedAutoIncrementKeyType)
+            throw new InvalidOperationException("Auto-increment registration supports only Int32 and Int64 item definition identifiers.");
+    }
+
+    private static bool IsSupportedAutoIncrementKeyType =>
+        typeof(TKey) == typeof(int) ||
+        typeof(TKey) == typeof(long);
+
+    private static TKey CreateDefaultFirstAutoIncrementId()
+    {
+        EnsureSupportedAutoIncrementKeyType();
+
+        if (typeof(TKey) == typeof(int))
+            return (TKey)(object)1;
+
+        return (TKey)(object)1L;
+    }
+
+    private static bool IsPositive(TKey id)
+    {
+        if (typeof(TKey) == typeof(int))
+            return (int)(object)id! > 0;
+
+        if (typeof(TKey) == typeof(long))
+            return (long)(object)id! > 0L;
+
+        return false;
+    }
+
+    private static int CompareAutoIncrementIds(TKey left, TKey right)
+    {
+        if (typeof(TKey) == typeof(int))
+            return ((int)(object)left!).CompareTo((int)(object)right!);
+
+        if (typeof(TKey) == typeof(long))
+            return ((long)(object)left!).CompareTo((long)(object)right!);
+
+        throw new InvalidOperationException("Auto-increment registration supports only Int32 and Int64 item definition identifiers.");
+    }
+
+    private static TKey IncrementAutoIncrementId(TKey id)
+    {
+        if (TryIncrementAutoIncrementId(id, out var nextId))
+            return nextId;
+
+        throw new InvalidOperationException("Auto-increment item definition id overflowed.");
+    }
+
+    private static bool TryIncrementAutoIncrementId(TKey id, out TKey nextId)
+    {
+        try
+        {
+            if (typeof(TKey) == typeof(int))
+            {
+                nextId = (TKey)(object)checked((int)(object)id! + 1);
+                return true;
+            }
+
+            if (typeof(TKey) == typeof(long))
+            {
+                nextId = (TKey)(object)checked((long)(object)id! + 1L);
+                return true;
+            }
+        }
+        catch (OverflowException)
+        {
+            nextId = default!;
+            return false;
+        }
+
+        throw new InvalidOperationException("Auto-increment registration supports only Int32 and Int64 item definition identifiers.");
     }
 }
