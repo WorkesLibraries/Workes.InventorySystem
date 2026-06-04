@@ -7,7 +7,10 @@ namespace Workes.InventorySystem.Core;
 /// Builds an outgoing-only cross-inventory transfer from a source inventory.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
-/// <remarks>Successful take operations update only the builder simulation until the builder is transferred.</remarks>
+/// <remarks>
+/// Successful remove operations update only the builder simulation. Commit the staged transfer through the source
+/// inventory with <see cref="Inventory{TKey}.TryCommitTransfer(InventoryTransferBuilder{TKey}, Inventory{TKey}, out string?)"/>.
+/// </remarks>
 public sealed class InventoryTransferBuilder<TKey>
 {
     private readonly InventoryTransactionBuilder<TKey> _builder;
@@ -31,7 +34,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <summary>
     /// Gets a snapshot of the outgoing entries currently planned by this builder.
     /// </summary>
-    public IReadOnlyList<InventoryTransferEntry<TKey>> Entries => BuildEntries(ToSourceTransaction());
+    public IReadOnlyList<InventoryTransferEntry<TKey>> Entries => BuildEntries(BuildSourceTransaction());
 
     /// <summary>
     /// Plans to remove an amount from a source item instance for transfer.
@@ -88,13 +91,9 @@ public sealed class InventoryTransferBuilder<TKey>
         return _builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
     }
 
-    /// <summary>
-    /// Creates a source removal transaction for the planned outgoing items.
-    /// </summary>
-    /// <returns>A transaction targeting the source inventory.</returns>
-    public InventoryTransaction<TKey> ToSourceTransaction()
+    internal InventoryTransaction<TKey> BuildSourceTransaction()
     {
-        return _builder.ToInventoryTransaction();
+        return _builder.Build();
     }
 
     internal static IReadOnlyList<InventoryTransferEntry<TKey>> BuildEntries(InventoryTransaction<TKey> transaction)

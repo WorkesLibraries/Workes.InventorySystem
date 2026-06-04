@@ -272,7 +272,7 @@ public class StandardLayoutPolishTests
         builder.TryAdd(helmet, out _, 1);
         var context = EquipmentLayoutContext<string>.Map().Add(0, "main-hand").Add(1, "head").Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("head"))!.Definition.Id, Is.EqualTo("helmet"));

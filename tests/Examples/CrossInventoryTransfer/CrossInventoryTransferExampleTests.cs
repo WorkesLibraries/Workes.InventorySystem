@@ -40,8 +40,8 @@ public class CrossInventoryTransferExampleTests
 
         var beforeBackpack = Describe(backpack);
         var beforeCraftingInput = Describe(craftingInput);
-        var movedLogs = InventoryTransfer.TryTransfer(backpack, craftingInput, backpack.Find(oakLog).Single(), 3, null, out var moveLogError);
-        var rejectedApple = InventoryTransfer.TryTransfer(backpack, craftingInput, backpack.Find(apple).Single(), 1, null, out var appleError);
+        var movedLogs = backpack.TryTransferTo(craftingInput, backpack.Find(oakLog).Single(), 3, null, out var moveLogError);
+        var rejectedApple = backpack.TryTransferTo(craftingInput, backpack.Find(apple).Single(), 1, null, out var appleError);
 
         Assert.That(movedLogs, Is.True, moveLogError);
         Assert.That(rejectedApple, Is.False);

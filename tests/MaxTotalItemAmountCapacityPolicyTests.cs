@@ -79,7 +79,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         inventory.TryAdd(apple, out _, 4);
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 1);
-        var transaction = builder.ToInventoryTransaction();
+        var transaction = builder.Build();
         inventory.TryAdd(berry, out _, 1);
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
@@ -103,7 +103,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         builder.TryRemove(inventory.Items[0], out _, 2);
         builder.TryAdd(berry, out _, 2);
 
-        var result = inventory.TryCommitTransaction(builder.ToInventoryTransaction(), out var error);
+        var result = inventory.TryCommitTransaction(builder.Build(), out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
@@ -123,7 +123,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         source.TryAdd(apple, out _, 3);
         target.TryAdd(apple, out _, 2);
 
-        var result = InventoryTransfer.TryTransfer(source, target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
 
         Assert.That(result, Is.False);
         Assert.That(error, Is.EqualTo("Capacity exceeded."));

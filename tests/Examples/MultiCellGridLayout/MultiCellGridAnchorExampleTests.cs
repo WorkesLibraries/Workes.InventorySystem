@@ -35,7 +35,7 @@ public class MultiCellGridAnchorExampleTests
             .Add(0, 2, 0, GridAnchor.TopRight)
             .Add(1, 3, 2, GridAnchor.BottomRight)
             .Build();
-        Assert.That(builder.TryToInventoryTransaction(placement, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(placement, out var transaction, out var error), Is.True, error);
         Assert.That(mappedAnchors.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         var output = new StringBuilder();

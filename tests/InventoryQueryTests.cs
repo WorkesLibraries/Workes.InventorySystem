@@ -104,7 +104,7 @@ public class InventoryQueryTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 3);
         builder.TryAdd(apple, 2, null, metadata, out _);
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         var snapshot = inventory.Find(apple);
         inventory.TryAdd(apple, out _, 1);

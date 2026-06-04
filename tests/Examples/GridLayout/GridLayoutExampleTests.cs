@@ -60,7 +60,7 @@ public class GridLayoutExampleTests
             .Add(1, 0, 1)
             .Build();
 
-        var built = builder.TryToInventoryTransaction(context, out var transaction, out var error);
+        var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
         Assert.That(committed, Is.True, error);
@@ -85,7 +85,7 @@ public class GridLayoutExampleTests
             .Add(1, 2, 1)
             .Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
 
         WriteOutput("MappedGridTransfer.txt", DescribeGrid(target, 3, 2));
     }

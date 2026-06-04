@@ -80,7 +80,7 @@ public class MultiCellGridAnchorAndSortTests
             .Add(1, 4, 2, GridAnchor.BottomRight)
             .Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("table"));

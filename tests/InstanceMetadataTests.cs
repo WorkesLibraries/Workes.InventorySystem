@@ -68,7 +68,7 @@ public class InstanceMetadataTests
         metadata.Set("quality", "fresh");
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, 1, null, metadata, out _);
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         metadata.Set("quality", "stale");
 

@@ -38,7 +38,7 @@ public class TransferBuilderExampleTests
         builder.TryRemove(backpack.Find(herb).Single(), 3, out _);
         builder.TryRemove(backpack.Find(bottle).Single(), 1, out _);
 
-        var moved = InventoryTransfer.TryTransfer(builder, craftingInput, targetContext: null, out var error);
+        var moved = backpack.TryCommitTransfer(builder, craftingInput, targetContext: null, out var error);
 
         Assert.That(moved, Is.True, error);
         Assert.That(backpack.Count(herb), Is.EqualTo(1));
@@ -49,7 +49,7 @@ public class TransferBuilderExampleTests
 
         var outputPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "CrossInventoryTransfer", "TransferBuilderExample.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-        File.WriteAllText(outputPath, Describe("Backpack", backpack) + Describe("Crafting Input", craftingInput));
+        File.WriteAllText(outputPath, BuildOutput(moved, backpack, craftingInput));
         TestContext.Out.WriteLine("Transfer builder example output: " + outputPath);
     }
 
@@ -70,6 +70,23 @@ public class TransferBuilderExampleTests
         foreach (var item in inventory.Items.OrderBy(i => i.Definition.Id))
             builder.AppendLine(item.Definition.Id + " x" + item.Amount);
         builder.AppendLine();
+        return builder.ToString();
+    }
+
+    private static string BuildOutput(bool committed, Inventory<string> backpack, Inventory<string> craftingInput)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("Transfer Builder Example");
+        builder.AppendLine("========================");
+        builder.AppendLine();
+        builder.AppendLine("Builder staged:");
+        builder.AppendLine("  moon_herb x3");
+        builder.AppendLine("  glass_bottle x1");
+        builder.AppendLine();
+        builder.AppendLine("Transfer builder commit: " + (committed ? "committed" : "rejected"));
+        builder.AppendLine();
+        builder.Append(Describe("Backpack", backpack));
+        builder.Append(Describe("Crafting Input", craftingInput));
         return builder.ToString();
     }
 }

@@ -100,7 +100,7 @@ public class InventoryMalfunctionRegressionTests
         Assert.That(builder.TryAdd(apple, out var addError, 5), Is.True, addError);
         Assert.That(builder.TryRemoveByDefinition(apple, 2, true, out var removeError), Is.True, removeError);
 
-        Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.ToInventoryTransaction()));
+        Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.Build()));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(3));
         Assert.That(inventory.InstanceCount, Is.EqualTo(1));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(3));
@@ -118,7 +118,7 @@ public class InventoryMalfunctionRegressionTests
         var changedCount = 0;
         inventory.Changed += (_, _) => changedCount++;
 
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
         Assert.That(inventory.InstanceCount, Is.EqualTo(0));
@@ -136,7 +136,7 @@ public class InventoryMalfunctionRegressionTests
         builder.TryRemoveByDefinition(apple, 2, true, out _);
         builder.TryAdd(apple, out _, 4);
 
-        Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.ToInventoryTransaction()));
+        Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.Build()));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(7));
     }
 
@@ -341,7 +341,7 @@ public class InventoryMalfunctionRegressionTests
 
         var builder = InventoryTransaction<string>.From(inventory);
         Assert.That(builder.TryAdd(apple, 1, null, metaA, out var addError), Is.True, addError);
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         var secondBuilder = InventoryTransaction<string>.From(inventory);
         Assert.That(secondBuilder.TryAdd(apple, 1, null, metaB, out var secondError), Is.False);

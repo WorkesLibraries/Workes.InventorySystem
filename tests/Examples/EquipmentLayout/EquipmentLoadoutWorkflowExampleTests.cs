@@ -47,7 +47,7 @@ public class EquipmentLoadoutWorkflowExampleTests
             .Add(3, "trinket")
             .Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, equipment, placement, out var error), Is.True, error);
+        Assert.That(lootBag.TryCommitTransfer(transfer, equipment, placement, out var error), Is.True, error);
 
         WriteExample("EquipmentLayout", "EquipmentLoadoutWorkflowExample.txt", RenderLoadout(equipment));
     }

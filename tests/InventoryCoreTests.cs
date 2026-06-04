@@ -122,7 +122,7 @@ public class InventoryCoreTests
         builder.TryRemove(berryInstance, out _, 2);
         builder.TryAdd(carrot, out _, 4);
         builder.TryRemoveAtStorageIndex(0, out _, 2);
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         Assert.That(changedCallCount, Is.EqualTo(1), "Batch operation should fire Changed exactly once");
 
@@ -157,7 +157,7 @@ public class InventoryCoreTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(berry, out _, 2);
         builder.TryRemove(appleInstance, out _, 2);
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         Assert.That(capturedArgs, Is.Not.Null);
         Assert.That(capturedArgs!.Added.Count, Is.EqualTo(0));

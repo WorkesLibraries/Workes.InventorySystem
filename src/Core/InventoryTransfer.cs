@@ -5,8 +5,12 @@ using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Core;
 
 /// <summary>
-/// Provides helpers for moving item amounts between compatible inventories.
+/// Provides transfer builder creation for cross-inventory movement.
 /// </summary>
+/// <remarks>
+/// Use <see cref="From{TKey}(Inventory{TKey})"/> to create a transfer builder. Commit transfer builders and perform
+/// one-shot transfer actions through the source <see cref="Inventory{TKey}"/>.
+/// </remarks>
 public static class InventoryTransfer
 {
     private sealed class InventoryTransferPlan<TKey>
@@ -55,7 +59,7 @@ public static class InventoryTransfer
     /// <param name="targetContext">Optional target layout context.</param>
     /// <param name="error">A consumer-facing reason when the transfer is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer succeeds; otherwise, <see langword="false"/>.</returns>
-    public static bool TryTransfer<TKey>(
+    internal static bool TryTransfer<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         ItemInstance<TKey> item,
@@ -131,16 +135,19 @@ public static class InventoryTransfer
     /// <param name="targetContext">Optional target layout context used for every entry.</param>
     /// <param name="error">A consumer-facing reason when the transfer is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer succeeds; otherwise, <see langword="false"/>.</returns>
-    public static bool TryTransfer<TKey>(
+    internal static bool TryTransfer<TKey>(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
         out string? error)
     {
-        if (!TryCreateTransferPlan(builder, target, targetContext, out var plan, out error) || plan == null)
+        if (builder == null)
+        {
+            error = "Transfer builder cannot be null.";
             return false;
+        }
 
-        return TryCommitPlan(plan, out error);
+        return TryCommitBuilder(builder.Source, builder, target, targetContext, out error);
     }
 
     /// <summary>
@@ -154,7 +161,7 @@ public static class InventoryTransfer
     /// <param name="targetContext">Optional target layout context.</param>
     /// <param name="error">A consumer-facing reason when the transfer would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can succeed; otherwise, <see langword="false"/>.</returns>
-    public static bool CanTransfer<TKey>(
+    internal static bool CanTransfer<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         ItemInstance<TKey> item,
@@ -184,13 +191,42 @@ public static class InventoryTransfer
     /// <param name="targetContext">Optional transaction-level target layout context.</param>
     /// <param name="error">A consumer-facing reason when the transfer would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can succeed; otherwise, <see langword="false"/>.</returns>
-    public static bool CanTransfer<TKey>(
+    internal static bool CanTransfer<TKey>(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
         out string? error)
     {
-        return TryCreateTransferPlan(builder, target, targetContext, out _, out error);
+        if (builder == null)
+        {
+            error = "Transfer builder cannot be null.";
+            return false;
+        }
+
+        return CanCommitBuilder(builder.Source, builder, target, targetContext, out error);
+    }
+
+    internal static bool CanCommitBuilder<TKey>(
+        Inventory<TKey> source,
+        InventoryTransferBuilder<TKey> builder,
+        Inventory<TKey> target,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        return TryCreateTransferPlan(source, builder, target, targetContext, out _, out error);
+    }
+
+    internal static bool TryCommitBuilder<TKey>(
+        Inventory<TKey> source,
+        InventoryTransferBuilder<TKey> builder,
+        Inventory<TKey> target,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (!TryCreateTransferPlan(source, builder, target, targetContext, out var plan, out error) || plan == null)
+            return false;
+
+        return TryCommitPlan(plan, out error);
     }
 
     /// <summary>
@@ -205,7 +241,7 @@ public static class InventoryTransfer
     /// <param name="secondTargetContext">Optional context where <paramref name="firstItem"/> lands in <paramref name="second"/>.</param>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full swap succeeds; otherwise, <see langword="false"/>.</returns>
-    public static bool TrySwap<TKey>(
+    internal static bool TrySwap<TKey>(
         Inventory<TKey> first,
         Inventory<TKey> second,
         ItemInstance<TKey> firstItem,
@@ -242,7 +278,7 @@ public static class InventoryTransfer
     /// <param name="secondTargetContext">Optional context where <paramref name="firstItem"/> lands in <paramref name="second"/>.</param>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full swap succeeds; otherwise, <see langword="false"/>.</returns>
-    public static bool TrySwap<TKey>(
+    internal static bool TrySwap<TKey>(
         Inventory<TKey> first,
         Inventory<TKey> second,
         ItemInstance<TKey> firstItem,
@@ -292,7 +328,7 @@ public static class InventoryTransfer
     /// <param name="secondTargetContext">Optional context used for every item entering the second inventory.</param>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the inventory swap succeeds; otherwise, <see langword="false"/>.</returns>
-    public static bool TrySwapInventories<TKey>(
+    internal static bool TrySwapInventories<TKey>(
         Inventory<TKey> first,
         Inventory<TKey> second,
         ILayoutContext<TKey>? firstTargetContext,
@@ -321,7 +357,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move every item from a source inventory to a target inventory as one all-or-nothing operation.
     /// </summary>
-    public static bool TryMoveAll<TKey>(
+    internal static bool TryMoveAll<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
@@ -333,7 +369,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move every matching item from a source inventory to a target inventory as one all-or-nothing operation.
     /// </summary>
-    public static bool TryMoveWhere<TKey>(
+    internal static bool TryMoveWhere<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         Func<ItemInstance<TKey>, bool> predicate,
@@ -364,7 +400,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move every item with a catalog-resolved tag as one all-or-nothing operation.
     /// </summary>
-    public static bool TryMoveByTag<TKey>(
+    internal static bool TryMoveByTag<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         string tagId,
@@ -388,7 +424,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move every item satisfying all catalog-resolved tags as one all-or-nothing operation.
     /// </summary>
-    public static bool TryMoveAllTags<TKey>(
+    internal static bool TryMoveAllTags<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         string[] tagIds,
@@ -435,7 +471,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to transfer the largest valid amount up to a requested amount.
     /// </summary>
-    public static bool TryTransferMaximum<TKey>(
+    internal static bool TryTransferMaximum<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         ItemInstance<TKey> item,
@@ -495,7 +531,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move as much matching item amount as possible in source storage order.
     /// </summary>
-    public static bool TryMoveMaximumWhere<TKey>(
+    internal static bool TryMoveMaximumWhere<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         Func<ItemInstance<TKey>, bool> predicate,
@@ -532,7 +568,7 @@ public static class InventoryTransfer
     /// <summary>
     /// Attempts to move as much item amount with a catalog-resolved tag as possible in source storage order.
     /// </summary>
-    public static bool TryMoveMaximumByTag<TKey>(
+    internal static bool TryMoveMaximumByTag<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
         string tagId,
@@ -583,6 +619,7 @@ public static class InventoryTransfer
     }
 
     private static bool TryCreateTransferPlan<TKey>(
+        Inventory<TKey> source,
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
@@ -595,10 +632,15 @@ public static class InventoryTransfer
             error = "Transfer builder cannot be null.";
             return false;
         }
-        if (!TryValidateCompatibility(builder.Source, target, out error))
+        if (!ReferenceEquals(builder.Source, source))
+        {
+            error = "Transfer builder does not belong to this inventory.";
+            return false;
+        }
+        if (!TryValidateCompatibility(source, target, out error))
             return false;
 
-        var sourceTransaction = builder.ToSourceTransaction();
+        var sourceTransaction = builder.BuildSourceTransaction();
         var entries = InventoryTransferBuilder<TKey>.BuildEntries(sourceTransaction);
         if (entries.Count == 0)
         {
@@ -617,7 +659,7 @@ public static class InventoryTransfer
                 return false;
         }
 
-        if (!targetBuilder.TryToInventoryTransaction(targetContext, out var targetTransaction, out error) || targetTransaction == null)
+        if (!targetBuilder.TryBuild(targetContext, out var targetTransaction, out error) || targetTransaction == null)
             return false;
 
         plan = new InventoryTransferPlan<TKey>(
@@ -684,7 +726,7 @@ public static class InventoryTransfer
                 return false;
         }
 
-        return builder.TryToInventoryTransaction(incomingContext, out transaction, out error);
+        return builder.TryBuild(incomingContext, out transaction, out error);
     }
 
     private static bool IsMappedPlacementContext<TKey>(ILayoutContext<TKey>? context)

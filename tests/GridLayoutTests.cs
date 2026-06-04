@@ -172,7 +172,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(1, 0, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         AssertCell(inventory, 0, 0, "sword");
@@ -201,7 +201,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 1, 0).Add(1, 1, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out _, out var error), Is.False);
+        Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Duplicate mapped target cell."));
     }
 
@@ -214,7 +214,7 @@ public class GridLayoutTests
         builder.TryAdd(apple, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out _, out var error), Is.False);
+        Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Grid position out of range."));
     }
 
@@ -229,7 +229,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _, 2);
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Add(1, 0, 1).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         AssertCell(inventory, 2, 0, "apple");
@@ -248,7 +248,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         AssertCell(inventory, 0, 0, "sword");
@@ -265,7 +265,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out _, out var error), Is.False);
+        Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Cell already occupied."));
     }
 
@@ -290,7 +290,7 @@ public class GridLayoutTests
         builder.TryAdd(apple, out _);
         builder.TryAdd(sword, out _);
 
-        Assert.That(builder.TryToInventoryTransaction(GridLayoutContext<string>.Single(0, 0), out _, out var error), Is.False);
+        Assert.That(builder.TryBuild(GridLayoutContext<string>.Single(0, 0), out _, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Transaction placement context can only target one added entry unless it is a mapped context."));
     }
 
@@ -308,7 +308,7 @@ public class GridLayoutTests
         builder.TryAdd(gem, 1, null, cracked, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 1, 0).Add(1, 0, 0).Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(1, 0))!.Metadata.TryGet<string>("quality", out var polishedQuality);
@@ -332,7 +332,7 @@ public class GridLayoutTests
         transfer.TryRemove(source.Find(sword).Single(), 2, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Add(1, 0, 1).Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
 
         AssertCell(target, 2, 0, "apple");
         AssertCell(target, 0, 1, "sword");
@@ -351,7 +351,7 @@ public class GridLayoutTests
         var firstContext = GridLayoutContext<string>.Map().Add(0, 2, 1).Build();
         var secondContext = GridLayoutContext<string>.Map().Add(0, 1, 0).Build();
 
-        Assert.That(InventoryTransfer.TrySwapInventories(first, second, firstContext, secondContext, out var error), Is.True, error);
+        Assert.That(first.TrySwapWithInventory(second, firstContext, secondContext, out var error), Is.True, error);
 
         AssertCell(first, 2, 1, "sword");
         AssertCell(second, 1, 0, "apple");
@@ -376,7 +376,7 @@ public class GridLayoutTests
         target.Changed += (_, _) => targetEvents++;
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Add(1, 0, 0).Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.False);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Duplicate mapped target cell."));
         Assert.That(source.TotalItemCount, Is.EqualTo(2));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));

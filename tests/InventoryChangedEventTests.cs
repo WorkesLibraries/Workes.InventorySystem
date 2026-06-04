@@ -129,7 +129,7 @@ public class InventoryChangedEventTests
         builder.TryAdd(berry, out _, 1);
         builder.TryRemove(inventory.Items[0], out _, 1);
 
-        inventory.CommitTransaction(builder.ToInventoryTransaction());
+        inventory.CommitTransaction(builder.Build());
 
         var modified = captured!.Modified.Single();
         Assert.That(modified.Index, Is.EqualTo(1));
@@ -219,7 +219,7 @@ public class InventoryChangedEventTests
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
 
-        var result = inventory.TryCommitTransaction(builder.ToInventoryTransaction(), SlotLayoutContext<string>.Single(0), out var error);
+        var result = inventory.TryCommitTransaction(builder.Build(), SlotLayoutContext<string>.Single(0), out var error);
 
         Assert.That(result, Is.False);
         Assert.That(error, Is.EqualTo("Slot already occupied."));
@@ -242,7 +242,7 @@ public class InventoryChangedEventTests
         source.Changed += (_, e) => sourceEvent = e;
         target.Changed += (_, e) => targetEvent = e;
 
-        var result = InventoryTransfer.TryTransfer(source, target, source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(sourceEvent!.Modified.Single().AfterAmount, Is.EqualTo(1));

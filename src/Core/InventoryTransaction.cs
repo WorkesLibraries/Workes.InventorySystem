@@ -7,6 +7,11 @@ namespace Workes.InventorySystem.Core;
 /// Represents a structural change to an inventory (deltas, removals, additions).
 /// Transactions are formulated by the inventory and committed through inventory commit methods.
 /// </summary>
+/// <remarks>
+/// Transactions do not represent layout move or swap operations. Use <see cref="Inventory{TKey}.Move"/> /
+/// <see cref="Inventory{TKey}.TryMove"/> and <see cref="Inventory{TKey}.Swap"/> /
+/// <see cref="Inventory{TKey}.TrySwap"/> for deliberate item movement.
+/// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class InventoryTransaction<TKey>
 {

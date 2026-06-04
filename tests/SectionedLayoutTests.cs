@@ -294,7 +294,7 @@ public class SectionedLayoutTests
             .Add(1, "hotbar", 0)
             .Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
         Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
 
         Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
@@ -311,7 +311,7 @@ public class SectionedLayoutTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _);
 
-        Assert.That(builder.TryToInventoryTransaction(
+        Assert.That(builder.TryBuild(
             SectionedLayoutContext<string>.Map().Add(1, "bag", 0).Build(),
             out _,
             out var error), Is.False);
@@ -334,7 +334,7 @@ public class SectionedLayoutTests
             .Add(1, "bag", 0)
             .Build();
 
-        Assert.That(builder.TryToInventoryTransaction(context, out _, out var error), Is.False);
+        Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Duplicate mapped target section slot."));
     }
 
@@ -351,7 +351,7 @@ public class SectionedLayoutTests
         builder.TryRemoveAtStorageIndex(0, out _);
         builder.TryAdd(sword, out _);
 
-        Assert.That(builder.TryToInventoryTransaction(
+        Assert.That(builder.TryBuild(
             SectionedLayoutContext<string>.Map().Add(0, "bag", 0).Build(),
             out var transaction,
             out var error), Is.True, error);
@@ -614,7 +614,7 @@ public class SectionedLayoutTests
             .Add(1, "hotbar", 1)
             .Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
 
         Assert.That(source.Items, Is.Empty);
         Assert.That(ItemAt(target, "bag", 0), Is.EqualTo("apple"));
@@ -639,7 +639,7 @@ public class SectionedLayoutTests
             .Add(1, "bag", 0)
             .Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.False);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Duplicate mapped target section slot."));
         Assert.That(source.Items, Has.Count.EqualTo(2));
         Assert.That(target.Items, Is.Empty);

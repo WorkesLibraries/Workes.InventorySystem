@@ -86,7 +86,34 @@ public class InventoryTransferExpansionTests
         Assert.That(result, Is.True, error);
         Assert.That(source.Count(apple), Is.EqualTo(5));
         Assert.That(builder.Entries.Single().Amount, Is.EqualTo(2));
-        Assert.That(builder.ToSourceTransaction().AmountDeltas.Single().delta, Is.EqualTo(-2));
+    }
+
+    [Test]
+    public void InventoryTransferBuilder_SourceTransactionConversion_IsNotPublicApi()
+    {
+        var methods = typeof(InventoryTransferBuilder<string>).GetMethods();
+
+        Assert.That(methods.Any(method => method.Name == "ToSourceTransaction"), Is.False);
+    }
+
+    [Test]
+    public void InventoryTransfer_OnlyExposesFromAsPublicActionSurface()
+    {
+        var publicStaticMethods = typeof(InventoryTransfer)
+            .GetMethods()
+            .Where(method => method.IsPublic && method.IsStatic && method.DeclaringType == typeof(InventoryTransfer))
+            .Select(method => method.Name)
+            .ToArray();
+
+        Assert.That(publicStaticMethods, Is.EquivalentTo(new[] { "From" }));
+    }
+
+    [Test]
+    public void InventoryTransferBuilder_DoesNotExposeCommitMethods()
+    {
+        var methods = typeof(InventoryTransferBuilder<string>).GetMethods();
+
+        Assert.That(methods.Any(method => method.Name is "CanCommitTo" or "TryCommitTo" or "CommitTo"), Is.False);
     }
 
     [Test]
@@ -130,7 +157,7 @@ public class InventoryTransferExpansionTests
         var seed = InventoryTransaction<string>.From(source);
         seed.TryAdd(apple, out _, 3);
         seed.TryAdd(apple, 2, null, metadata, out _);
-        source.CommitTransaction(seed.ToInventoryTransaction());
+        source.CommitTransaction(seed.Build());
 
         var builder = InventoryTransfer.From(source);
         Assert.That(builder.TryRemoveByDefinition(apple, 5, ignoreMetadata: true, out var error), Is.True, error);
@@ -139,7 +166,7 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
-    public void TryTransfer_WithBuilder_CommitsOneSourceAndOneTargetEvent()
+    public void Inventory_TryCommitTransfer_CommitsOneSourceAndOneTargetEvent()
     {
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
@@ -159,7 +186,7 @@ public class InventoryTransferExpansionTests
         source.Changed += (_, _) => sourceEvents++;
         target.Changed += (_, _) => targetEvents++;
 
-        var result = InventoryTransfer.TryTransfer(builder, target, targetContext: null, out var error);
+        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(sourceEvents, Is.EqualTo(1));
@@ -171,7 +198,7 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
-    public void TryTransfer_WithBuilder_TargetRuleFailureLeavesSourceUnchanged()
+    public void Inventory_TryCommitTransfer_TargetRuleFailureLeavesSourceUnchanged()
     {
         var food = "core:food";
         var catalog = new ItemCatalog<string>();
@@ -189,7 +216,7 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = InventoryTransfer.TryTransfer(builder, target, targetContext: null, out var error);
+        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var error);
 
         Assert.That(result, Is.False);
         Assert.That(error, Does.Contain("food-only"));
@@ -212,13 +239,171 @@ public class InventoryTransferExpansionTests
         source.Changed += (_, _) => sourceEvents++;
         target.Changed += (_, _) => targetEvents++;
 
-        var result = InventoryTransfer.CanTransfer(source, target, source.Items[0], 1, null, out var error);
+        var result = source.CanTransferTo(target, source.Items[0], 1, null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(source.Count(apple), Is.EqualTo(2));
         Assert.That(target.Count(apple), Is.EqualTo(0));
         Assert.That(sourceEvents, Is.EqualTo(0));
         Assert.That(targetEvents, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Inventory_CanCommitTransfer_ValidatesWithoutMutating()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 2);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 1, out _);
+        int sourceEvents = 0;
+        int targetEvents = 0;
+        source.Changed += (_, _) => sourceEvents++;
+        target.Changed += (_, _) => targetEvents++;
+
+        var result = source.CanCommitTransfer(builder, target, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(source.Count(apple), Is.EqualTo(2));
+        Assert.That(target.Count(apple), Is.EqualTo(0));
+        Assert.That(sourceEvents, Is.EqualTo(0));
+        Assert.That(targetEvents, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransfer_CommitsSourceAndTarget()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 3);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 2, out _);
+
+        var result = source.TryCommitTransfer(builder, target, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.Count(apple), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransfer_WithTargetContext_CommitsMappedPlacement()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(2));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 1, out _);
+
+        var result = source.TryCommitTransfer(builder, target, SlotLayoutContext<string>.Single(1), out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
+    }
+
+    [Test]
+    public void Inventory_CommitTransfer_ThrowsWhenRejected()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        var builder = InventoryTransfer.From(source);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => source.CommitTransfer(builder, target));
+
+        Assert.That(ex!.Message, Is.EqualTo("Transfer contains no items."));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransfer_ReturnsFalseForEmptyTransfer()
+    {
+        var manager = CreateManager();
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        var builder = InventoryTransfer.From(source);
+
+        var result = source.TryCommitTransfer(builder, target, out var error);
+
+        Assert.That(result, Is.False);
+        Assert.That(error, Is.EqualTo("Transfer contains no items."));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransfer_RejectsBuilderFromAnotherSourceInventory()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var otherSource = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 1, out _);
+
+        var result = otherSource.TryCommitTransfer(builder, target, out var error);
+
+        Assert.That(result, Is.False);
+        Assert.That(error, Is.EqualTo("Transfer builder does not belong to this inventory."));
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.TotalItemCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void InventoryTransfer_StaticBuilderTransfer_DelegatesToSourceInventoryCommit()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 1, out _);
+
+        var result = source.TryCommitTransfer(builder, target, null, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(source.TotalItemCount, Is.EqualTo(0));
+        Assert.That(target.Count(apple), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void InventoryTransfer_StaticBuilderCanTransfer_DelegatesToSourceInventoryValidation()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var builder = InventoryTransfer.From(source);
+        builder.TryRemove(source.Items[0], 1, out _);
+
+        var result = source.CanCommitTransfer(builder, target, null, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.TotalItemCount, Is.EqualTo(0));
     }
 
     [Test]
@@ -237,9 +422,9 @@ public class InventoryTransferExpansionTests
         gemMetadata.Set("rarity", "rare");
         var seed = InventoryTransaction<string>.From(second);
         seed.TryAdd(gem, 2, null, gemMetadata, out _);
-        second.CommitTransaction(seed.ToInventoryTransaction());
+        second.CommitTransaction(seed.Build());
 
-        var result = InventoryTransfer.TrySwap(first, second, first.Items[0], 3, second.Items[0], 1, null, null, out var error);
+        var result = first.TrySwapItemsWithInventory(second, first.Items[0], 3, second.Items[0], 1, null, null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(first.Count(apple), Is.EqualTo(2));
@@ -263,7 +448,7 @@ public class InventoryTransferExpansionTests
         first.TryAdd(apple, out _, 2);
         second.TryAdd(gem, out _, 1);
 
-        var result = InventoryTransfer.TrySwap(first, second, first.Items[0], 2, second.Items[0], 1, null, null, out _);
+        var result = first.TrySwapItemsWithInventory(second, first.Items[0], 2, second.Items[0], 1, null, null, out _);
 
         Assert.That(result, Is.False);
         Assert.That(first.Count(apple), Is.EqualTo(2));
@@ -290,11 +475,10 @@ public class InventoryTransferExpansionTests
         first.Changed += (_, _) => firstEvents++;
         second.Changed += (_, _) => secondEvents++;
 
-        var result = InventoryTransfer.TrySwapInventories(
-            first,
+        var result = first.TrySwapWithInventory(
             second,
-            firstTargetContext: null,
-            secondTargetContext: null,
+            sourceTargetContext: null,
+            otherTargetContext: null,
             out var error);
 
         Assert.That(result, Is.True, error);
@@ -317,11 +501,10 @@ public class InventoryTransferExpansionTests
         first.Changed += (_, _) => events++;
         second.Changed += (_, _) => events++;
 
-        var result = InventoryTransfer.TrySwapInventories(
-            first,
+        var result = first.TrySwapWithInventory(
             second,
-            firstTargetContext: null,
-            secondTargetContext: null,
+            sourceTargetContext: null,
+            otherTargetContext: null,
             out var error);
 
         Assert.That(result, Is.True, error);
@@ -342,7 +525,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 2);
         source.TryAdd(gem, out _, 1);
 
-        var result = InventoryTransfer.TryMoveAll(source, target, targetContext: null, out var error);
+        var result = source.TryMoveAllTo(target, targetContext: null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(source.TotalItemCount, Is.EqualTo(0));
@@ -367,7 +550,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 2);
         source.TryAdd(stone, out _, 3);
 
-        var result = InventoryTransfer.TryMoveByTag(source, target, ingredient, targetContext: null, out var error);
+        var result = source.TryMoveByTagTo(target, ingredient, targetContext: null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(source.Count(apple), Is.EqualTo(0));
@@ -393,7 +576,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 1);
         source.TryAdd(berry, out _, 1);
 
-        var result = InventoryTransfer.TryMoveAllTags(source, target, new[] { "food:ingredient", fresh }, targetContext: null, out var error);
+        var result = source.TryMoveAllTagsTo(target, new[] { "food:ingredient", fresh }, targetContext: null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(target.Count(apple), Is.EqualTo(1));
@@ -412,7 +595,7 @@ public class InventoryTransferExpansionTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1);
 
-        var result = InventoryTransfer.TryMoveWhere(source, target, _ => false, targetContext: null, out var error);
+        var result = source.TryMoveWhereTo(target, _ => false, targetContext: null, out var error);
 
         Assert.That(result, Is.False);
         Assert.That(error, Is.EqualTo("Transfer contains no items."));
@@ -431,7 +614,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 5);
         target.TryAdd(apple, out _, 1);
 
-        var result = InventoryTransfer.TryTransferMaximum(source, target, source.Items[0], 5, null, out var moved, out var error);
+        var result = source.TryTransferMaximumTo(target, source.Items[0], 5, null, out var moved, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(moved, Is.EqualTo(2));
@@ -450,7 +633,7 @@ public class InventoryTransferExpansionTests
         var target = CreateManager(catalog, capacityPolicy: new MaxTotalAmountCapacityPolicy(0)).CreateInventory();
         source.TryAdd(apple, out _, 1);
 
-        var result = InventoryTransfer.TryTransferMaximum(source, target, source.Items[0], 1, null, out var moved, out _);
+        var result = source.TryTransferMaximumTo(target, source.Items[0], 1, null, out var moved, out _);
 
         Assert.That(result, Is.False);
         Assert.That(moved, Is.EqualTo(0));
@@ -474,7 +657,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 3);
         source.TryAdd(berry, out _, 3);
 
-        var result = InventoryTransfer.TryMoveMaximumByTag(source, target, fruit, null, out var moved, out var error);
+        var result = source.TryMoveMaximumByTagTo(target, fruit, null, out var moved, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(moved, Is.EqualTo(4));

@@ -2042,6 +2042,461 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
+    /// <summary>
+    /// Evaluates whether a staged transfer can be committed from this source inventory to a target inventory.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that would receive the transfer entries.</param>
+    /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
+    public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out string? error)
+    {
+        return CanCommitTransfer(builder, target, null, out error);
+    }
+
+    /// <summary>
+    /// Evaluates whether a staged transfer can be committed from this source inventory to a target inventory.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that would receive the transfer entries.</param>
+    /// <param name="targetContext">Optional target layout context for incoming entries.</param>
+    /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
+    public bool CanCommitTransfer(
+        InventoryTransferBuilder<TKey> builder,
+        Inventory<TKey> target,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (builder == null)
+        {
+            error = "Transfer builder cannot be null.";
+            return false;
+        }
+        if (target == null)
+        {
+            error = "Target inventory cannot be null.";
+            return false;
+        }
+
+        return InventoryTransfer.CanCommitBuilder(this, builder, target, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to commit a staged transfer from this source inventory to a target inventory.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that should receive the transfer entries.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out string? error)
+    {
+        return TryCommitTransfer(builder, target, null, out error);
+    }
+
+    /// <summary>
+    /// Attempts to commit a staged transfer from this source inventory to a target inventory.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that should receive the transfer entries.</param>
+    /// <param name="targetContext">Optional target layout context for incoming entries.</param>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommitTransfer(
+        InventoryTransferBuilder<TKey> builder,
+        Inventory<TKey> target,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (builder == null)
+        {
+            error = "Transfer builder cannot be null.";
+            return false;
+        }
+        if (target == null)
+        {
+            error = "Target inventory cannot be null.";
+            return false;
+        }
+
+        return InventoryTransfer.TryCommitBuilder(this, builder, target, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Commits a staged transfer from this source inventory to a target inventory, or throws when rejected.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that should receive the transfer entries.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The transfer is rejected.</exception>
+    public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target)
+    {
+        CommitTransfer(builder, target, null);
+    }
+
+    /// <summary>
+    /// Commits a staged transfer from this source inventory to a target inventory, or throws when rejected.
+    /// </summary>
+    /// <param name="builder">The transfer builder created from this inventory.</param>
+    /// <param name="target">The target inventory that should receive the transfer entries.</param>
+    /// <param name="targetContext">Optional target layout context for incoming entries.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The transfer is rejected.</exception>
+    public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, ILayoutContext<TKey>? targetContext)
+    {
+        if (builder == null)
+            throw new ArgumentNullException(nameof(builder));
+        if (target == null)
+            throw new ArgumentNullException(nameof(target));
+
+        if (!TryCommitTransfer(builder, target, targetContext, out var error))
+            throw new InvalidOperationException(error);
+    }
+
+    /// <summary>
+    /// Evaluates whether this inventory can transfer an amount from one of its item instances to a target inventory.
+    /// </summary>
+    public bool CanTransferTo(
+        Inventory<TKey> target,
+        ItemInstance<TKey> item,
+        int amount,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (!TryValidateOutgoingTransferItem(item, amount, out error))
+            return false;
+
+        var builder = InventoryTransfer.From(this);
+        if (!builder.TryRemove(item, amount, out error))
+            return false;
+
+        return CanCommitTransfer(builder, target, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to transfer an amount from one of this inventory's item instances to a target inventory.
+    /// </summary>
+    public bool TryTransferTo(
+        Inventory<TKey> target,
+        ItemInstance<TKey> item,
+        int amount,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (!TryValidateOutgoingTransferItem(item, amount, out error))
+            return false;
+
+        var builder = InventoryTransfer.From(this);
+        if (!builder.TryRemove(item, amount, out error))
+            return false;
+
+        return TryCommitTransfer(builder, target, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Transfers an amount from one of this inventory's item instances to a target inventory, or throws when rejected.
+    /// </summary>
+    public void TransferTo(
+        Inventory<TKey> target,
+        ItemInstance<TKey> item,
+        int amount,
+        ILayoutContext<TKey>? targetContext = null)
+    {
+        if (!TryTransferTo(target, item, amount, targetContext, out var error))
+            throw new InvalidOperationException(error);
+    }
+
+    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out string? error)
+    {
+        if (item == null)
+        {
+            error = "Item cannot be null.";
+            return false;
+        }
+        if (amount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+
+        bool sourceContainsItem = false;
+        foreach (var sourceItem in Items)
+        {
+            if (ReferenceEquals(sourceItem, item))
+            {
+                sourceContainsItem = true;
+                break;
+            }
+        }
+
+        if (!sourceContainsItem)
+        {
+            error = "Item not found in source inventory.";
+            return false;
+        }
+        if (item.Amount < amount)
+        {
+            error = "Not enough quantity to transfer.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to move every item from this source inventory to a target inventory as one all-or-nothing operation.
+    /// </summary>
+    public bool TryMoveAllTo(Inventory<TKey> target, ILayoutContext<TKey>? targetContext, out string? error)
+    {
+        return TryMoveWhereTo(target, _ => true, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to move every matching item from this source inventory to a target inventory as one all-or-nothing operation.
+    /// </summary>
+    public bool TryMoveWhereTo(
+        Inventory<TKey> target,
+        Func<ItemInstance<TKey>, bool> predicate,
+        ILayoutContext<TKey>? targetContext,
+        out string? error)
+    {
+        if (predicate == null)
+        {
+            error = "Predicate cannot be null.";
+            return false;
+        }
+
+        var builder = InventoryTransfer.From(this);
+        foreach (var item in new List<ItemInstance<TKey>>(Items))
+        {
+            if (predicate(item) && !builder.TryRemove(item, item.Amount, out error))
+                return false;
+        }
+
+        return TryCommitTransfer(builder, target, targetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to move every item with a catalog-resolved tag from this source inventory to a target inventory.
+    /// </summary>
+    public bool TryMoveByTagTo(Inventory<TKey> target, string tagId, ILayoutContext<TKey>? targetContext, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(tagId))
+        {
+            error = "Tag cannot be null.";
+            return false;
+        }
+
+        return TryMoveWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to move every item satisfying all catalog-resolved tags from this source inventory to a target inventory.
+    /// </summary>
+    public bool TryMoveAllTagsTo(Inventory<TKey> target, string[] tagIds, ILayoutContext<TKey>? targetContext, out string? error)
+    {
+        if (tagIds == null || tagIds.Length == 0)
+        {
+            error = "At least one tag is required.";
+            return false;
+        }
+        foreach (var tagId in tagIds)
+        {
+            if (string.IsNullOrWhiteSpace(tagId))
+            {
+                error = "Tags cannot contain null.";
+                return false;
+            }
+
+            Catalog.Tags.GetKey(tagId);
+        }
+
+        return TryMoveWhereTo(
+            target,
+            item =>
+            {
+                foreach (var tagId in tagIds)
+                {
+                    if (!Catalog.Satisfies(item.Definition, tagId))
+                        return false;
+                }
+                return true;
+            },
+            targetContext,
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to transfer the largest valid amount up to a requested amount.
+    /// </summary>
+    public bool TryTransferMaximumTo(
+        Inventory<TKey> target,
+        ItemInstance<TKey> item,
+        int requestedAmount,
+        ILayoutContext<TKey>? targetContext,
+        out int transferredAmount,
+        out string? error)
+    {
+        transferredAmount = 0;
+        if (requestedAmount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+        if (item == null)
+        {
+            error = "Item cannot be null.";
+            return false;
+        }
+
+        int low = 1;
+        int high = Math.Min(requestedAmount, item.Amount);
+        int best = 0;
+        string? lastError = null;
+
+        while (low <= high)
+        {
+            int mid = low + (high - low) / 2;
+            if (CanTransferTo(target, item, mid, targetContext, out lastError))
+            {
+                best = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        if (best <= 0)
+        {
+            error = lastError;
+            return false;
+        }
+
+        if (!TryTransferTo(target, item, best, targetContext, out error))
+        {
+            transferredAmount = 0;
+            return false;
+        }
+
+        transferredAmount = best;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to move as much matching item amount as possible in source storage order.
+    /// </summary>
+    public bool TryMoveMaximumWhereTo(
+        Inventory<TKey> target,
+        Func<ItemInstance<TKey>, bool> predicate,
+        ILayoutContext<TKey>? targetContext,
+        out int transferredAmount,
+        out string? error)
+    {
+        transferredAmount = 0;
+        if (predicate == null)
+        {
+            error = "Predicate cannot be null.";
+            return false;
+        }
+
+        string? lastError = null;
+        foreach (var item in new List<ItemInstance<TKey>>(Items))
+        {
+            if (!predicate(item))
+                continue;
+
+            if (TryTransferMaximumTo(target, item, item.Amount, targetContext, out var moved, out lastError))
+                transferredAmount += moved;
+        }
+
+        error = transferredAmount > 0 ? null : lastError ?? "Transfer contains no items.";
+        return transferredAmount > 0;
+    }
+
+    /// <summary>
+    /// Attempts to move as much item amount with a catalog-resolved tag as possible in source storage order.
+    /// </summary>
+    public bool TryMoveMaximumByTagTo(
+        Inventory<TKey> target,
+        string tagId,
+        ILayoutContext<TKey>? targetContext,
+        out int transferredAmount,
+        out string? error)
+    {
+        transferredAmount = 0;
+        if (string.IsNullOrWhiteSpace(tagId))
+        {
+            error = "Tag cannot be null.";
+            return false;
+        }
+
+        return TryMoveMaximumWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out error);
+    }
+
+    /// <summary>
+    /// Attempts to swap complete item stacks between this inventory and another compatible inventory.
+    /// </summary>
+    public bool TrySwapItemsWithInventory(
+        Inventory<TKey> other,
+        ItemInstance<TKey> sourceItem,
+        ItemInstance<TKey> otherItem,
+        ILayoutContext<TKey>? sourceTargetContext,
+        ILayoutContext<TKey>? otherTargetContext,
+        out string? error)
+    {
+        if (sourceItem == null)
+        {
+            error = "First item cannot be null.";
+            return false;
+        }
+        if (otherItem == null)
+        {
+            error = "Second item cannot be null.";
+            return false;
+        }
+
+        return TrySwapItemsWithInventory(
+            other,
+            sourceItem,
+            sourceItem.Amount,
+            otherItem,
+            otherItem.Amount,
+            sourceTargetContext,
+            otherTargetContext,
+            out error);
+    }
+
+    /// <summary>
+    /// Attempts to swap item amounts between this inventory and another compatible inventory.
+    /// </summary>
+    public bool TrySwapItemsWithInventory(
+        Inventory<TKey> other,
+        ItemInstance<TKey> sourceItem,
+        int sourceAmount,
+        ItemInstance<TKey> otherItem,
+        int otherAmount,
+        ILayoutContext<TKey>? sourceTargetContext,
+        ILayoutContext<TKey>? otherTargetContext,
+        out string? error)
+    {
+        return InventoryTransfer.TrySwap(this, other, sourceItem, sourceAmount, otherItem, otherAmount, sourceTargetContext, otherTargetContext, out error);
+    }
+
+    /// <summary>
+    /// Attempts to swap all contents between this inventory and another compatible inventory.
+    /// </summary>
+    public bool TrySwapWithInventory(
+        Inventory<TKey> other,
+        ILayoutContext<TKey>? sourceTargetContext,
+        ILayoutContext<TKey>? otherTargetContext,
+        out string? error)
+    {
+        return InventoryTransfer.TrySwapInventories(this, other, sourceTargetContext, otherTargetContext, out error);
+    }
+
     private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)
     {
         if (transaction == null)
@@ -2669,7 +3124,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                 throw new InvalidOperationException(addError);
         }
 
-        if (!builder.TryToInventoryTransaction(null, out var transaction, out var error) || transaction == null)
+        if (!builder.TryBuild(null, out var transaction, out var error) || transaction == null)
             throw new InvalidOperationException(error);
 
         ApplyPreparedTransaction(transaction, cleared: _items.Count > 0);
@@ -2730,7 +3185,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             if (strict && error != null)
                 throw new InvalidOperationException($"Failed to deserialize item {serializedItem.DefinitionId}: {error}");
         }
-        CommitTransaction(builder.ToInventoryTransaction());
+        CommitTransaction(builder);
 
         _layout.RestorePersistentData(data.LayoutData as ILayoutPersistentData);
     }

@@ -40,7 +40,7 @@ public class LayoutContextExampleTests
             .Add(0, 3)
             .Add(1, 4)
             .Build();
-        var built = builder.TryToInventoryTransaction(context, out var transaction, out var error);
+        var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
         Assert.That(committed, Is.True, error);

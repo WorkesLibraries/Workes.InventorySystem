@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Core;
 
-    /// <summary>
-/// Builds a bulk transaction by operating on a simulated inventory state.
-/// Use <see cref="InventoryTransaction{TKey}.From"/> to create.
-/// Add/remove operations update the simulated state; call <see cref="ToInventoryTransaction"/>
-/// to get the merged transaction, then commit it on the original inventory.
+/// <summary>
+/// Builds a bulk structural transaction by operating on a simulated inventory state.
+/// Use <see cref="InventoryTransaction{TKey}.From"/> to create a builder, then commit it through the target inventory.
 /// </summary>
+/// <remarks>
+/// Transaction builders stage add/remove/amount-delta changes. Layout move and swap operations remain inventory-level
+/// operations because they emit dedicated movement event payloads and are not represented by structural transactions.
+/// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class InventoryTransactionBuilder<TKey>
 {
@@ -134,11 +136,15 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
-    /// Produces an <see cref="InventoryTransaction{TKey}"/> targeting the original inventory.
-    /// Call an inventory commit method with the result.
+    /// Builds an <see cref="InventoryTransaction{TKey}"/> targeting the original inventory.
     /// </summary>
+    /// <remarks>
+    /// Most callers should commit the builder directly through <see cref="Inventory{TKey}.CommitTransaction(InventoryTransactionBuilder{TKey})"/>
+    /// or <see cref="Inventory{TKey}.TryCommitTransaction(InventoryTransactionBuilder{TKey}, out string?)"/>.
+    /// Use this method when code needs to inspect or store the structural transaction before committing it.
+    /// </remarks>
     /// <returns>A structural transaction that represents all successful simulated operations.</returns>
-    public InventoryTransaction<TKey> ToInventoryTransaction()
+    public InventoryTransaction<TKey> Build()
     {
         var amountDeltas = new List<(int index, int delta)>();
         var removed = new List<(int index, ItemInstance<TKey> instance)>();
@@ -174,31 +180,6 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
-    /// Builds an <see cref="InventoryTransaction{TKey}"/> targeting the original inventory.
-    /// </summary>
-    /// <returns>A structural transaction that represents all successful simulated operations.</returns>
-    public InventoryTransaction<TKey> Build()
-    {
-        return ToInventoryTransaction();
-    }
-
-    /// <summary>
-    /// Produces an inventory transaction after applying an optional transaction-level placement context.
-    /// </summary>
-    /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
-    /// <param name="transaction">The mapped transaction when creation succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when creation is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when the mapped transaction is valid; otherwise, <see langword="false"/>.</returns>
-    public bool TryToInventoryTransaction(
-        ILayoutContext<TKey>? placementContext,
-        out InventoryTransaction<TKey>? transaction,
-        out string? error)
-    {
-        var candidate = ToInventoryTransaction();
-        return _targetInventory.TryPrepareTransaction(candidate, placementContext, out transaction, out error);
-    }
-
-    /// <summary>
     /// Builds an inventory transaction after applying an optional transaction-level placement context.
     /// </summary>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
@@ -210,7 +191,8 @@ public class InventoryTransactionBuilder<TKey>
         out InventoryTransaction<TKey>? transaction,
         out string? error)
     {
-        return TryToInventoryTransaction(placementContext, out transaction, out error);
+        var candidate = Build();
+        return _targetInventory.TryPrepareTransaction(candidate, placementContext, out transaction, out error);
     }
 
     private ItemInstance<TKey>? ResolveToSimulationInstance(ItemInstance<TKey> instance)

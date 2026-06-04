@@ -68,7 +68,7 @@ public class FunctionalCompletionRegressionTests
             .Add(1, 4, 2, GridAnchor.BottomRight)
             .Build();
 
-        Assert.That(InventoryTransfer.TryTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
 
         Assert.That(Cell(target, 1, 0), Is.EqualTo("table"));
         Assert.That(Cell(target, 2, 0), Is.EqualTo("table"));

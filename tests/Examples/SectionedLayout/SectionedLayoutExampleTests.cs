@@ -54,7 +54,7 @@ public class SectionedLayoutExampleTests
             .Add(1, "bag", 0)
             .Build();
 
-        var built = builder.TryToInventoryTransaction(context, out var transaction, out var error);
+        var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
         Assert.That(committed, Is.True, error);

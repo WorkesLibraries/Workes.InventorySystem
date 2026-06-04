@@ -30,7 +30,7 @@ public class LootAllMaximumExampleTests
         chest.TryAdd(coin, out _, 4);
         chest.TryAdd(gem, out _, 4);
 
-        var moved = InventoryTransfer.TryMoveMaximumByTag(chest, backpack, loot, null, out var movedAmount, out var error);
+        var moved = chest.TryMoveMaximumByTagTo(backpack, loot, null, out var movedAmount, out var error);
 
         Assert.That(moved, Is.True, error);
         Assert.That(movedAmount, Is.EqualTo(5));
