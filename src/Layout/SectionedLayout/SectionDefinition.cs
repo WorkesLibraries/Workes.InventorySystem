@@ -24,25 +24,32 @@ public sealed class SectionDefinition<TKey>
     /// <summary>
     /// Gets the catalog-resolved tags required by items placed in this section.
     /// </summary>
-    public IReadOnlyList<TagKey> RequiredTags { get; }
+    public IReadOnlyList<string> RequiredTags { get; }
+
+    internal IReadOnlyList<TagKey> RequiredTagKeys { get; }
 
     /// <summary>
     /// Creates a section definition.
     /// </summary>
     /// <param name="id">The stable section identifier.</param>
     /// <param name="slotCount">The number of slots in the section.</param>
-    /// <param name="requiredTags">The tags an item definition must satisfy to fit this section.</param>
+    /// <param name="requiredTags">The tag ids an item definition must satisfy to fit this section.</param>
     /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="slotCount"/> is less than or equal to zero.</exception>
-    public SectionDefinition(string id, int slotCount, params TagKey[] requiredTags)
+    public SectionDefinition(string id, int slotCount, params string[] requiredTags)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Section id cannot be null or empty.", nameof(id));
         if (slotCount <= 0)
             throw new ArgumentOutOfRangeException(nameof(slotCount), "Section slot count must be greater than zero.");
 
+        var keys = requiredTags != null
+            ? requiredTags.Where(t => t != null).Select(TagKey.Parse).ToList()
+            : new List<TagKey>();
+
         Id = id;
         SlotCount = slotCount;
-        RequiredTags = requiredTags != null ? requiredTags.Where(t => t != null).ToList() : new List<TagKey>();
+        RequiredTagKeys = keys;
+        RequiredTags = keys.Select(tag => tag.Id).ToList();
     }
 }

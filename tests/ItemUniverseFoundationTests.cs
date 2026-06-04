@@ -21,9 +21,9 @@ public class ItemUniverseFoundationTests
     private const string Quality = "quality";
     private const string CutPower = "cutPower";
     private const string Damage = "damage";
-    private static readonly TagKey KnifeTag = TagKey.Parse("core:equipment.tools.knife");
-    private static readonly TagKey ObsidianTag = TagKey.Parse("c:materials.obsidian");
-    private static readonly TagKey SteelTag = TagKey.Parse("c:materials.steel");
+    private static readonly string KnifeTag = "core:equipment.tools.knife";
+    private static readonly string ObsidianTag = "c:materials.obsidian";
+    private static readonly string SteelTag = "c:materials.steel";
 
     private enum TestItemKind
     {
@@ -54,14 +54,14 @@ public class ItemUniverseFoundationTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string>? catalog = null, RuleContainer<string>? rules = null)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             rules,
             catalog);
     }
 
-    private static void DefineTags(ItemCatalog<string> catalog, params TagKey[] tags)
+    private static void DefineTags(ItemCatalog<string> catalog, params string[] tags)
     {
         foreach (var tag in tags)
             catalog.Tags.Define(tag);
@@ -81,7 +81,7 @@ public class ItemUniverseFoundationTests
     // schemas on concrete definition classes, as Equipment/Tool/Axe do below.
     private sealed class SchemaValidationDefinition : ItemDefinition<string>
     {
-        public SchemaValidationDefinition(
+        private SchemaValidationDefinition(
             string id,
             ItemSchema<string> schema,
             bool defineWeight = false,
@@ -99,12 +99,23 @@ public class ItemUniverseFoundationTests
             if (defineQuality)
                 DefineAttribute(Quality, 4);
         }
+
+        public static SchemaValidationDefinition Create(
+            string id,
+            ItemSchema<string> schema,
+            bool defineWeight = false,
+            bool defineDurability = false,
+            bool defineChopPower = false,
+            bool defineQuality = false)
+        {
+            return new SchemaValidationDefinition(id, schema, defineWeight, defineDurability, defineChopPower, defineQuality);
+        }
     }
 
     private class EquipmentDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> EquipmentSchema =
-            ItemSchema<string>.Create("test-equipment")
+            ItemSchema<string>.CreateFor<EquipmentDefinition>("test-equipment")
                 .RequireAttribute<int>(Weight, inherited: true);
 
         protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight)
@@ -122,7 +133,7 @@ public class ItemUniverseFoundationTests
     private class ToolDefinition : EquipmentDefinition
     {
         public static readonly ItemSchema<string> ToolSchema =
-            ItemSchema<string>.Create("test-tool")
+            ItemSchema<string>.CreateFor<ToolDefinition>("test-tool")
                 .WithParent(EquipmentSchema)
                 .RequireAttribute<int>(Durability, inherited: true);
 
@@ -140,10 +151,10 @@ public class ItemUniverseFoundationTests
 
     private sealed class AxeDefinition : ToolDefinition
     {
-        public static readonly TagKey AxeTag = TagKey.Parse("core:equipment.tools.axe");
+        public static readonly string AxeTag = "core:equipment.tools.axe";
 
         public static readonly ItemSchema<string> AxeSchema =
-            ItemSchema<string>.Create("test-axe")
+            ItemSchema<string>.CreateFor<AxeDefinition>("test-axe")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>(ChopPower, inherited: true)
                 .AddTag(AxeTag);
@@ -175,13 +186,13 @@ public class ItemUniverseFoundationTests
     private sealed class RepositoryKnifeDefinition : ToolDefinition
     {
         public static readonly ItemSchema<string> KnifeSchema =
-            ItemSchema<string>.Create("repository-knife")
+            ItemSchema<string>.CreateFor<RepositoryKnifeDefinition>("repository-knife")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>(CutPower, inherited: true)
                 .RequireAttribute<int>(Damage, inherited: true)
                 .AddTag(KnifeTag);
 
-        public RepositoryKnifeDefinition(string id, int weight, int durability, int cutPower, int damage, params TagKey[] tags)
+        public RepositoryKnifeDefinition(string id, int weight, int durability, int cutPower, int damage, params string[] tags)
             : base(id, KnifeSchema, weight, durability)
         {
             DefineTags(tags);
@@ -192,22 +203,58 @@ public class ItemUniverseFoundationTests
 
     private sealed class SchemaTagDefinition : ItemDefinition<string>
     {
-        public SchemaTagDefinition(string id, ItemSchema<string> schema)
+        private SchemaTagDefinition(string id, ItemSchema<string> schema)
             : base(id, schema)
         {
+        }
+
+        public static SchemaTagDefinition Create(string id, ItemSchema<string> schema)
+        {
+            return new SchemaTagDefinition(id, schema);
         }
     }
 
     private sealed class StringAttributeDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> StringAttributeSchema =
-            ItemSchema<string>.Create("string-attribute-equipment")
+            ItemSchema<string>.CreateFor<StringAttributeDefinition>("string-attribute-equipment")
                 .RequireAttribute<int>("stringWeight", inherited: true);
 
         public StringAttributeDefinition(string id, int weight)
             : base(id, StringAttributeSchema)
         {
             DefineAttribute("stringWeight", weight);
+        }
+    }
+
+    private sealed class PotionDefinition : ItemDefinition<string>
+    {
+        public static readonly ItemSchema<string> PotionSchema =
+            ItemSchema<string>.CreateFor<PotionDefinition>("test-potion");
+
+        public PotionDefinition(string id)
+            : base(id, PotionSchema)
+        {
+        }
+    }
+
+    private sealed class UnrelatedOwnedSchemaDefinition : ItemDefinition<string>
+    {
+        public UnrelatedOwnedSchemaDefinition(string id)
+            : base(id, RepositoryKnifeDefinition.KnifeSchema)
+        {
+            DefineAttribute(Weight, 1);
+            DefineAttribute(Durability, 1);
+            DefineAttribute(CutPower, 1);
+            DefineAttribute(Damage, 1);
+        }
+    }
+
+    private sealed class PublicSchemaForwardingDefinition : ItemDefinition<string>
+    {
+        public PublicSchemaForwardingDefinition(string id, ItemSchema<string> schema)
+            : base(id, schema)
+        {
         }
     }
 
@@ -295,6 +342,102 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
+    public void ItemSchema_CreateFor_RecordsOwnerDefinitionType()
+    {
+        var schema = ItemSchema<string>.CreateFor<PotionDefinition>("owned-potion");
+        var shared = ItemSchema<string>.Create("shared");
+
+        Assert.That(schema.OwnerDefinitionType, Is.EqualTo(typeof(PotionDefinition)));
+        Assert.That(shared.OwnerDefinitionType, Is.Null);
+        Assert.That(ItemSchema<string>.Default.OwnerDefinitionType, Is.Null);
+    }
+
+    [Test]
+    public void CatalogFreeze_AllowsDefinitionUsingItsOwnedSchema()
+    {
+        var catalog = new ItemCatalog<string>();
+        var potion = new PotionDefinition("potion");
+
+        catalog.Registry.Register(potion);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+        Assert.That(potion.Schema.OwnerDefinitionType, Is.EqualTo(typeof(PotionDefinition)));
+    }
+
+    [Test]
+    public void CatalogFreeze_AllowsDefinitionUsingSchemaOwnedByBaseDefinitionType()
+    {
+        var catalog = new ItemCatalog<string>();
+        var hammer = new HammerDefinition("hammer", weight: 5, durability: 10);
+
+        DefineAttributes(catalog);
+        catalog.Registry.Register(hammer);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+        Assert.That(hammer.Schema.OwnerDefinitionType, Is.EqualTo(typeof(ToolDefinition)));
+    }
+
+    [Test]
+    public void CatalogFreeze_RejectsDefinitionUsingSchemaOwnedByUnrelatedDefinitionType()
+    {
+        var catalog = new ItemCatalog<string>();
+        var definition = new UnrelatedOwnedSchemaDefinition("fake-knife");
+
+        DefineAttributes(catalog);
+        DefineTags(catalog, KnifeTag);
+        catalog.Registry.Register(definition);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+        Assert.That(ex!.Message, Does.Contain("owned by definition type"));
+        Assert.That(ex.Message, Does.Contain(nameof(RepositoryKnifeDefinition)));
+        Assert.That(ex.Message, Does.Contain(nameof(UnrelatedOwnedSchemaDefinition)));
+    }
+
+    [Test]
+    public void ItemSchema_WithParent_AllowsParentOwnedByBaseDefinitionType()
+    {
+        var schema = ItemSchema<string>.CreateFor<AxeDefinition>("owned-axe-parent-check")
+            .WithParent(ToolDefinition.ToolSchema);
+
+        Assert.That(schema.Parent, Is.SameAs(ToolDefinition.ToolSchema));
+    }
+
+    [Test]
+    public void ItemSchema_WithParent_RejectsParentOwnedByUnrelatedDefinitionType()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            ItemSchema<string>.CreateFor<PotionDefinition>("invalid-owned-parent")
+                .WithParent(ToolDefinition.ToolSchema));
+    }
+
+    [Test]
+    public void CatalogFreeze_RejectsPublicSchemaTakingDefinitionConstructor()
+    {
+        var catalog = new ItemCatalog<string>();
+        var schema = ItemSchema<string>.Create("public-forwarded");
+        var definition = new PublicSchemaForwardingDefinition("forwarded", schema);
+
+        catalog.Registry.Register(definition);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+        Assert.That(ex!.Message, Does.Contain(nameof(PublicSchemaForwardingDefinition)));
+        Assert.That(ex.Message, Does.Contain("public ItemSchema constructor parameter"));
+    }
+
+    [Test]
+    public void CatalogFreeze_AllowsProtectedSchemaTakingDefinitionConstructor()
+    {
+        var catalog = new ItemCatalog<string>();
+        var axe = new AxeDefinition("axe", weight: 5, durability: 10, chopPower: 20);
+
+        DefineAttributes(catalog);
+        DefineTags(catalog, AxeDefinition.AxeTag);
+        catalog.Registry.Register(axe);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+    }
+
+    [Test]
     public void ChildDefinition_CanIntentionallyReuseParentSchema()
     {
         var catalog = new ItemCatalog<string>();
@@ -317,7 +460,7 @@ public class ItemUniverseFoundationTests
         var child = ItemSchema<string>.Create("missing-child")
             .WithParent(parent)
             .RequireAttribute<int>(Durability, inherited: true);
-        var definition = new SchemaValidationDefinition("broken-tool", child, defineDurability: true);
+        var definition = SchemaValidationDefinition.Create("broken-tool", child, defineDurability: true);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -331,7 +474,7 @@ public class ItemUniverseFoundationTests
     {
         var schema = ItemSchema<string>.Create("missing-direct")
             .RequireAttribute<int>(Weight, inherited: true);
-        var definition = new SchemaValidationDefinition("broken-equipment", schema);
+        var definition = SchemaValidationDefinition.Create("broken-equipment", schema);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -486,7 +629,7 @@ public class ItemUniverseFoundationTests
     {
         var schema = ItemSchema<string>.Create("undeclared-quality")
             .RequireAttribute<int>(Weight, inherited: true);
-        var definition = new SchemaValidationDefinition("equipment", schema, defineWeight: true, defineQuality: true);
+        var definition = SchemaValidationDefinition.Create("equipment", schema, defineWeight: true, defineQuality: true);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -503,7 +646,7 @@ public class ItemUniverseFoundationTests
         var child = ItemSchema<string>.Create("redefine-child")
             .WithParent(parent)
             .RequireAttribute<int>(Weight, inherited: true);
-        var definition = new SchemaValidationDefinition("broken-child", child, defineWeight: true);
+        var definition = SchemaValidationDefinition.Create("broken-child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -520,7 +663,7 @@ public class ItemUniverseFoundationTests
         var child = ItemSchema<string>.Create("non-inherited-child")
             .WithParent(parent)
             .RequireAttribute<int>(Weight, inherited: true);
-        var definition = new SchemaValidationDefinition("child", child, defineWeight: true);
+        var definition = SchemaValidationDefinition.Create("child", child, defineWeight: true);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -533,14 +676,14 @@ public class ItemUniverseFoundationTests
     public void SchemaMutation_AfterCatalogFreeze_Throws()
     {
         var schema = ItemSchema<string>.Create("frozen-schema");
-        var definition = new SchemaValidationDefinition("simple", schema);
+        var definition = SchemaValidationDefinition.Create("simple", schema);
         var catalog = new ItemCatalog<string>();
 
         catalog.Registry.Register(definition);
         catalog.Freeze();
 
         Assert.Throws<InvalidOperationException>(() => schema.RequireAttribute<int>(Weight));
-        Assert.Throws<InvalidOperationException>(() => schema.AddTag(TagKey.Parse("core:frozen")));
+        Assert.Throws<InvalidOperationException>(() => schema.AddTag("core:frozen"));
     }
 
     [Test]
@@ -550,6 +693,19 @@ public class ItemUniverseFoundationTests
         catalog.Registry.Register(new ItemDefinition<string>("apple"));
 
         Assert.DoesNotThrow(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void DefaultSchema_AllowsSimpleDefinitionsWithTags()
+    {
+        var catalog = new ItemCatalog<string>();
+        var definition = new ItemDefinition<string>("obsidian", ObsidianTag);
+
+        DefineTags(catalog, ObsidianTag);
+        catalog.Registry.Register(definition);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+        Assert.That(definition.Schema, Is.SameAs(ItemSchema<string>.Default));
     }
 
     [Test]
@@ -586,8 +742,8 @@ public class ItemUniverseFoundationTests
         catalog.Freeze();
 
         var resolved = catalog.ResolveTags(obsidianKnife);
-        Assert.That(resolved.Any(t => t.Tag.Equals(KnifeTag) && t.Source == TagSource.Schema), Is.True);
-        Assert.That(resolved.Any(t => t.Tag.Equals(ObsidianTag) && t.Source == TagSource.Definition), Is.True);
+        Assert.That(resolved.Any(t => t.Id.Equals(KnifeTag) && t.Source == TagSource.Schema), Is.True);
+        Assert.That(resolved.Any(t => t.Id.Equals(ObsidianTag) && t.Source == TagSource.Definition), Is.True);
     }
 
     [Test]
@@ -631,7 +787,7 @@ public class ItemUniverseFoundationTests
         var definition = new ItemDefinition<Guid>(id);
         var catalog = new ItemCatalog<Guid>();
         var manager = new InventoryManager<Guid>(
-            new DefaultStackResolver<Guid>(10),
+            new FixedSizeStackResolver<Guid>(10),
             new UnlimitedCapacityPolicy<Guid>(),
             new EntryLayout<Guid>(),
             catalog: catalog);
@@ -662,7 +818,7 @@ public class ItemUniverseFoundationTests
         var definition = new ItemDefinition<int>(42);
         var catalog = new ItemCatalog<int>();
         var manager = new InventoryManager<int>(
-            new DefaultStackResolver<int>(10),
+            new FixedSizeStackResolver<int>(10),
             new UnlimitedCapacityPolicy<int>(),
             new EntryLayout<int>(),
             catalog: catalog);
@@ -931,46 +1087,32 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void TagKey_Parse_RequiresValidNamespacedId()
+    public void TagCatalog_Define_ReturnsNamespacedTagDefinition()
     {
-        var tag = TagKey.Parse("core:equipment.tools.axe");
+        var catalog = new TagCatalog();
 
+        var tag = catalog.Define("core:equipment.tools.axe");
+
+        Assert.That(tag.Id, Is.EqualTo("core:equipment.tools.axe"));
         Assert.That(tag.Namespace, Is.EqualTo("core"));
         Assert.That(tag.Path, Is.EqualTo("equipment.tools.axe"));
         Assert.That(tag.Segments, Is.EqualTo(new[] { "equipment", "tools", "axe" }));
-        Assert.That(tag.IsNamespaced, Is.True);
-        Assert.That(TagKey.TryParse("Food", out _), Is.False);
-        Assert.That(TagKey.TryParse("core:", out _), Is.False);
-        Assert.That(TagKey.TryParse("core:equipment..axe", out _), Is.False);
-    }
-
-    [Test]
-    public void TagKey_Constructor_AllowsFlatCompatibilityTag()
-    {
-        var tag = new TagKey("Food");
-
-        Assert.That(tag.Id, Is.EqualTo("Food"));
-        Assert.That(tag.IsNamespaced, Is.False);
-    }
-
-    [Test]
-    public void TagKey_Parse_RejectsFlatTag()
-    {
-        Assert.That(TagKey.TryParse("Food", out _), Is.False);
-        Assert.Throws<ArgumentException>(() => TagKey.Parse("Food"));
+        Assert.Throws<ArgumentException>(() => catalog.Define("Food"));
+        Assert.Throws<ArgumentException>(() => catalog.Define("core:"));
+        Assert.Throws<ArgumentException>(() => catalog.Define("core:equipment..axe"));
     }
 
     [Test]
     public void TagCatalog_Define_AddsGeneratedParents()
     {
         var catalog = new TagCatalog();
-        var axe = TagKey.Parse("core:equipment.tools.axe");
+        var axe = "core:equipment.tools.axe";
 
         catalog.Define(axe);
 
         Assert.That(catalog.Contains(axe), Is.True);
-        Assert.That(catalog.Contains(TagKey.Parse("core:equipment.tools")), Is.True);
-        Assert.That(catalog.Contains(TagKey.Parse("core:equipment")), Is.True);
+        Assert.That(catalog.Contains("core:equipment.tools"), Is.True);
+        Assert.That(catalog.Contains("core:equipment"), Is.True);
     }
 
     [Test]
@@ -981,8 +1123,8 @@ public class ItemUniverseFoundationTests
 
         Assert.That(tag.Id, Is.EqualTo("core:equipment.tools.knife"));
         Assert.That(catalog.Tags.Contains(tag), Is.True);
-        Assert.That(catalog.Tags.Contains(TagKey.Parse("core:equipment.tools")), Is.True);
-        Assert.That(catalog.Tags.Contains(TagKey.Parse("core:equipment")), Is.True);
+        Assert.That(catalog.Tags.Contains("core:equipment.tools"), Is.True);
+        Assert.That(catalog.Tags.Contains("core:equipment"), Is.True);
     }
 
     [Test]
@@ -993,7 +1135,7 @@ public class ItemUniverseFoundationTests
 
         var resolved = catalog.Tags.Get("core:equipment.tools.knife");
 
-        Assert.That(resolved, Is.SameAs(defined));
+        Assert.That(resolved.Id, Is.EqualTo(defined.Id));
     }
 
     [Test]
@@ -1009,7 +1151,7 @@ public class ItemUniverseFoundationTests
     {
         var catalog = new ItemCatalog<string>();
 
-        Assert.Throws<ArgumentException>(() => catalog.Tags.Define(new TagKey("Food")));
+        Assert.Throws<ArgumentException>(() => catalog.Tags.Define("Food"));
     }
 
     [Test]
@@ -1017,7 +1159,7 @@ public class ItemUniverseFoundationTests
     {
         var schema = ItemSchema<string>.Create("undeclared-schema-tag")
             .AddTag(KnifeTag);
-        var definition = new SchemaTagDefinition("knife", schema);
+        var definition = SchemaTagDefinition.Create("knife", schema);
         var catalog = new ItemCatalog<string>();
 
         catalog.Registry.Register(definition);
@@ -1037,14 +1179,9 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void CatalogFreeze_FailsWhenDefinitionUsesFlatUndeclaredTag()
+    public void DefinitionTagAuthoring_RejectsFlatTagId()
     {
-        var definition = new ItemDefinition<string>("food", new TagKey("Food"));
-        var catalog = new ItemCatalog<string>();
-
-        catalog.Registry.Register(definition);
-
-        Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+        Assert.Throws<ArgumentException>(() => new ItemDefinition<string>("food", "Food"));
     }
 
     [Test]
@@ -1079,7 +1216,7 @@ public class ItemUniverseFoundationTests
     public void CatalogResolvedTags_IncludeSchemaDefinitionAndGeneratedParentTags()
     {
         var definition = new AxeDefinition("obsidian-axe", weight: 5, durability: 10, chopPower: 20);
-        var material = TagKey.Parse("c:materials.obsidian");
+        var material = "c:materials.obsidian";
         definition.Tags.Add(material);
         var catalog = new ItemCatalog<string>();
 
@@ -1088,23 +1225,23 @@ public class ItemUniverseFoundationTests
         catalog.Registry.Register(definition);
         catalog.Freeze();
 
-        Assert.That(catalog.Satisfies(definition, TagKey.Parse("core:equipment.tools.axe")), Is.True);
-        Assert.That(catalog.Satisfies(definition, TagKey.Parse("core:equipment.tools")), Is.True);
-        Assert.That(catalog.Satisfies(definition, TagKey.Parse("core:equipment")), Is.True);
-        Assert.That(catalog.Satisfies(definition, TagKey.Parse("core:equipment.tools.knife")), Is.False);
+        Assert.That(catalog.Satisfies(definition, "core:equipment.tools.axe"), Is.True);
+        Assert.That(catalog.Satisfies(definition, "core:equipment.tools"), Is.True);
+        Assert.That(catalog.Satisfies(definition, "core:equipment"), Is.True);
+        Assert.That(catalog.Satisfies(definition, "core:equipment.tools.knife"), Is.False);
         Assert.That(catalog.Satisfies(definition, material), Is.True);
-        Assert.That(catalog.Satisfies(definition, TagKey.Parse("c:materials")), Is.True);
-        Assert.That(definition.HasTag(TagKey.Parse("core:equipment.tools")), Is.False);
+        Assert.That(catalog.Satisfies(definition, "c:materials"), Is.True);
+        Assert.That(definition.HasTag("core:equipment.tools"), Is.False);
 
         var resolved = catalog.ResolveTags(definition);
-        Assert.That(resolved.Any(t => t.Tag.Equals(material) && t.Source == TagSource.Definition), Is.True);
-        Assert.That(resolved.Any(t => t.Tag.Equals(TagKey.Parse("core:equipment.tools")) && t.Source == TagSource.GeneratedParent), Is.True);
+        Assert.That(resolved.Any(t => t.Id.Equals(material) && t.Source == TagSource.Definition), Is.True);
+        Assert.That(resolved.Any(t => t.Id.Equals("core:equipment.tools") && t.Source == TagSource.GeneratedParent), Is.True);
     }
 
     [Test]
     public void TagRules_UseCatalogResolvedMembership()
     {
-        var requiredTool = TagKey.Parse("core:equipment.tools");
+        var requiredTool = "core:equipment.tools";
         var axe = new AxeDefinition("axe", weight: 5, durability: 10, chopPower: 20);
         var rules = new RuleContainer<string>();
         rules.Add("require-tool", new RequireAllTagsRule<string>(requiredTool));
@@ -1125,8 +1262,8 @@ public class ItemUniverseFoundationTests
         var axe = new AxeDefinition("axe", weight: 5, durability: 10, chopPower: 20);
         var rules = new RuleContainer<string>();
         rules.Add("require-any", new RequireAnyTagRule<string>(
-            TagKey.Parse("core:equipment.tools.knife"),
-            TagKey.Parse("core:equipment")));
+            "core:equipment.tools.knife",
+            "core:equipment"));
         var manager = CreateManager(rules: rules);
 
         DefineAttributes(manager.Catalog);

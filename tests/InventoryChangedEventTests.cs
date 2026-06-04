@@ -402,7 +402,7 @@ public class InventoryChangedEventTests
         ItemCatalog<string>? catalog = null)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             capacityPolicy,
             layout,
             catalog: catalog);

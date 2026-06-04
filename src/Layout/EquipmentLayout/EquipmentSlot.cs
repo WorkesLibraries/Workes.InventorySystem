@@ -19,20 +19,27 @@ public sealed class EquipmentSlot<TKey>
     /// <summary>
     /// Gets the catalog-resolved tags an item definition must satisfy to fit this slot.
     /// </summary>
-    public IReadOnlyList<TagKey> RequiredTags { get; }
+    public IReadOnlyList<string> RequiredTags { get; }
+
+    internal IReadOnlyList<TagKey> RequiredTagKeys { get; }
 
     /// <summary>
     /// Creates an equipment slot definition.
     /// </summary>
     /// <param name="id">The stable equipment slot identifier.</param>
-    /// <param name="requiredTags">The tags an item definition must satisfy to fit this slot.</param>
+    /// <param name="requiredTags">The tag ids an item definition must satisfy to fit this slot.</param>
     /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
-    public EquipmentSlot(string id, params TagKey[] requiredTags)
+    public EquipmentSlot(string id, params string[] requiredTags)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Equipment slot id cannot be null or empty.", nameof(id));
 
+        var keys = requiredTags != null
+            ? requiredTags.Where(t => t != null).Select(TagKey.Parse).ToList()
+            : new List<TagKey>();
+
         Id = id;
-        RequiredTags = requiredTags != null ? requiredTags.Where(t => t != null).ToList() : new List<TagKey>();
+        RequiredTagKeys = keys;
+        RequiredTags = keys.Select(tag => tag.Id).ToList();
     }
 }

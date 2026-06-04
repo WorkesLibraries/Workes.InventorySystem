@@ -50,7 +50,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetStackResolverParameter_IncreasesMaxStackAndAllowsFutureMerge()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(5), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(5), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
 
         inventory.Add(coin, amount: 5);
 
@@ -59,14 +59,14 @@ public class InventoryPolicyParameterMutationTests
 
         Assert.That(inventory.Items, Has.Count.EqualTo(1));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(10));
-        Assert.That(((DefaultStackResolver<string>)inventory.StackResolver).DefaultMaxStack, Is.EqualTo(10));
+        Assert.That(((FixedSizeStackResolver<string>)inventory.StackResolver).MaxStack, Is.EqualTo(10));
     }
 
     [Test]
     public void TrySetStackResolverParameter_RejectsLoweringBelowExistingStackAmount()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
@@ -78,14 +78,14 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.False);
         Assert.That(error, Does.Contain("exceed max stack size"));
         Assert.That(events, Is.EqualTo(0));
-        Assert.That(((DefaultStackResolver<string>)inventory.StackResolver).DefaultMaxStack, Is.EqualTo(10));
+        Assert.That(((FixedSizeStackResolver<string>)inventory.StackResolver).MaxStack, Is.EqualTo(10));
     }
 
     [Test]
     public void TrySetStackResolverParameter_SplitsOversizedStacksWithCompressionAndRepack()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "mint");
         var builder = InventoryTransaction<string>.From(inventory);
@@ -109,7 +109,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetStackResolverParameter_RejectsCompressionWhenRepackDisabledAndSplitNeeded()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
         inventory.Add(coin, amount: 10);
         var options = new InventoryParameterMutationOptions { CompressStacks = true, RepackLayout = false };
 
@@ -125,7 +125,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetStackResolverParameter_RejectsCompressionWhenLayoutCannotFitSplitStacks()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
         int events = 0;
         inventory.Add(coin, amount: 10);
         inventory.Changed += (_, _) => events++;
@@ -143,7 +143,7 @@ public class InventoryPolicyParameterMutationTests
     public void SetStackResolverParameter_ThrowsWhenRejected()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
         inventory.Add(coin, amount: 5);
 
         Assert.Throws<InvalidOperationException>(() => inventory.SetStackResolverParameter("maxStack", 3));
@@ -153,7 +153,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetCapacityPolicyParameter_RejectsLoweringBelowCurrentTotal()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(20), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(20), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
 
         inventory.Add(coin, amount: 8);
 
@@ -168,7 +168,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetCapacityPolicyParameter_AppliesLowerCapacityAfterContentsFit()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(20), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(20), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
 
         inventory.Add(coin, amount: 8);
         inventory.RemoveByDefinition(coin, amount: 4, ignoreMetadata: true);
@@ -184,7 +184,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var sword = new WeightedDefinition("sword", 4);
         var inventory = CreateInventory(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new WeightCapacityPolicy<string>(Weight, maxWeight: 10),
             new EntryLayout<string>(),
             sword);
@@ -201,7 +201,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_GrowsSlotLayoutAndAllowsPlacementInNewSlot()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
 
         Assert.That(inventory.TrySetLayoutParameter("slotCount", 3, out var error), Is.True, error);
         inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
@@ -214,7 +214,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_RejectsShrinkingSlotLayoutWhenRemovedSlotOccupied()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
         int events = 0;
         inventory.Changed += (_, _) => events++;
         inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
@@ -232,7 +232,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_ReflowsSlotLayoutWhenRepackEnabled()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
         inventory.Changed += (_, args) => captured = args;
@@ -256,7 +256,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(1), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin, gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(1), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin, gem);
         int events = 0;
         inventory.Add(coin, context: SlotLayoutContext<string>.Single(0));
         inventory.Add(gem, context: SlotLayoutContext<string>.Single(1));
@@ -278,7 +278,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_ShrinksSlotLayoutWhenRemovedSlotsAreEmpty()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(3), coin);
         inventory.Add(coin, context: SlotLayoutContext<string>.Single(0));
 
         Assert.That(inventory.TrySetLayoutParameter("slotCount", 2, out var error), Is.True, error);
@@ -291,7 +291,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_RejectsGridShrinkWhenOccupiedCellWouldBeOutsideBounds()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(3, 1), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(3, 1), coin);
         inventory.Add(coin, context: GridLayoutContext<string>.Single(2, 0));
 
         var accepted = inventory.TrySetLayoutParameter("width", 2, out var error);
@@ -305,7 +305,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_ReflowsGridLayoutWhenRepackEnabled()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(3, 1), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(3, 1), coin);
         inventory.Add(coin, context: GridLayoutContext<string>.Single(2, 0));
 
         var accepted = inventory.TrySetLayoutParameter(
@@ -324,7 +324,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var table = new FootprintDefinition("table", 2, 1);
         var inventory = CreateInventory(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new MultiCellGridLayout<string>(3, 1, new AttributeGridFootprintProvider<string>(FootprintWidth, FootprintHeight)),
             table);
@@ -347,7 +347,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var table = new FootprintDefinition("table", 2, 1);
         var inventory = CreateInventory(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new MultiCellGridLayout<string>(3, 1, new AttributeGridFootprintProvider<string>(FootprintWidth, FootprintHeight)),
             table);
@@ -368,7 +368,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_ChangesGridPlacementOrderWithoutMovingExistingItems()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(2, 2), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new GridLayout<string>(2, 2), coin);
         inventory.Add(coin, context: GridLayoutContext<string>.Single(1, 0));
 
         Assert.That(inventory.TrySetLayoutParameter("placementOrder", GridPlacementOrder.ColumnMajor, out var error), Is.True, error);
@@ -382,7 +382,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var layout = new SectionedLayout<string>(new SectionDefinition<string>("bag", 1));
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
 
         Assert.That(inventory.TrySetLayoutParameter("section:bag.slotCount", 2, out var error), Is.True, error);
         inventory.Add(coin, context: SectionedLayoutContext<string>.Single("bag", 1));
@@ -396,7 +396,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var layout = new SectionedLayout<string>(new SectionDefinition<string>("bag", 2));
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
         inventory.Add(coin, context: SectionedLayoutContext<string>.Single("bag", 1));
 
         var accepted = inventory.TrySetLayoutParameter("section:bag.slotCount", 1, out var error);
@@ -411,7 +411,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var layout = new SectionedLayout<string>(new SectionDefinition<string>("bag", 2));
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
         inventory.Add(coin, context: SectionedLayoutContext<string>.Single("bag", 1));
 
         var accepted = inventory.TrySetLayoutParameter(
@@ -429,7 +429,7 @@ public class InventoryPolicyParameterMutationTests
     public void PolicyParameterChange_FiresConfigurationChangedEvent()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
@@ -445,7 +445,7 @@ public class InventoryPolicyParameterMutationTests
     public void LayoutParameterChange_FiresFullRefreshConfigurationChangedEvent()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
@@ -461,7 +461,7 @@ public class InventoryPolicyParameterMutationTests
     public void RejectedParameterChange_FiresNoChangedEvent()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
         inventory.Add(coin, amount: 5);
         int events = 0;
         inventory.Changed += (_, _) => events++;
@@ -475,7 +475,7 @@ public class InventoryPolicyParameterMutationTests
     public void RejectedRepackOrCompression_FiresNoChangedEvent()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), coin);
         inventory.Add(coin, amount: 10);
         int events = 0;
         inventory.Changed += (_, _) => events++;
@@ -489,7 +489,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetLayoutParameter_ReturnsFalseForUnsupportedLayout()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
 
         Assert.That(inventory.TrySetLayoutParameter("anything", 1, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Current layout does not support runtime parameters."));
@@ -499,7 +499,7 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetCapacityPolicyParameter_ReturnsFalseForUnsupportedPolicy()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
 
         Assert.That(inventory.TrySetCapacityPolicyParameter("anything", 1, out var error), Is.False);
         Assert.That(error, Is.EqualTo("Current capacity policy does not support runtime parameters."));
@@ -509,10 +509,10 @@ public class InventoryPolicyParameterMutationTests
     public void TrySetStackResolverParameter_ReturnsFalseForUnknownParameter()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
 
         Assert.That(inventory.TrySetStackResolverParameter("unknown", 1, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Parameter 'unknown' is not supported by DefaultStackResolver."));
+        Assert.That(error, Is.EqualTo("Parameter 'unknown' is not supported by FixedSizeStackResolver."));
     }
 
     private static Inventory<string> CreateInventory(

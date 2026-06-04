@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Layout;
-using Workes.InventorySystem.Tags;
 
 namespace Workes.InventorySystem.Core;
 
@@ -368,7 +367,7 @@ public static class InventoryTransfer
     public static bool TryMoveByTag<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
-        TagKey tag,
+        string tagId,
         ILayoutContext<TKey>? targetContext,
         out string? error)
     {
@@ -377,13 +376,13 @@ public static class InventoryTransfer
             error = "Source inventory cannot be null.";
             return false;
         }
-        if (tag == null)
+        if (string.IsNullOrWhiteSpace(tagId))
         {
             error = "Tag cannot be null.";
             return false;
         }
 
-        return TryMoveWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tag), targetContext, out error);
+        return TryMoveWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tagId), targetContext, out error);
     }
 
     /// <summary>
@@ -392,7 +391,7 @@ public static class InventoryTransfer
     public static bool TryMoveAllTags<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
-        TagKey[] tags,
+        string[] tagIds,
         ILayoutContext<TKey>? targetContext,
         out string? error)
     {
@@ -401,18 +400,20 @@ public static class InventoryTransfer
             error = "Source inventory cannot be null.";
             return false;
         }
-        if (tags == null || tags.Length == 0)
+        if (tagIds == null || tagIds.Length == 0)
         {
             error = "At least one tag is required.";
             return false;
         }
-        foreach (var tag in tags)
+        foreach (var tagId in tagIds)
         {
-            if (tag == null)
+            if (string.IsNullOrWhiteSpace(tagId))
             {
                 error = "Tags cannot contain null.";
                 return false;
             }
+
+            source.Catalog.Tags.GetKey(tagId);
         }
 
         return TryMoveWhere(
@@ -420,9 +421,9 @@ public static class InventoryTransfer
             target,
             item =>
             {
-                foreach (var tag in tags)
+                foreach (var tagId in tagIds)
                 {
-                    if (!source.Catalog.Satisfies(item.Definition, tag))
+                    if (!source.Catalog.Satisfies(item.Definition, tagId))
                         return false;
                 }
                 return true;
@@ -534,7 +535,7 @@ public static class InventoryTransfer
     public static bool TryMoveMaximumByTag<TKey>(
         Inventory<TKey> source,
         Inventory<TKey> target,
-        TagKey tag,
+        string tagId,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
         out string? error)
@@ -545,13 +546,13 @@ public static class InventoryTransfer
             error = "Source inventory cannot be null.";
             return false;
         }
-        if (tag == null)
+        if (string.IsNullOrWhiteSpace(tagId))
         {
             error = "Tag cannot be null.";
             return false;
         }
 
-        return TryMoveMaximumWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tag), targetContext, out transferredAmount, out error);
+        return TryMoveMaximumWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out error);
     }
 
     private static bool TryValidateCompatibility<TKey>(Inventory<TKey> source, Inventory<TKey> target, out string? error)

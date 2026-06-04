@@ -14,7 +14,7 @@ public class InventoryCoreTests
     private static InventoryManager<string> CreateSlotInventoryManager(int slotCount = 4, int maxStack = 10)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             new SlotLayout<string>(slotCount)
         );
@@ -24,7 +24,7 @@ public class InventoryCoreTests
     public void CreateInventory_Throws_BeforeRegistryIsFrozen()
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>());
 
@@ -35,7 +35,7 @@ public class InventoryCoreTests
     public void CreateInventory_Succeeds_AfterRegistryIsFrozen()
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>());
 
@@ -50,7 +50,7 @@ public class InventoryCoreTests
     {
         var manager = new InventoryManager<string>
         (
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>()
         );
@@ -91,7 +91,7 @@ public class InventoryCoreTests
     {
         var manager = new InventoryManager<string>
         (
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>()
         );
@@ -135,7 +135,7 @@ public class InventoryCoreTests
     {
         var manager = new InventoryManager<string>
         (
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>()
         );
@@ -425,7 +425,7 @@ public class InventoryCoreTests
     public void Add_ThrowsWhenTryAddWouldFail()
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(1),
             new EntryLayout<string>());
         var apple = new ItemDefinition<string>("apple");

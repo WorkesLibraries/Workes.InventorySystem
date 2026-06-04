@@ -118,7 +118,7 @@ public class FunctionalCompletionRegressionTests
     [Test]
     public void EquipmentLayout_TrySortReturnsUnsupported()
     {
-        var weapon = TagKey.Parse("gear:weapon");
+        var weapon = "gear:weapon";
         var sword = new TaggedDefinition("sword", weapon);
         var inventory = CreateInventory(
             new EquipmentLayout<string>(new EquipmentSlot<string>("main-hand", weapon)),
@@ -176,16 +176,16 @@ public class FunctionalCompletionRegressionTests
         IInventoryLayout<string> layout,
         params ItemDefinition<string>[] definitions)
     {
-        return CreateInventory(layout, Array.Empty<TagKey>(), definitions);
+        return CreateInventory(layout, Array.Empty<string>(), definitions);
     }
 
     private static Inventory<string> CreateInventory(
         IInventoryLayout<string> layout,
-        TagKey[] tags,
+        string[] tags,
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
         foreach (var tag in tags)
@@ -201,7 +201,7 @@ public class FunctionalCompletionRegressionTests
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new MultiCellGridLayout<string>(5, 5, provider));
         foreach (var definition in definitions)
@@ -224,7 +224,7 @@ public class FunctionalCompletionRegressionTests
 
     private sealed class TaggedDefinition : ItemDefinition<string>
     {
-        public TaggedDefinition(string id, params TagKey[] tags)
+        public TaggedDefinition(string id, params string[] tags)
             : base(id, tags)
         {
         }

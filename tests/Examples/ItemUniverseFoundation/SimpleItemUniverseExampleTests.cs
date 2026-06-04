@@ -27,7 +27,7 @@ public class SimpleItemUniverseExampleTests
         catalog.Freeze();
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(99),
+            new FixedSizeStackResolver<string>(99),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);

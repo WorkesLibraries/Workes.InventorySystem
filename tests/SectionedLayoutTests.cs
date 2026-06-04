@@ -81,13 +81,13 @@ public class SectionedLayoutTests
     [Test]
     public void NullContext_SkipsIncompatibleSections()
     {
-        var weapon = TagKey.Parse("gear:weapon");
+        var weapon = "gear:weapon";
         var sword = new TaggedDefinition("sword", weapon);
         var inventory = CreateInventory(
             new SectionedLayout<string>(
-                new SectionDefinition<string>("potions", 1, TagKey.Parse("gear:potion")),
+                new SectionDefinition<string>("potions", 1, "gear:potion"),
                 new SectionDefinition<string>("weapons", 1, weapon)),
-            tags: new[] { weapon, TagKey.Parse("gear:potion") },
+            tags: new[] { weapon, "gear:potion" },
             definitions: sword);
 
         Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
@@ -99,11 +99,11 @@ public class SectionedLayoutTests
     [Test]
     public void NullContext_RejectsWhenNoCompatibleSlotAvailable()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var apple = new TaggedDefinition("apple", TagKey.Parse("gear:food"));
+        var weapon = "gear:weapon";
+        var apple = new TaggedDefinition("apple", "gear:food");
         var inventory = CreateInventory(
             new SectionedLayout<string>(new SectionDefinition<string>("weapons", 1, weapon)),
-            tags: new[] { weapon, TagKey.Parse("gear:food") },
+            tags: new[] { weapon, "gear:food" },
             definitions: apple);
 
         Assert.That(inventory.TryAdd(apple, out var error), Is.False);
@@ -210,8 +210,8 @@ public class SectionedLayoutTests
     [Test]
     public void SectionRequiredTags_IncludeGeneratedParentTags()
     {
-        var axeTag = TagKey.Parse("gear:tools.axe");
-        var toolsTag = TagKey.Parse("gear:tools");
+        var axeTag = "gear:tools.axe";
+        var toolsTag = "gear:tools";
         var axe = new TaggedDefinition("axe", axeTag);
         var inventory = CreateInventory(
             new SectionedLayout<string>(new SectionDefinition<string>("tools", 1, toolsTag)),
@@ -245,8 +245,8 @@ public class SectionedLayoutTests
     [Test]
     public void TryMove_RejectsIncompatibleTargetAndFiresNoEvent()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var inventory = CreateInventory(
             new SectionedLayout<string>(
@@ -292,8 +292,8 @@ public class SectionedLayoutTests
     [Test]
     public void TrySwap_RejectsIncompatibleResult()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var helmet = new TaggedDefinition("helmet", armor);
         var inventory = CreateInventory(
@@ -342,8 +342,8 @@ public class SectionedLayoutTests
     [Test]
     public void TrySort_RejectsUnknownSortContextAtomically()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var helmet = new TaggedDefinition("helmet", armor);
         var layout = new SectionedLayout<string>(
@@ -486,15 +486,15 @@ public class SectionedLayoutTests
 
     private static Inventory<string> CreateInventory(
         IInventoryLayout<string> layout,
-        TagKey[]? tags = null,
+        string[]? tags = null,
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
 
-        foreach (var tag in tags ?? Array.Empty<TagKey>())
+        foreach (var tag in tags ?? Array.Empty<string>())
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
@@ -503,15 +503,15 @@ public class SectionedLayoutTests
     }
 
     private static InventoryManager<string> CreateManager(
-        TagKey[]? tags = null,
+        string[]? tags = null,
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>());
 
-        foreach (var tag in tags ?? Array.Empty<TagKey>())
+        foreach (var tag in tags ?? Array.Empty<string>())
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
@@ -521,7 +521,7 @@ public class SectionedLayoutTests
 
     private sealed class TaggedDefinition : ItemDefinition<string>
     {
-        public TaggedDefinition(string id, params TagKey[] tags)
+        public TaggedDefinition(string id, params string[] tags)
             : base(id, tags)
         {
         }

@@ -34,37 +34,37 @@ public class TagFocusedItemUniverseExampleTests
         {
             public static class Tools
             {
-                public static readonly TagKey Axe = TagKey.Parse("c:equipment.tools.axe");
-                public static readonly TagKey Knife = TagKey.Parse("c:equipment.tools.knife");
+                public static readonly string Axe = "c:equipment.tools.axe";
+                public static readonly string Knife = "c:equipment.tools.knife";
             }
 
             public static class Weapons
             {
-                public static readonly TagKey Blade = TagKey.Parse("c:equipment.weapons.blade");
+                public static readonly string Blade = "c:equipment.weapons.blade";
             }
         }
 
         public static class Materials
         {
-            public static readonly TagKey Raw = TagKey.Parse("c:materials.raw");
-            public static readonly TagKey Obsidian = TagKey.Parse("c:materials.obsidian");
-            public static readonly TagKey Steel = TagKey.Parse("c:materials.steel");
+            public static readonly string Raw = "c:materials.raw";
+            public static readonly string Obsidian = "c:materials.obsidian";
+            public static readonly string Steel = "c:materials.steel";
         }
     }
 
     private class EquipmentDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> EquipmentSchema =
-            ItemSchema<string>.Create("equipment")
+            ItemSchema<string>.CreateFor<EquipmentDefinition>("equipment")
                 .RequireAttribute<int>(GameAttributes.Weight, inherited: true);
 
-        protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight, params TagKey[] tags)
+        protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight, params string[] tags)
             : base(id, schema, tags)
         {
             DefineAttribute(GameAttributes.Weight, weight);
         }
 
-        public EquipmentDefinition(string id, int weight, params TagKey[] tags)
+        public EquipmentDefinition(string id, int weight, params string[] tags)
             : this(id, EquipmentSchema, weight, tags)
         {
         }
@@ -73,17 +73,17 @@ public class TagFocusedItemUniverseExampleTests
     private class ToolDefinition : EquipmentDefinition
     {
         public static readonly ItemSchema<string> ToolSchema =
-            ItemSchema<string>.Create("tool")
+            ItemSchema<string>.CreateFor<ToolDefinition>("tool")
                 .WithParent(EquipmentSchema)
                 .RequireAttribute<int>(GameAttributes.Durability, inherited: true);
 
-        protected ToolDefinition(string id, ItemSchema<string> schema, int weight, int durability, params TagKey[] tags)
+        protected ToolDefinition(string id, ItemSchema<string> schema, int weight, int durability, params string[] tags)
             : base(id, schema, weight, tags)
         {
             DefineAttribute(GameAttributes.Durability, durability);
         }
 
-        public ToolDefinition(string id, int weight, int durability, params TagKey[] tags)
+        public ToolDefinition(string id, int weight, int durability, params string[] tags)
             : this(id, ToolSchema, weight, durability, tags)
         {
         }
@@ -92,12 +92,12 @@ public class TagFocusedItemUniverseExampleTests
     private sealed class AxeDefinition : ToolDefinition
     {
         public static readonly ItemSchema<string> AxeSchema =
-            ItemSchema<string>.Create("axe")
+            ItemSchema<string>.CreateFor<AxeDefinition>("axe")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>(GameAttributes.ChopPower, inherited: true)
                 .AddTag(GameTags.Equipment.Tools.Axe);
 
-        public AxeDefinition(string id, int weight, int durability, int chopPower, params TagKey[] tags)
+        public AxeDefinition(string id, int weight, int durability, int chopPower, params string[] tags)
             : base(id, AxeSchema, weight, durability, tags)
         {
             DefineAttribute(GameAttributes.ChopPower, chopPower);
@@ -107,21 +107,21 @@ public class TagFocusedItemUniverseExampleTests
     private class KnifeDefinition : ToolDefinition
     {
         public static readonly ItemSchema<string> KnifeSchema =
-            ItemSchema<string>.Create("knife")
+            ItemSchema<string>.CreateFor<KnifeDefinition>("knife")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>(GameAttributes.CutPower, inherited: true)
                 .RequireAttribute<int>(GameAttributes.Damage, inherited: true)
                 .AddTag(GameTags.Equipment.Tools.Knife)
                 .AddTag(GameTags.Equipment.Weapons.Blade);
 
-        protected KnifeDefinition(string id, ItemSchema<string> schema, int weight, int durability, int cutPower, int damage, params TagKey[] tags)
+        protected KnifeDefinition(string id, ItemSchema<string> schema, int weight, int durability, int cutPower, int damage, params string[] tags)
             : base(id, schema, weight, durability, tags)
         {
             DefineAttribute(GameAttributes.CutPower, cutPower);
             DefineAttribute(GameAttributes.Damage, damage);
         }
 
-        public KnifeDefinition(string id, int weight, int durability, int cutPower, int damage, params TagKey[] tags)
+        public KnifeDefinition(string id, int weight, int durability, int cutPower, int damage, params string[] tags)
             : this(id, KnifeSchema, weight, durability, cutPower, damage, tags)
         {
         }
@@ -130,17 +130,17 @@ public class TagFocusedItemUniverseExampleTests
     private class RawMaterialDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> RawMaterialSchema =
-            ItemSchema<string>.Create("raw_material")
+            ItemSchema<string>.CreateFor<RawMaterialDefinition>("raw_material")
                 .RequireAttribute<int>(GameAttributes.CraftingValue, inherited: true)
                 .AddTag(GameTags.Materials.Raw);
 
-        protected RawMaterialDefinition(string id, ItemSchema<string> schema, int craftingValue, params TagKey[] tags)
+        protected RawMaterialDefinition(string id, ItemSchema<string> schema, int craftingValue, params string[] tags)
             : base(id, schema, tags)
         {
             DefineAttribute(GameAttributes.CraftingValue, craftingValue);
         }
 
-        public RawMaterialDefinition(string id, int craftingValue, params TagKey[] tags)
+        public RawMaterialDefinition(string id, int craftingValue, params string[] tags)
             : this(id, RawMaterialSchema, craftingValue, tags)
         {
         }
@@ -183,15 +183,15 @@ public class TagFocusedItemUniverseExampleTests
 
         AssertSatisfies(catalog, obsidianKnife,
             GameTags.Equipment.Tools.Knife,
-            TagKey.Parse("c:equipment.tools"),
-            TagKey.Parse("c:equipment"),
+            "c:equipment.tools",
+            "c:equipment",
             GameTags.Materials.Obsidian,
             moddedRitualSacrificial);
 
         AssertSatisfies(catalog, steelKnife,
             GameTags.Equipment.Tools.Knife,
-            TagKey.Parse("c:equipment.tools"),
-            TagKey.Parse("c:equipment"),
+            "c:equipment.tools",
+            "c:equipment",
             GameTags.Materials.Steel);
         Assert.That(catalog.Satisfies(steelKnife, GameTags.Materials.Obsidian), Is.False);
 
@@ -242,7 +242,7 @@ public class TagFocusedItemUniverseExampleTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog, RuleContainer<string>? rules = null)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             rules,
@@ -269,7 +269,7 @@ public class TagFocusedItemUniverseExampleTests
         catalog.Attributes.Define<int>(GameAttributes.CraftingValue);
     }
 
-    private static void AssertSatisfies(ItemCatalog<string> catalog, ItemDefinition<string> definition, params TagKey[] tags)
+    private static void AssertSatisfies(ItemCatalog<string> catalog, ItemDefinition<string> definition, params string[] tags)
     {
         foreach (var tag in tags)
             Assert.That(catalog.Satisfies(definition, tag), Is.True, $"{definition.Id} should satisfy {tag}.");
@@ -360,7 +360,7 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine("  Parent: " + (schema.Parent != null ? schema.Parent.Id : "none"));
         builder.AppendLine("  Direct schema tags:");
 
-        var directTags = schema.DirectTags.OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        var directTags = schema.DirectTags.OrderBy(t => t, StringComparer.Ordinal).ToList();
         if (directTags.Count == 0)
         {
             builder.AppendLine("    none");
@@ -368,7 +368,7 @@ public class TagFocusedItemUniverseExampleTests
         else
         {
             foreach (var tag in directTags)
-                builder.AppendLine("    " + tag.Id);
+                builder.AppendLine("    " + tag);
         }
 
         builder.AppendLine();
@@ -380,7 +380,7 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine("  Schema: " + definition.Schema.Id);
         builder.AppendLine("  Direct definition tags:");
 
-        var directTags = definition.Tags.All().OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        var directTags = definition.Tags.All().OrderBy(t => t, StringComparer.Ordinal).ToList();
         if (directTags.Count == 0)
         {
             builder.AppendLine("    none");
@@ -388,20 +388,20 @@ public class TagFocusedItemUniverseExampleTests
         else
         {
             foreach (var tag in directTags)
-                builder.AppendLine("    " + tag.Id);
+                builder.AppendLine("    " + tag);
         }
 
         builder.AppendLine("  Resolved tags:");
-        foreach (var resolved in catalog.ResolveTags(definition).OrderBy(t => t.Tag.Id, StringComparer.Ordinal))
+        foreach (var resolved in catalog.ResolveTags(definition).OrderBy(t => t.Id, StringComparer.Ordinal))
         {
             builder.Append("    ");
-            builder.Append(resolved.Tag.Id);
+            builder.Append(resolved.Id);
             builder.Append(" [");
             builder.Append(resolved.Source);
-            if (resolved.Origin != null && !resolved.Origin.Equals(resolved.Tag))
+            if (resolved.OriginId != null && !resolved.OriginId.Equals(resolved.Id, StringComparison.Ordinal))
             {
                 builder.Append(", origin=");
-                builder.Append(resolved.Origin.Id);
+                builder.Append(resolved.OriginId);
             }
             builder.AppendLine("]");
         }

@@ -31,7 +31,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private class EquipmentDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> EquipmentSchema =
-            ItemSchema<string>.Create("attribute_equipment")
+            ItemSchema<string>.CreateFor<EquipmentDefinition>("attribute_equipment")
                 .RequireAttribute<int>("weight", inherited: true);
 
         protected EquipmentDefinition(string id, ItemSchema<string> schema, int weight)
@@ -49,7 +49,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private class ToolDefinition : EquipmentDefinition
     {
         public static readonly ItemSchema<string> ToolSchema =
-            ItemSchema<string>.Create("attribute_tool")
+            ItemSchema<string>.CreateFor<ToolDefinition>("attribute_tool")
                 .WithParent(EquipmentSchema)
                 .RequireAttribute<int>("durability", inherited: true);
 
@@ -68,7 +68,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private class WeaponDefinition : EquipmentDefinition
     {
         public static readonly ItemSchema<string> WeaponSchema =
-            ItemSchema<string>.Create("attribute_weapon")
+            ItemSchema<string>.CreateFor<WeaponDefinition>("attribute_weapon")
                 .WithParent(EquipmentSchema)
                 .RequireAttribute<int>("damage", inherited: true);
 
@@ -87,7 +87,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private class KnifeDefinition : ToolDefinition
     {
         public static readonly ItemSchema<string> KnifeSchema =
-            ItemSchema<string>.Create("attribute_knife")
+            ItemSchema<string>.CreateFor<KnifeDefinition>("attribute_knife")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>("cutPower", inherited: true)
                 .RequireAttribute<int>("damage", inherited: true);
@@ -103,7 +103,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private sealed class AxeDefinition : ToolDefinition
     {
         public static readonly ItemSchema<string> AxeSchema =
-            ItemSchema<string>.Create("attribute_axe")
+            ItemSchema<string>.CreateFor<AxeDefinition>("attribute_axe")
                 .WithParent(ToolSchema)
                 .RequireAttribute<int>("chopPower", inherited: true);
 
@@ -117,7 +117,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private sealed class ArmorDefinition : EquipmentDefinition
     {
         public static readonly ItemSchema<string> ArmorSchema =
-            ItemSchema<string>.Create("attribute_armor")
+            ItemSchema<string>.CreateFor<ArmorDefinition>("attribute_armor")
                 .WithParent(EquipmentSchema)
                 .RequireAttribute<int>("armor", inherited: true);
 
@@ -131,7 +131,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private class MaterialDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> MaterialSchema =
-            ItemSchema<string>.Create("attribute_material")
+            ItemSchema<string>.CreateFor<MaterialDefinition>("attribute_material")
                 .RequireAttribute<int>("craftingValue", inherited: true);
 
         public MaterialDefinition(string id, int craftingValue)
@@ -245,7 +245,7 @@ public class AttributeFocusedItemUniverseExampleTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog, RuleContainer<string>? rules = null)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             rules,

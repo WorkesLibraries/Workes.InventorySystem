@@ -13,7 +13,14 @@ public sealed class TagCatalog
     /// <summary>
     /// Gets all tags declared in the catalog, including generated parent tags.
     /// </summary>
-    public IEnumerable<TagKey> All => _tags.Values;
+    public IEnumerable<TagDefinition> All
+    {
+        get
+        {
+            foreach (var tag in _tags.Values)
+                yield return new TagDefinition(tag);
+        }
+    }
 
     /// <summary>
     /// Defines a namespaced tag from its string identifier.
@@ -21,19 +28,12 @@ public sealed class TagCatalog
     /// <param name="id">A tag id in the form <c>namespace:path.segment</c>.</param>
     /// <returns>The canonical catalog tag.</returns>
     /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
-    public TagKey Define(string id)
+    public TagDefinition Define(string id)
     {
-        return Define(TagKey.Parse(id));
+        return new TagDefinition(DefineKey(TagKey.Parse(id)));
     }
 
-    /// <summary>
-    /// Defines a namespaced tag and any missing parent hierarchy tags.
-    /// </summary>
-    /// <param name="tag">The tag to define.</param>
-    /// <returns>The canonical catalog tag.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="tag"/> is not namespaced.</exception>
-    public TagKey Define(TagKey tag)
+    internal TagKey DefineKey(TagKey tag)
     {
         if (tag == null)
             throw new ArgumentNullException(nameof(tag));
@@ -53,7 +53,7 @@ public sealed class TagCatalog
     /// <param name="id">The tag id to resolve.</param>
     /// <returns>The canonical catalog tag.</returns>
     /// <exception cref="InvalidOperationException">The tag is not declared in this catalog.</exception>
-    public TagKey Get(string id)
+    public TagDefinition Get(string id)
     {
         if (!TryGet(id, out var tag) || tag == null)
             throw new InvalidOperationException($"Tag '{id}' is not declared in this tag catalog.");
@@ -67,22 +67,59 @@ public sealed class TagCatalog
     /// <param name="id">The tag id to resolve.</param>
     /// <param name="tag">The canonical catalog tag when found; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the tag is declared; otherwise, <see langword="false"/>.</returns>
-    public bool TryGet(string id, out TagKey? tag)
+    public bool TryGet(string id, out TagDefinition? tag)
+    {
+        tag = null;
+        if (!TryGetKey(id, out var parsed) || parsed == null)
+            return false;
+
+        tag = new TagDefinition(parsed);
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a tag id is declared in the catalog.
+    /// </summary>
+    /// <param name="id">The tag id to search for.</param>
+    /// <returns><see langword="true"/> when the tag is declared; otherwise, <see langword="false"/>.</returns>
+    public bool Contains(string id)
+    {
+        return TryGetKey(id, out _);
+    }
+
+    /// <summary>
+    /// Gets generated parent hierarchy tags for a declared tag id.
+    /// </summary>
+    /// <param name="id">The tag id whose parents should be generated.</param>
+    /// <returns>Parent tags from most specific to least specific.</returns>
+    /// <exception cref="InvalidOperationException">The tag is not declared in this catalog.</exception>
+    public IReadOnlyCollection<TagDefinition> GetHierarchy(string id)
+    {
+        var key = GetKey(id);
+        var result = new List<TagDefinition>();
+        foreach (var parent in GetHierarchy(key))
+            result.Add(new TagDefinition(parent));
+        return result;
+    }
+
+    internal TagKey GetKey(string id)
+    {
+        if (!TryGetKey(id, out var tag) || tag == null)
+            throw new InvalidOperationException($"Tag '{id}' is not declared in this tag catalog.");
+
+        return tag;
+    }
+
+    internal bool TryGetKey(string id, out TagKey? tag)
     {
         tag = null;
         if (!TagKey.TryParse(id, out var parsed) || parsed == null)
             return false;
 
-        return TryGet(parsed, out tag);
+        return TryGetKey(parsed, out tag);
     }
 
-    /// <summary>
-    /// Attempts to get the canonical catalog tag for a tag key.
-    /// </summary>
-    /// <param name="tag">The tag key to resolve.</param>
-    /// <param name="catalogTag">The canonical catalog tag when found; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when the tag is declared; otherwise, <see langword="false"/>.</returns>
-    public bool TryGet(TagKey tag, out TagKey? catalogTag)
+    internal bool TryGetKey(TagKey tag, out TagKey? catalogTag)
     {
         catalogTag = null;
         if (tag == null)
@@ -91,12 +128,7 @@ public sealed class TagCatalog
         return _tags.TryGetValue(tag.Id, out catalogTag);
     }
 
-    /// <summary>
-    /// Determines whether a tag is declared in the catalog.
-    /// </summary>
-    /// <param name="tag">The tag key to search for.</param>
-    /// <returns><see langword="true"/> when the tag is declared; otherwise, <see langword="false"/>.</returns>
-    public bool Contains(TagKey tag)
+    internal bool Contains(TagKey tag)
     {
         if (tag == null)
             return false;
@@ -110,7 +142,7 @@ public sealed class TagCatalog
     /// <param name="tag">The tag whose parents should be generated.</param>
     /// <returns>Parent tags from most specific to least specific.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    public IReadOnlyCollection<TagKey> GetHierarchy(TagKey tag)
+    internal IReadOnlyCollection<TagKey> GetHierarchy(TagKey tag)
     {
         if (tag == null)
             throw new ArgumentNullException(nameof(tag));

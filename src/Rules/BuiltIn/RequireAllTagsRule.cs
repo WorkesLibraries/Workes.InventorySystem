@@ -18,17 +18,20 @@ public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
     /// <summary>
     /// Creates an all-tags rule.
     /// </summary>
-    /// <param name="tags">The tags every added item must satisfy.</param>
-    /// <exception cref="ArgumentException"><paramref name="tags"/> is null, empty, or contains <see langword="null"/>.</exception>
-    public RequireAllTagsRule(params TagKey[] tags)
+    /// <param name="tagIds">The tag ids every added item must satisfy.</param>
+    /// <exception cref="ArgumentException"><paramref name="tagIds"/> is null, empty, or contains invalid ids.</exception>
+    public RequireAllTagsRule(params string[] tagIds)
     {
-        if (tags == null || tags.Length == 0)
-            throw new ArgumentException("At least one tag is required.", nameof(tags));
+        if (tagIds == null || tagIds.Length == 0)
+            throw new ArgumentException("At least one tag is required.", nameof(tagIds));
 
-        foreach (var tag in tags)
+        var tags = new TagKey[tagIds.Length];
+        for (var i = 0; i < tagIds.Length; i++)
         {
-            if (tag == null)
-                throw new ArgumentException("Required tags cannot contain null.", nameof(tags));
+            if (string.IsNullOrWhiteSpace(tagIds[i]))
+                throw new ArgumentException("Required tags cannot contain null.", nameof(tagIds));
+
+            tags[i] = TagKey.Parse(tagIds[i]);
         }
 
         var tagsDescription = string.Join(", ", Array.ConvertAll(tags, t => t.ToString()));

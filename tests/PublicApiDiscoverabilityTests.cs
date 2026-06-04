@@ -25,7 +25,7 @@ public class PublicApiDiscoverabilityTests
     [Test]
     public void ConcretePolicyAndResolverInfrastructureMethods_AreHiddenFromNormalIntelliSense()
     {
-        AssertHidden(typeof(DefaultStackResolver<string>), nameof(DefaultStackResolver<string>.ResolveMaxStackSize));
+        AssertHidden(typeof(FixedSizeStackResolver<string>), nameof(FixedSizeStackResolver<string>.ResolveMaxStackSize));
         AssertHidden(typeof(AttributeMaxStackResolver<string>), nameof(AttributeMaxStackResolver<string>.ResolveMaxStackSize));
         AssertHidden(typeof(MaxTotalItemAmountCapacityPolicy<string>), nameof(MaxTotalItemAmountCapacityPolicy<string>.CanApply));
         AssertHidden(typeof(WeightCapacityPolicy<string>), nameof(WeightCapacityPolicy<string>.TryCreateWithParameter));

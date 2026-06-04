@@ -21,7 +21,7 @@ public class InventoryTransferTests
         int maxStack = 10)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             capacityPolicy ?? new UnlimitedCapacityPolicy<string>(),
             layout ?? new EntryLayout<string>(),
             rules,
@@ -162,7 +162,7 @@ public class InventoryTransferTests
     [Test]
     public void TargetRuleRejection_LeavesSourceAndTargetUnchanged()
     {
-        var food = TagKey.Parse("core:food");
+        var food = "core:food";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(food);
         var apple = new ItemDefinition<string>("apple", food);

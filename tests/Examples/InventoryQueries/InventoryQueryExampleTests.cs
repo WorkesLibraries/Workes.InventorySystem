@@ -70,7 +70,7 @@ public class InventoryQueryExampleTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);
@@ -79,8 +79,8 @@ public class InventoryQueryExampleTests
     private static string WriteExampleOutput(
         Inventory<string> backpack,
         ItemDefinition<string> apple,
-        TagKey ingredient,
-        TagKey craftingMaterial,
+        string ingredient,
+        string craftingMaterial,
         IReadOnlyDictionary<string, object> queryResults)
     {
         var outputDirectory = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "InventoryQueries");
@@ -101,8 +101,8 @@ public class InventoryQueryExampleTests
         builder.AppendLine("Query Results");
         builder.AppendLine("-------------");
         builder.AppendLine("Definition queried: " + apple.Id);
-        builder.AppendLine("Ingredient tag: " + ingredient.Id);
-        builder.AppendLine("Crafting material tag: " + craftingMaterial.Id);
+        builder.AppendLine("Ingredient tag: " + ingredient);
+        builder.AppendLine("Crafting material tag: " + craftingMaterial);
         builder.AppendLine();
 
         foreach (var result in queryResults)

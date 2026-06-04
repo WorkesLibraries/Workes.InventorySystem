@@ -46,7 +46,7 @@ public class LootAllMaximumExampleTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog, ICapacityPolicy<string>? capacityPolicy = null)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             capacityPolicy ?? new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);

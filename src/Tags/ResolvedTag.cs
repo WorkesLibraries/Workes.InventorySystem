@@ -27,9 +27,9 @@ public enum TagSource
 public readonly struct ResolvedTag
 {
     /// <summary>
-    /// Gets the resolved tag key.
+    /// Gets the resolved tag id.
     /// </summary>
-    public TagKey Tag { get; }
+    public string Id { get; }
 
     /// <summary>
     /// Gets the source of the resolved tag.
@@ -37,9 +37,9 @@ public readonly struct ResolvedTag
     public TagSource Source { get; }
 
     /// <summary>
-    /// Gets the original tag that produced this tag when it was generated from a hierarchy.
+    /// Gets the original tag id that produced this tag when it was generated from a hierarchy.
     /// </summary>
-    public TagKey? Origin { get; }
+    public string? OriginId { get; }
 
     /// <summary>
     /// Creates a resolved tag descriptor.
@@ -47,10 +47,13 @@ public readonly struct ResolvedTag
     /// <param name="tag">The resolved tag key.</param>
     /// <param name="source">The source of the resolved tag.</param>
     /// <param name="origin">The original tag when this tag is generated from a parent hierarchy; otherwise, <see langword="null"/>.</param>
-    public ResolvedTag(TagKey tag, TagSource source, TagKey? origin)
+    internal ResolvedTag(TagKey tag, TagSource source, TagKey? origin)
     {
-        Tag = tag;
+        Id = tag.Id;
         Source = source;
-        Origin = origin;
+        OriginId = origin?.Id;
     }
+
+    /// <inheritdoc />
+    public override string ToString() => Id;
 }

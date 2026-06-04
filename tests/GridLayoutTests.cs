@@ -20,7 +20,7 @@ public class GridLayoutTests
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             layout,
             new RuleContainer<string>());

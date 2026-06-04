@@ -15,10 +15,10 @@ public class EquipmentLoadoutWorkflowExampleTests
     [Test]
     public void MapsLootIntoNamedEquipmentSlots()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var shield = TagKey.Parse("gear:shield");
-        var armor = TagKey.Parse("gear:armor");
-        var trinket = TagKey.Parse("gear:trinket");
+        var weapon = "gear:weapon";
+        var shield = "gear:shield";
+        var armor = "gear:armor";
+        var trinket = "gear:trinket";
         var sword = new TaggedDefinition("iron_sword", weapon);
         var kiteShield = new TaggedDefinition("kite_shield", shield);
         var helmet = new TaggedDefinition("iron_helmet", armor);
@@ -55,8 +55,8 @@ public class EquipmentLoadoutWorkflowExampleTests
     [Test]
     public void RejectsWrongItemTypeWithoutChangingCurrentLoadout()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("iron_sword", weapon);
         var helmet = new TaggedDefinition("iron_helmet", armor);
         var manager = CreateManager(new[] { weapon, armor }, sword, helmet);
@@ -79,10 +79,10 @@ public class EquipmentLoadoutWorkflowExampleTests
     }
 
     private static Workes.InventorySystem.Layout.EquipmentLayout<string> CreateEquipmentLayout(
-        TagKey weapon,
-        TagKey shield,
-        TagKey armor,
-        TagKey trinket)
+        string weapon,
+        string shield,
+        string armor,
+        string trinket)
     {
         return new Workes.InventorySystem.Layout.EquipmentLayout<string>(
             new EquipmentSlot<string>("head", armor),
@@ -105,10 +105,10 @@ public class EquipmentLoadoutWorkflowExampleTests
         return $"{slotId}: {item?.Definition.Id ?? "empty"}";
     }
 
-    private static InventoryManager<string> CreateManager(TagKey[] tags, params ItemDefinition<string>[] definitions)
+    private static InventoryManager<string> CreateManager(string[] tags, params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>());
         foreach (var tag in tags)
@@ -128,7 +128,7 @@ public class EquipmentLoadoutWorkflowExampleTests
 
     private sealed class TaggedDefinition : ItemDefinition<string>
     {
-        public TaggedDefinition(string id, params TagKey[] tags)
+        public TaggedDefinition(string id, params string[] tags)
             : base(id, tags)
         {
         }

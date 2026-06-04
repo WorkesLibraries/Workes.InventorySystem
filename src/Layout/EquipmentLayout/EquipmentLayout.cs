@@ -553,7 +553,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     private bool CanSlotAccept(Inventory<TKey> inventory, EquipmentSlot<TKey> slot, ItemDefinition<TKey> definition)
     {
-        foreach (var tag in slot.RequiredTags)
+        foreach (var tag in slot.RequiredTagKeys)
         {
             if (!inventory.Catalog.Satisfies(definition, tag))
                 return false;

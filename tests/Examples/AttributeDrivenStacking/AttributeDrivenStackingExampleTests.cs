@@ -19,7 +19,7 @@ public class AttributeDrivenStackingExampleTests
     private sealed class FullyStackConfiguredDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> FullyStackConfiguredSchema =
-            ItemSchema<string>.Create("example-stack-configured")
+            ItemSchema<string>.CreateFor<FullyStackConfiguredDefinition>("example-stack-configured")
                 .RequireAttribute<bool>(Stackable, inherited: true)
                 .RequireAttribute<int>(MaxStack, inherited: true);
 
@@ -34,7 +34,7 @@ public class AttributeDrivenStackingExampleTests
     private sealed class StackabilityConfiguredDefinition : ItemDefinition<string>
     {
         public static readonly ItemSchema<string> StackabilityConfiguredSchema =
-            ItemSchema<string>.Create("example-stackability-configured")
+            ItemSchema<string>.CreateFor<StackabilityConfiguredDefinition>("example-stackability-configured")
                 .RequireAttribute<bool>(Stackable, inherited: true);
 
         public StackabilityConfiguredDefinition(string id, bool stackable)
@@ -63,7 +63,7 @@ public class AttributeDrivenStackingExampleTests
         catalog.Freeze();
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(99),
+            new FixedSizeStackResolver<string>(99),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);

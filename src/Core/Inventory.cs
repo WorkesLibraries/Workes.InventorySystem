@@ -179,32 +179,32 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <summary>
     /// Finds item instances whose definitions satisfy a catalog-resolved tag.
     /// </summary>
-    /// <param name="tag">The tag to resolve through this inventory's catalog.</param>
+    /// <param name="tagId">The tag id to resolve through this inventory's catalog.</param>
     /// <returns>A snapshot list of matching item instances.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    public IReadOnlyList<ItemInstance<TKey>> FindByTag(TagKey tag)
+    /// <exception cref="InvalidOperationException">The tag is not declared in the catalog.</exception>
+    public IReadOnlyList<ItemInstance<TKey>> FindByTag(string tagId)
     {
-        if (tag == null)
-            throw new ArgumentNullException(nameof(tag));
+        if (tagId == null)
+            throw new ArgumentNullException(nameof(tagId));
 
-        return FindWhere(item => Catalog.Satisfies(item.Definition, tag));
+        return FindWhere(item => Catalog.Satisfies(item.Definition, tagId));
     }
 
     /// <summary>
     /// Counts the total amount of items whose definitions satisfy a catalog-resolved tag.
     /// </summary>
-    /// <param name="tag">The tag to resolve through this inventory's catalog.</param>
+    /// <param name="tagId">The tag id to resolve through this inventory's catalog.</param>
     /// <returns>The summed amount across matching item instances.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    public int CountByTag(TagKey tag)
+    /// <exception cref="InvalidOperationException">The tag is not declared in the catalog.</exception>
+    public int CountByTag(string tagId)
     {
-        if (tag == null)
-            throw new ArgumentNullException(nameof(tag));
+        if (tagId == null)
+            throw new ArgumentNullException(nameof(tagId));
 
         int count = 0;
         foreach (var item in _items)
         {
-            if (Catalog.Satisfies(item.Definition, tag))
+            if (Catalog.Satisfies(item.Definition, tagId))
                 count += item.Amount;
         }
 
@@ -214,26 +214,31 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <summary>
     /// Determines whether any item definition in the inventory satisfies every provided catalog-resolved tag.
     /// </summary>
-    /// <param name="tags">The tags that one item definition must satisfy.</param>
+    /// <param name="tagIds">The tag ids that one item definition must satisfy.</param>
     /// <returns><see langword="true"/> when at least one item satisfies every tag; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentException"><paramref name="tags"/> is null, empty, or contains <see langword="null"/>.</exception>
-    public bool ContainsAllTags(params TagKey[] tags)
+    /// <exception cref="ArgumentException"><paramref name="tagIds"/> is null, empty, or contains invalid ids.</exception>
+    public bool ContainsAllTags(params string[] tagIds)
     {
-        if (tags == null || tags.Length == 0)
-            throw new ArgumentException("At least one tag is required.", nameof(tags));
+        if (tagIds == null || tagIds.Length == 0)
+            throw new ArgumentException("At least one tag is required.", nameof(tagIds));
 
-        foreach (var tag in tags)
+        foreach (var tagId in tagIds)
         {
-            if (tag == null)
-                throw new ArgumentException("Tags cannot contain null.", nameof(tags));
+            if (tagId == null)
+                throw new ArgumentException("Tags cannot contain null.", nameof(tagIds));
+        }
+
+        foreach (var tagId in tagIds)
+        {
+            Catalog.Tags.GetKey(tagId);
         }
 
         foreach (var item in _items)
         {
             bool satisfiesAll = true;
-            foreach (var tag in tags)
+            foreach (var tagId in tagIds)
             {
-                if (!Catalog.Satisfies(item.Definition, tag))
+                if (!Catalog.Satisfies(item.Definition, tagId))
                 {
                     satisfiesAll = false;
                     break;

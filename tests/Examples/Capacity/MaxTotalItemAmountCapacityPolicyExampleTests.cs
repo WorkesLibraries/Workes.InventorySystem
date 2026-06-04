@@ -19,7 +19,7 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
         var apple = new ItemDefinition<string>("apple");
         var potion = new ItemDefinition<string>("potion");
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(5),
             new EntryLayout<string>());
         manager.Registry.Register(apple);

@@ -7,9 +7,9 @@ namespace Workes.InventorySystem.Stacking;
 /// Stack resolver that returns the same maximum stack size for every item.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
-public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
+public class FixedSizeStackResolver<TKey> : IParameterizedStackResolver<TKey>
 {
-    private readonly int _defaultMaxStack;
+    private readonly int _maxStack;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
         new[]
         {
@@ -19,7 +19,7 @@ public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
     /// <summary>
     /// Gets the fixed maximum amount allowed in each compatible stack.
     /// </summary>
-    public int DefaultMaxStack => _defaultMaxStack;
+    public int MaxStack => _maxStack;
 
     /// <inheritdoc />
     public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
@@ -27,19 +27,19 @@ public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
     /// <summary>
     /// Creates a stack resolver with a fixed maximum stack size.
     /// </summary>
-    /// <param name="defaultMaxStack">The maximum amount allowed in each stack.</param>
-    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="defaultMaxStack"/> is less than or equal to zero.</exception>
-    public DefaultStackResolver(int defaultMaxStack)
+    /// <param name="maxStack">The maximum amount allowed in each stack.</param>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="maxStack"/> is less than or equal to zero.</exception>
+    public FixedSizeStackResolver(int maxStack)
     {
-        if (defaultMaxStack <= 0)
-            throw new System.ArgumentOutOfRangeException(nameof(defaultMaxStack), "Maximum stack size must be greater than zero.");
+        if (maxStack <= 0)
+            throw new System.ArgumentOutOfRangeException(nameof(maxStack), "Maximum stack size must be greater than zero.");
 
-        _defaultMaxStack = defaultMaxStack;
+        _maxStack = maxStack;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public int ResolveMaxStackSize(Inventory<TKey> inventory, ItemInstance<TKey> instance) => _defaultMaxStack;
+    public int ResolveMaxStackSize(Inventory<TKey> inventory, ItemInstance<TKey> instance) => _maxStack;
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -53,7 +53,7 @@ public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
         resolver = null;
         if (parameterId != "maxStack")
         {
-            error = $"Parameter '{parameterId}' is not supported by DefaultStackResolver.";
+            error = $"Parameter '{parameterId}' is not supported by FixedSizeStackResolver.";
             return false;
         }
 
@@ -69,7 +69,7 @@ public class DefaultStackResolver<TKey> : IParameterizedStackResolver<TKey>
             return false;
         }
 
-        resolver = new DefaultStackResolver<TKey>(maxStack);
+        resolver = new FixedSizeStackResolver<TKey>(maxStack);
         error = null;
         return true;
     }

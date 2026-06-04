@@ -29,7 +29,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TrySet_ValidatesAndFiresMetadataChanged()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, amount: 1, context: SlotLayoutContext<string>.Single(1));
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
@@ -48,7 +48,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TryAdd_FailsWhenKeyExists()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
         inventory.Items[0].Metadata.TrySet("quality", "fresh", out _);
 
@@ -64,7 +64,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TryChange_FailsWhenKeyMissing()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
 
         var accepted = inventory.Items[0].Metadata.TryChange("quality", "polished", out var error);
@@ -78,7 +78,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TryRemove_FailsWhenKeyMissing()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
 
         var accepted = inventory.Items[0].Metadata.TryRemove("quality", out var error);
@@ -91,7 +91,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TryReplace_ReplacesAllValues()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
         inventory.Items[0].Metadata.TrySet("quality", "fresh", out _);
 
@@ -109,7 +109,7 @@ public class InventoryMetadataMutationTests
     public void InventoryOwnedMetadata_TryTransform_ValidatesProposedResult()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
 
         var accepted = inventory.Items[0].Metadata.TryTransform(
@@ -132,7 +132,7 @@ public class InventoryMetadataMutationTests
     {
         var gem = new ItemDefinition<string>("gem");
         var inventory = CreateInventory(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             new RequireMetadataRule<string>("quality", "approved"),
@@ -174,7 +174,7 @@ public class InventoryMetadataMutationTests
     public void MetadataChangedEvent_AffectedContextsIncludesItemContext()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, context: SlotLayoutContext<string>.Single(1));
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
@@ -188,7 +188,7 @@ public class InventoryMetadataMutationTests
     public void MetadataChangedEvent_DoesNotRequireFullRefresh()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
         inventory.Add(gem);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
@@ -203,7 +203,7 @@ public class InventoryMetadataMutationTests
     {
         var gem = new ItemDefinition<string>("gem");
         var inventory = CreateInventory(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             new RequireMetadataKeyRule<string>("quality"),
@@ -243,7 +243,7 @@ public class InventoryMetadataMutationTests
     public void SplitAndSetMetadata_SplitsStackAndAppliesMetadataToSplitAmount()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, amount: 5);
 
         var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var error);
@@ -262,7 +262,7 @@ public class InventoryMetadataMutationTests
     public void SplitAndSetMetadata_FullAmountMutatesSameStack()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, amount: 5);
         var original = inventory.Items[0];
 
@@ -279,7 +279,7 @@ public class InventoryMetadataMutationTests
     public void SplitAndSetMetadata_RejectsWhenNoLayoutPositionForNewStack()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(1), gem);
         inventory.Add(gem, amount: 5);
 
         var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var error);
@@ -296,7 +296,7 @@ public class InventoryMetadataMutationTests
     public void SplitAndSetMetadata_PreservesTotalAmount()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, amount: 5);
 
         inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out _, out _);
@@ -308,7 +308,7 @@ public class InventoryMetadataMutationTests
     public void SplitAndSetMetadata_FiresModifiedAndAddedButNotMetadataChanged()
     {
         var gem = new ItemDefinition<string>("gem");
-        var inventory = CreateInventory(new DefaultStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
         inventory.Add(gem, amount: 5);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;

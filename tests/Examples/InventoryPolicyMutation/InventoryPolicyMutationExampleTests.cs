@@ -21,7 +21,7 @@ public class InventoryPolicyMutationExampleTests
         var gem = new ItemDefinition<string>("gem");
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(5),
+            new FixedSizeStackResolver<string>(5),
             new MaxTotalItemAmountCapacityPolicy<string>(11),
             new SlotLayout<string>(2));
 
@@ -90,7 +90,7 @@ public class InventoryPolicyMutationExampleTests
         builder.AppendLine();
         builder.AppendLine("Current Parameters");
         builder.AppendLine("------------------");
-        builder.AppendLine($"Stack maxStack: {((DefaultStackResolver<string>)inventory.StackResolver).DefaultMaxStack}");
+        builder.AppendLine($"Stack maxStack: {((FixedSizeStackResolver<string>)inventory.StackResolver).MaxStack}");
         builder.AppendLine($"Capacity maxTotalItemAmount: {((MaxTotalItemAmountCapacityPolicy<string>)inventory.CapacityPolicy).MaxTotalItemAmount}");
         builder.AppendLine($"Layout slotCount: {inventory.Layout.GetPositionCount(inventory)}");
         builder.AppendLine();

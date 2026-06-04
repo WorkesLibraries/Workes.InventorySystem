@@ -52,7 +52,7 @@ public class UiMoveAnimationEventExampleTests
     private static Inventory<string> CreateInventory(IInventoryLayout<string> layout, params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
         foreach (var definition in definitions)

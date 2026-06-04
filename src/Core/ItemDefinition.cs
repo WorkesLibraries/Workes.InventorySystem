@@ -9,6 +9,11 @@ namespace Workes.InventorySystem.Core;
 /// <summary>
 /// Defines an item type that can produce item instances.
 /// </summary>
+/// <remarks>
+/// Simple definitions can use the default-schema public constructors. Custom definition classes that need attributes
+/// or schema tags should normally declare a static schema with <see cref="ItemSchema{TKey}.CreateFor{TDefinition}(string)"/>
+/// and pass it to a protected schema constructor. Do not expose public constructors that accept schemas.
+/// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public class ItemDefinition<TKey>
 {
@@ -22,6 +27,10 @@ public class ItemDefinition<TKey>
     /// <summary>
     /// Gets the schema that constrains this item definition.
     /// </summary>
+    /// <remarks>
+    /// Custom definition classes should normally use a class-owned schema created with
+    /// <see cref="ItemSchema{TKey}.CreateFor{TDefinition}(string)"/>.
+    /// </remarks>
     public ItemSchema<TKey> Schema { get; }
 
     /// <summary>
@@ -49,14 +58,18 @@ public class ItemDefinition<TKey>
     /// </summary>
     /// <param name="id">The item definition identifier.</param>
     /// <param name="tags">The tags declared directly on the definition.</param>
-    public ItemDefinition(TKey id, params TagKey[] tags)
-        : this(id, ItemSchema<TKey>.Default, (IEnumerable<TagKey>?)tags)
+    public ItemDefinition(TKey id, params string[] tags)
+        : this(id, ItemSchema<TKey>.Default, (IEnumerable<string>?)tags)
     {
     }
 
     /// <summary>
     /// Creates an item definition using a schema.
     /// </summary>
+    /// <remarks>
+    /// This constructor is protected so definition classes can pass their own class-owned schemas without making
+    /// schema selection a normal caller concern.
+    /// </remarks>
     /// <param name="id">The item definition identifier.</param>
     /// <param name="schema">The schema that constrains this definition.</param>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <see langword="null"/>.</exception>
@@ -69,11 +82,15 @@ public class ItemDefinition<TKey>
     /// <summary>
     /// Creates an item definition using a schema and enumerable direct tags.
     /// </summary>
+    /// <remarks>
+    /// This constructor is protected so definition classes can pass their own class-owned schemas without making
+    /// schema selection a normal caller concern.
+    /// </remarks>
     /// <param name="id">The item definition identifier.</param>
     /// <param name="schema">The schema that constrains this definition.</param>
     /// <param name="tags">The tags declared directly on the definition.</param>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <see langword="null"/>.</exception>
-    protected ItemDefinition(TKey id, ItemSchema<TKey> schema, IEnumerable<TagKey>? tags)
+    protected ItemDefinition(TKey id, ItemSchema<TKey> schema, IEnumerable<string>? tags)
         : this(id, schema)
     {
         DefineTags(tags);
@@ -114,21 +131,18 @@ public class ItemDefinition<TKey>
     /// <summary>
     /// Defines a direct tag for this item definition.
     /// </summary>
-    /// <param name="tag">The tag to add.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    protected void DefineTag(TagKey tag)
+    /// <param name="id">The tag id to add.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
+    protected void DefineTag(string id)
     {
-        if (tag == null)
-            throw new ArgumentNullException(nameof(tag));
-
-        Tags.Add(tag);
+        Tags.Add(id);
     }
 
     /// <summary>
     /// Defines multiple direct tags for this item definition.
     /// </summary>
     /// <param name="tags">The tags to add. A <see langword="null"/> collection is ignored.</param>
-    protected void DefineTags(IEnumerable<TagKey>? tags)
+    protected void DefineTags(IEnumerable<string>? tags)
     {
         if (tags == null)
             return;
@@ -140,10 +154,10 @@ public class ItemDefinition<TKey>
     /// <summary>
     /// Determines whether this definition directly declares a tag.
     /// </summary>
-    /// <param name="tag">The tag to search for.</param>
+    /// <param name="id">The tag id to search for.</param>
     /// <returns><see langword="true"/> when the direct tag is present; otherwise, <see langword="false"/>.</returns>
-    public bool HasTag(TagKey tag)
+    public bool HasTag(string id)
     {
-        return Tags.Has(tag);
+        return Tags.Has(id);
     }
 }

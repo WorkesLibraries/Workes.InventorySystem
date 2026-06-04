@@ -21,7 +21,7 @@ public class InventoryRuleMutationExampleTests
         var apple = new ItemDefinition<string>("apple");
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>());
 

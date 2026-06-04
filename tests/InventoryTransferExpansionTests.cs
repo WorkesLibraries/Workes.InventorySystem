@@ -21,7 +21,7 @@ public class InventoryTransferExpansionTests
         int maxStack = 10)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             capacityPolicy ?? new UnlimitedCapacityPolicy<string>(),
             layout ?? new EntryLayout<string>(),
             rules,
@@ -173,7 +173,7 @@ public class InventoryTransferExpansionTests
     [Test]
     public void TryTransfer_WithBuilder_TargetRuleFailureLeavesSourceUnchanged()
     {
-        var food = TagKey.Parse("core:food");
+        var food = "core:food";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(food);
         var apple = new ItemDefinition<string>("apple", food);
@@ -353,8 +353,8 @@ public class InventoryTransferExpansionTests
     [Test]
     public void TryMoveByTag_UsesCatalogResolvedTags()
     {
-        var fruit = TagKey.Parse("food:ingredient.fruit");
-        var ingredient = TagKey.Parse("food:ingredient");
+        var fruit = "food:ingredient.fruit";
+        var ingredient = "food:ingredient";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(fruit);
         var apple = new ItemDefinition<string>("apple", fruit);
@@ -378,8 +378,8 @@ public class InventoryTransferExpansionTests
     [Test]
     public void TryMoveAllTags_RequiresEveryResolvedTag()
     {
-        var fruit = TagKey.Parse("food:ingredient.fruit");
-        var fresh = TagKey.Parse("state:fresh");
+        var fruit = "food:ingredient.fruit";
+        var fresh = "state:fresh";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(fruit);
         catalog.Tags.Define(fresh);
@@ -393,7 +393,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 1);
         source.TryAdd(berry, out _, 1);
 
-        var result = InventoryTransfer.TryMoveAllTags(source, target, new[] { TagKey.Parse("food:ingredient"), fresh }, targetContext: null, out var error);
+        var result = InventoryTransfer.TryMoveAllTags(source, target, new[] { "food:ingredient", fresh }, targetContext: null, out var error);
 
         Assert.That(result, Is.True, error);
         Assert.That(target.Count(apple), Is.EqualTo(1));
@@ -461,7 +461,7 @@ public class InventoryTransferExpansionTests
     [Test]
     public void TryMoveMaximumByTag_ReturnsTotalTransferredAmount()
     {
-        var fruit = TagKey.Parse("food:ingredient.fruit");
+        var fruit = "food:ingredient.fruit";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(fruit);
         var apple = new ItemDefinition<string>("apple", fruit);

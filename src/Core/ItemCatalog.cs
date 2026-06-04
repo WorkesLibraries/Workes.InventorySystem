@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Tags;
 
@@ -65,10 +67,56 @@ public sealed class ItemCatalog<TKey>
     private void ValidateDefinitions()
     {
         Schemas.Validate();
+        ValidateDefinitionSchemaOwnership();
+        ValidateDefinitionConstructorsDoNotExposeSchemas();
         ValidateReferencedAttributesAreDeclared();
         ValidateReferencedTagsAreDeclared();
         foreach (var definition in Registry.Definitions)
             definition.Validate();
+    }
+
+    private void ValidateDefinitionSchemaOwnership()
+    {
+        foreach (var definition in Registry.Definitions)
+        {
+            var definitionType = definition.GetType();
+            var schema = definition.Schema;
+
+            while (schema != null)
+            {
+                var ownerType = schema.OwnerDefinitionType;
+                if (ownerType != null && !ownerType.IsAssignableFrom(definitionType))
+                {
+                    throw new InvalidOperationException(
+                        $"Schema '{schema.Id}' is owned by definition type '{ownerType.Name}' and cannot be used by definition type '{definitionType.Name}'.");
+                }
+
+                schema = schema.Parent;
+            }
+        }
+    }
+
+    private void ValidateDefinitionConstructorsDoNotExposeSchemas()
+    {
+        var schemaType = typeof(ItemSchema<TKey>);
+
+        foreach (var definition in Registry.Definitions)
+        {
+            var definitionType = definition.GetType();
+            if (definitionType == typeof(ItemDefinition<TKey>))
+                continue;
+
+            var exposesSchema = definitionType
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public)
+                .SelectMany(constructor => constructor.GetParameters())
+                .Any(parameter => parameter.ParameterType == schemaType);
+
+            if (exposesSchema)
+            {
+                throw new InvalidOperationException(
+                    $"Definition type '{definitionType.Name}' exposes a public ItemSchema constructor parameter. Schemas should be owned by definition classes and passed only through protected constructors.");
+            }
+        }
     }
 
     private void ValidateReferencedAttributesAreDeclared()
@@ -87,7 +135,7 @@ public sealed class ItemCatalog<TKey>
     {
         foreach (var schema in Schemas.Schemas)
         {
-            foreach (var tag in schema.DirectTags)
+            foreach (var tag in schema.DirectTagKeys)
             {
                 if (!Tags.Contains(tag))
                     throw new InvalidOperationException($"Tag '{tag}' is used by schema '{schema.Id}' but is not declared in the item catalog tag catalog.");
@@ -96,7 +144,7 @@ public sealed class ItemCatalog<TKey>
 
         foreach (var definition in Registry.Definitions)
         {
-            foreach (var tag in definition.Tags.All())
+            foreach (var tag in definition.Tags.AllKeys())
             {
                 if (!Tags.Contains(tag))
                     throw new InvalidOperationException($"Tag '{tag}' is used by definition '{definition.Id}' but is not declared in the item catalog tag catalog.");
@@ -126,7 +174,7 @@ public sealed class ItemCatalog<TKey>
         foreach (var tag in definition.Schema.GetResolvedDirectSchemaTags())
             AddWithHierarchy(resolved, tag, TagSource.Schema);
 
-        foreach (var tag in definition.Tags.All())
+        foreach (var tag in definition.Tags.AllKeys())
             AddWithHierarchy(resolved, tag, TagSource.Definition);
 
         return new List<ResolvedTag>(resolved.Values);
@@ -136,17 +184,21 @@ public sealed class ItemCatalog<TKey>
     /// Determines whether a definition satisfies a tag directly, through its schema, or through a generated parent tag.
     /// </summary>
     /// <param name="definition">The definition to evaluate.</param>
-    /// <param name="tag">The tag to search for.</param>
+    /// <param name="tagId">The tag id to search for.</param>
     /// <returns><see langword="true"/> when the definition satisfies the tag; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
-    public bool Satisfies(ItemDefinition<TKey> definition, TagKey tag)
+    public bool Satisfies(ItemDefinition<TKey> definition, string tagId)
+    {
+        return Tags.TryGetKey(tagId, out var tag) && tag != null && Satisfies(definition, tag);
+    }
+
+    internal bool Satisfies(ItemDefinition<TKey> definition, TagKey tag)
     {
         if (tag == null)
             throw new ArgumentNullException(nameof(tag));
 
         foreach (var resolved in ResolveTags(definition))
         {
-            if (resolved.Tag.Equals(tag))
+            if (string.Equals(resolved.Id, tag.Id, StringComparison.Ordinal))
                 return true;
         }
 
@@ -155,15 +207,15 @@ public sealed class ItemCatalog<TKey>
 
     private void AddWithHierarchy(Dictionary<TagKey, ResolvedTag> resolved, TagKey directTag, TagSource source)
     {
-        AddResolved(resolved, new ResolvedTag(directTag, source, directTag));
+        AddResolved(resolved, directTag, new ResolvedTag(directTag, source, directTag));
 
         foreach (var parent in Tags.GetHierarchy(directTag))
-            AddResolved(resolved, new ResolvedTag(parent, TagSource.GeneratedParent, directTag));
+            AddResolved(resolved, parent, new ResolvedTag(parent, TagSource.GeneratedParent, directTag));
     }
 
-    private static void AddResolved(Dictionary<TagKey, ResolvedTag> resolved, ResolvedTag tag)
+    private static void AddResolved(Dictionary<TagKey, ResolvedTag> resolved, TagKey key, ResolvedTag tag)
     {
-        if (!resolved.ContainsKey(tag.Tag))
-            resolved.Add(tag.Tag, tag);
+        if (!resolved.ContainsKey(key))
+            resolved.Add(key, tag);
     }
 }

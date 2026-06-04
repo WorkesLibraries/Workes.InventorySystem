@@ -55,7 +55,7 @@ public class InventoryRuleTests
 
         var manager = new InventoryManager<string>
         (
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             ruleContainer
@@ -65,8 +65,7 @@ public class InventoryRuleTests
         {
             foreach (var tag in def.Tags.All())
             {
-                if (tag.IsNamespaced)
-                    manager.Catalog.Tags.Define(tag);
+                manager.Catalog.Tags.Define(tag);
             }
         }
 
@@ -90,7 +89,7 @@ public class InventoryRuleTests
 
         var manager = new InventoryManager<string>
         (
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             ruleContainer
@@ -125,8 +124,8 @@ public class InventoryRuleTests
     [Test]
     public void RequireAllTagsRule_PassesWhenAllRequiredTagsExist_AndFailsWhenMissing()
     {
-        var food = TagKey.Parse("core:food");
-        var sweet = TagKey.Parse("core:food.sweet");
+        var food = "core:food";
+        var sweet = "core:food.sweet";
 
         var apple = new ItemDefinition<string>("apple");
         apple.Tags.Add(food);
@@ -150,8 +149,8 @@ public class InventoryRuleTests
     [Test]
     public void RequireAnyTagRule_PassesWhenAtLeastOneRequiredTagExists_AndFailsWhenNone()
     {
-        var food = TagKey.Parse("core:food");
-        var healing = TagKey.Parse("core:effects.healing");
+        var food = "core:food";
+        var healing = "core:effects.healing";
 
         var apple = new ItemDefinition<string>("apple");
         apple.Tags.Add(healing);
@@ -415,7 +414,7 @@ public class InventoryRuleTests
     [Test]
     public void OrRule_PassesWhenAnyNestedRuleSucceeds_AndFailsWhenAllFail()
     {
-        var food = new TagKey("Food");
+        var food = "core:food";
 
         var requireFood = new RequireAllTagsRule<string>(food);
         var unique = new UniqueItemRule<string>(maxInstancesPerItem: 1);

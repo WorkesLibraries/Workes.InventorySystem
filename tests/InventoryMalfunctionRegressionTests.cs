@@ -25,7 +25,7 @@ public class InventoryMalfunctionRegressionTests
             rules.Add("rule", rule);
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             layout ?? new EntryLayout<string>(),
             rules);
@@ -222,8 +222,8 @@ public class InventoryMalfunctionRegressionTests
     [Test]
     public void TagContainer_ResolvesEquivalentTags_ById()
     {
-        var a = new TagKey("food");
-        var b = new TagKey("food");
+        var a = "core:food";
+        var b = "core:food";
         var tags = new TagContainer();
 
         tags.Add(a);

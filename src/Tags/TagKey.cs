@@ -5,7 +5,7 @@ namespace Workes.InventorySystem.Tags;
 /// <summary>
 /// Identifies a tag using ordinal string equality and optional namespaced hierarchy parts.
 /// </summary>
-public sealed class TagKey : IEquatable<TagKey>
+internal sealed class TagKey : IEquatable<TagKey>
 {
     /// <summary>
     /// Gets the original tag identifier.

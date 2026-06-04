@@ -79,8 +79,8 @@ public class StandardLayoutPolishTests
     [Test]
     public void EquipmentLayout_AutoPlacesIntoFirstCompatibleTaggedSlot()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var helmet = new TaggedDefinition("helmet", armor);
         var layout = new EquipmentLayout<string>(
@@ -96,8 +96,8 @@ public class StandardLayoutPolishTests
     [Test]
     public void EquipmentLayout_RejectsIncompatibleExplicitSlot()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var inventory = CreateInventory(
             new EquipmentLayout<string>(new EquipmentSlot<string>("head", armor)),
@@ -112,8 +112,8 @@ public class StandardLayoutPolishTests
     [Test]
     public void EquipmentLayout_MappedTransactionPlacesMultipleItems()
     {
-        var weapon = TagKey.Parse("gear:weapon");
-        var armor = TagKey.Parse("gear:armor");
+        var weapon = "gear:weapon";
+        var armor = "gear:armor";
         var sword = new TaggedDefinition("sword", weapon);
         var helmet = new TaggedDefinition("helmet", armor);
         var inventory = CreateInventory(
@@ -194,17 +194,17 @@ public class StandardLayoutPolishTests
         ICapacityPolicy<string> capacityPolicy,
         params ItemDefinition<string>[] definitions)
     {
-        return CreateInventory(layout, capacityPolicy, Array.Empty<TagKey>(), definitions);
+        return CreateInventory(layout, capacityPolicy, Array.Empty<string>(), definitions);
     }
 
     private static Inventory<string> CreateInventory(
         IInventoryLayout<string> layout,
         ICapacityPolicy<string> capacityPolicy,
-        IEnumerable<TagKey> tags,
+        IEnumerable<string> tags,
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             capacityPolicy,
             layout);
 
@@ -230,7 +230,7 @@ public class StandardLayoutPolishTests
 
     private sealed class TaggedDefinition : ItemDefinition<string>
     {
-        public TaggedDefinition(string id, params TagKey[] tags)
+        public TaggedDefinition(string id, params string[] tags)
             : base(id, tags)
         {
         }

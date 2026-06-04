@@ -56,7 +56,7 @@ public class TransferBuilderExampleTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);

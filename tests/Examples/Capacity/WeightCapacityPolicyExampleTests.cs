@@ -72,7 +72,7 @@ public class WeightCapacityPolicyExampleTests
     private static Inventory<string> CreateInventory(ICapacityPolicy<string> capacity, params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             capacity,
             new EntryLayout<string>());
         manager.Catalog.Attributes.Define<double>(Weight);

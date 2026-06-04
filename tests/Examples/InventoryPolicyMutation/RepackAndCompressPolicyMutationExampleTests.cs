@@ -20,7 +20,7 @@ public class RepackAndCompressPolicyMutationExampleTests
         var potion = new ItemDefinition<string>("potion");
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(20),
             new SlotLayout<string>(4));
 

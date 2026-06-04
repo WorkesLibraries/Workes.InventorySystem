@@ -37,7 +37,7 @@ public sealed class ItemSchema<TKey>
     /// <summary>
     /// Gets tags declared directly on this schema.
     /// </summary>
-    public IReadOnlyCollection<TagKey> DirectTags => _directTags.AsReadOnly();
+    public IReadOnlyCollection<string> DirectTags => _directTags.ConvertAll(tag => tag.Id).AsReadOnly();
 
     /// <summary>
     /// Gets attributes required directly by this schema.
@@ -113,20 +113,21 @@ public sealed class ItemSchema<TKey>
     /// <summary>
     /// Adds a direct tag requirement to this schema.
     /// </summary>
-    /// <param name="tag">The tag to add.</param>
+    /// <param name="id">The tag id to add.</param>
     /// <returns>This schema for fluent configuration.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="tag"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
     /// <exception cref="InvalidOperationException">The schema is frozen.</exception>
-    public ItemSchema<TKey> AddTag(TagKey tag)
+    public ItemSchema<TKey> AddTag(string id)
     {
-        if (tag == null)
-            throw new ArgumentNullException(nameof(tag));
+        var tag = TagKey.Parse(id);
 
         EnsureMutable();
         if (!_directTags.Contains(tag))
             _directTags.Add(tag);
         return this;
     }
+
+    internal IEnumerable<TagKey> DirectTagKeys => _directTags;
 
     internal IEnumerable<object> GetRequiredAttributeKeys()
     {

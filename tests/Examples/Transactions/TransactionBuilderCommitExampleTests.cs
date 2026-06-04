@@ -18,7 +18,7 @@ public class TransactionBuilderCommitExampleTests
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new SlotLayout<string>(4));
 

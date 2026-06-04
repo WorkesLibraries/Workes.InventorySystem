@@ -16,9 +16,9 @@ public class InventoryQueryTests
     {
         public static readonly ItemSchema<string> AxeSchema =
             ItemSchema<string>.Create("query-axe")
-                .AddTag(TagKey.Parse("core:equipment.tools.axe"));
+                .AddTag("core:equipment.tools.axe");
 
-        public QueryAxeDefinition(string id, params TagKey[] tags)
+        public QueryAxeDefinition(string id, params string[] tags)
             : base(id, AxeSchema, tags)
         {
         }
@@ -27,7 +27,7 @@ public class InventoryQueryTests
     private static InventoryManager<string> CreateManager(ItemCatalog<string>? catalog = null, int maxStack = 10)
     {
         return new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
             catalog: catalog);
@@ -117,9 +117,9 @@ public class InventoryQueryTests
     [Test]
     public void FindByTag_UsesCatalogResolvedSchemaDefinitionAndParentTags()
     {
-        var tool = TagKey.Parse("core:equipment.tools");
-        var axeTag = TagKey.Parse("core:equipment.tools.axe");
-        var material = TagKey.Parse("c:materials.wood");
+        var tool = "core:equipment.tools";
+        var axeTag = "core:equipment.tools.axe";
+        var material = "c:materials.wood";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(axeTag);
         catalog.Tags.Define(material);
@@ -140,8 +140,8 @@ public class InventoryQueryTests
     [Test]
     public void CountByTag_SumsResolvedTagMatches()
     {
-        var fruit = TagKey.Parse("food:ingredient.fruit");
-        var ingredient = TagKey.Parse("food:ingredient");
+        var fruit = "food:ingredient.fruit";
+        var ingredient = "food:ingredient";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(fruit);
         var apple = new ItemDefinition<string>("apple", fruit);
@@ -160,9 +160,9 @@ public class InventoryQueryTests
     [Test]
     public void ContainsAllTags_RequiresOneDefinitionSatisfyingEveryResolvedTag()
     {
-        var fruit = TagKey.Parse("food:ingredient.fruit");
-        var ingredient = TagKey.Parse("food:ingredient");
-        var wood = TagKey.Parse("crafting:material.wood");
+        var fruit = "food:ingredient.fruit";
+        var ingredient = "food:ingredient";
+        var wood = "crafting:material.wood";
         var catalog = new ItemCatalog<string>();
         catalog.Tags.Define(fruit);
         catalog.Tags.Define(wood);
@@ -205,7 +205,7 @@ public class InventoryQueryTests
         var manager = CreateManager();
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
-        var tag = TagKey.Parse("core:test");
+        var tag = "core:test";
 
         Assert.Throws<ArgumentNullException>(() => inventory.Count(null!));
         Assert.Throws<ArgumentNullException>(() => inventory.Contains(null!));

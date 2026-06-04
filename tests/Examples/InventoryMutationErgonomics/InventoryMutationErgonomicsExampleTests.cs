@@ -17,7 +17,7 @@ public class InventoryMutationErgonomicsExampleTests
     public void SmallInventory_UsesThrowingMutationsForExpectedSuccess_AndTryApiForExpectedRejection()
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(99),
+            new FixedSizeStackResolver<string>(99),
             new MaxTotalItemAmountCapacityPolicy<string>(30),
             new EntryLayout<string>());
 

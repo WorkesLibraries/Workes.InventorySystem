@@ -98,7 +98,7 @@ public class GridLayoutExampleTests
     private static InventoryManager<string> CreateManager(IInventoryLayout<string> layout, int maxStack, params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(maxStack),
+            new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             layout,
             new RuleContainer<string>());

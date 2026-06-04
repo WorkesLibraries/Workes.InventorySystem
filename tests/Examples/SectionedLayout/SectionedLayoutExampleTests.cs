@@ -16,8 +16,8 @@ public class SectionedLayoutExampleTests
     [Test]
     public void SectionedBackpack_WritesReadableExample()
     {
-        var consumable = TagKey.Parse("item:consumable");
-        var tool = TagKey.Parse("item:tool");
+        var consumable = "item:consumable";
+        var tool = "item:tool";
         var apple = new TaggedDefinition("apple", consumable);
         var rope = new TaggedDefinition("rope", tool);
         var coin = new ItemDefinition<string>("coin");
@@ -43,7 +43,7 @@ public class SectionedLayoutExampleTests
             new Workes.InventorySystem.Layout.SectionedLayout<string>(
                 new SectionDefinition<string>("hotbar", 2),
                 new SectionDefinition<string>("bag", 2)),
-            System.Array.Empty<TagKey>(),
+            System.Array.Empty<string>(),
             potion,
             torch);
         var builder = InventoryTransaction<string>.From(inventory);
@@ -63,11 +63,11 @@ public class SectionedLayoutExampleTests
 
     private static Inventory<string> CreateInventory(
         IInventoryLayout<string> layout,
-        TagKey[] tags,
+        string[] tags,
         params ItemDefinition<string>[] definitions)
     {
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout);
 
@@ -109,7 +109,7 @@ public class SectionedLayoutExampleTests
 
     private sealed class TaggedDefinition : ItemDefinition<string>
     {
-        public TaggedDefinition(string id, params TagKey[] tags)
+        public TaggedDefinition(string id, params string[] tags)
             : base(id, tags)
         {
         }

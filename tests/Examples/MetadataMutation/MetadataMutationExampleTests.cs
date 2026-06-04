@@ -21,7 +21,7 @@ public class MetadataMutationExampleTests
         var potion = new ItemDefinition<string>("potion");
 
         var manager = new InventoryManager<string>(
-            new DefaultStackResolver<string>(10),
+            new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new SlotLayout<string>(3));
 
