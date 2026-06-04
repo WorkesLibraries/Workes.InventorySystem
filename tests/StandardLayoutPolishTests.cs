@@ -94,6 +94,151 @@ public class StandardLayoutPolishTests
     }
 
     [Test]
+    public void EquipmentSlot_OptionsExposeAllowedDefinitionIds()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var slot = new EquipmentSlot<string>(
+            "main-hand",
+            new EquipmentSlotOptions<string>
+            {
+                AllowedDefinitionIds = new[] { "sword", "sword" },
+                AllowedDefinitions = new[] { sword, null! }
+            });
+
+        Assert.That(slot.AllowedDefinitionIds, Is.EqualTo(new[] { "sword" }));
+    }
+
+    [Test]
+    public void EquipmentSlot_OptionsRejectNullAllowedDefinitionId()
+    {
+        Assert.Throws<ArgumentException>(() => new EquipmentSlot<string>(
+            "main-hand",
+            new EquipmentSlotOptions<string>
+            {
+                AllowedDefinitionIds = new[] { (string)null! }
+            }));
+    }
+
+    [Test]
+    public void EquipmentSlot_OptionsIgnoreNullAllowedDefinition()
+    {
+        var slot = new EquipmentSlot<string>(
+            "main-hand",
+            new EquipmentSlotOptions<string>
+            {
+                AllowedDefinitions = new[] { (ItemDefinition<string>)null! }
+            });
+
+        Assert.That(slot.AllowedDefinitionIds, Is.Empty);
+    }
+
+    [Test]
+    public void EquipmentLayout_AcceptsItemByAllowedDefinition()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new EquipmentLayout<string>(
+                new EquipmentSlot<string>(
+                    "main-hand",
+                    new EquipmentSlotOptions<string> { AllowedDefinitionIds = new[] { "sword" } })),
+            new UnlimitedCapacityPolicy<string>(),
+            sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void EquipmentLayout_RejectsItemWhenDefinitionNotAllowed()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var helmet = new ItemDefinition<string>("helmet");
+        var inventory = CreateInventory(
+            new EquipmentLayout<string>(
+                new EquipmentSlot<string>(
+                    "main-hand",
+                    new EquipmentSlotOptions<string> { AllowedDefinitions = new[] { sword } })),
+            new UnlimitedCapacityPolicy<string>(),
+            sword,
+            helmet);
+
+        Assert.That(inventory.TryAdd(helmet, out var error), Is.False);
+        Assert.That(error, Is.EqualTo("No compatible equipment slot available."));
+    }
+
+    [Test]
+    public void EquipmentLayout_AllowsItemWhenEitherTagOrDefinitionMatches()
+    {
+        var weapon = "gear:weapon";
+        var sword = new TaggedDefinition("sword", weapon);
+        var specialRing = new ItemDefinition<string>("special_ring");
+        var slotOptions = new EquipmentSlotOptions<string>
+        {
+            RequiredTags = new[] { weapon },
+            AllowedDefinitions = new[] { specialRing }
+        };
+        var swordInventory = CreateInventory(
+            new EquipmentLayout<string>(new EquipmentSlot<string>("main-hand", slotOptions)),
+            new UnlimitedCapacityPolicy<string>(),
+            new[] { weapon },
+            sword,
+            specialRing);
+        var ringInventory = CreateInventory(
+            new EquipmentLayout<string>(new EquipmentSlot<string>("main-hand", slotOptions)),
+            new UnlimitedCapacityPolicy<string>(),
+            new[] { weapon },
+            sword,
+            specialRing);
+
+        Assert.That(swordInventory.TryAdd(sword, out var swordError), Is.True, swordError);
+        Assert.That(ringInventory.TryAdd(specialRing, out var ringError), Is.True, ringError);
+    }
+
+    [Test]
+    public void EquipmentLayout_WithNoTagsOrDefinitions_AllowsAnyDefinition()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new EquipmentLayout<string>(new EquipmentSlot<string>("misc")),
+            new UnlimitedCapacityPolicy<string>(),
+            apple);
+
+        Assert.That(inventory.TryAdd(apple, out var error), Is.True, error);
+    }
+
+    [Test]
+    public void EquipmentLayout_MoveAndSwapRespectAllowedDefinitions()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var helmet = new ItemDefinition<string>("helmet");
+        var inventory = CreateInventory(
+            new EquipmentLayout<string>(
+                new EquipmentSlot<string>(
+                    "main-hand",
+                    new EquipmentSlotOptions<string> { AllowedDefinitions = new[] { sword } }),
+                new EquipmentSlot<string>(
+                    "head",
+                    new EquipmentSlotOptions<string> { AllowedDefinitions = new[] { helmet } }),
+                new EquipmentSlot<string>("scratch")),
+            new UnlimitedCapacityPolicy<string>(),
+            sword,
+            helmet);
+
+        inventory.Add(sword, context: EquipmentLayoutContext<string>.Single("main-hand"));
+        inventory.Add(helmet, context: EquipmentLayoutContext<string>.Single("scratch"));
+
+        Assert.That(inventory.TryMove(
+            EquipmentLayoutContext<string>.Single("scratch"),
+            EquipmentLayoutContext<string>.Single("head"),
+            out var moveError), Is.True, moveError);
+        Assert.That(inventory.TrySwap(
+            EquipmentLayoutContext<string>.Single("main-hand"),
+            EquipmentLayoutContext<string>.Single("head"),
+            out var swapError), Is.False);
+        Assert.That(swapError, Is.EqualTo("No compatible equipment slot available."));
+    }
+
+    [Test]
     public void EquipmentLayout_RejectsIncompatibleExplicitSlot()
     {
         var weapon = "gear:weapon";

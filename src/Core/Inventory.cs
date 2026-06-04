@@ -1559,7 +1559,11 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                 sectioned.Sections.Select(section => new SectionDefinition<TKey>(
                     section.Id,
                     section.SlotCount,
-                    section.RequiredTags.ToArray())));
+                    new SectionDefinitionOptions<TKey>
+                    {
+                        RequiredTags = section.RequiredTags,
+                        AllowedDefinitionIds = section.AllowedDefinitionIds
+                    })));
             return true;
         }
 
@@ -1754,7 +1758,14 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                     found = true;
                 }
 
-                newSections.Add(new SectionDefinition<TKey>(section.Id, newSlotCount, section.RequiredTags.ToArray()));
+                newSections.Add(new SectionDefinition<TKey>(
+                    section.Id,
+                    newSlotCount,
+                    new SectionDefinitionOptions<TKey>
+                    {
+                        RequiredTags = section.RequiredTags,
+                        AllowedDefinitionIds = section.AllowedDefinitionIds
+                    }));
             }
 
             if (!found)

@@ -12,9 +12,10 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
-/// Section compatibility uses catalog-resolved tags, including generated parent
-/// tags. Sorting compacts placed items into compatible section slots without
-/// changing inventory storage order.
+/// Section compatibility can use catalog-resolved tags, explicit item definition ids, or both. When both are
+/// configured, an item can be placed if it satisfies the required tags or its definition id is explicitly allowed.
+/// Sections without tag or definition restrictions accept any item that otherwise satisfies inventory rules. Sorting
+/// compacts placed items into compatible section slots without changing inventory storage order.
 /// </remarks>
 public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
 {
@@ -117,7 +118,14 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
         {
             var section = _sections[i];
             int newSlotCount = i == targetSectionIndex ? slotCount : section.SlotCount;
-            newSections.Add(new SectionDefinition<TKey>(section.Id, newSlotCount, section.RequiredTags.ToArray()));
+            newSections.Add(new SectionDefinition<TKey>(
+                section.Id,
+                newSlotCount,
+                new SectionDefinitionOptions<TKey>
+                {
+                    RequiredTags = section.RequiredTags,
+                    AllowedDefinitionIds = section.AllowedDefinitionIds
+                }));
         }
 
         int newTotalSlots = newSections.Sum(section => section.SlotCount);
@@ -731,13 +739,19 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
 
     private bool CanSectionAccept(Inventory<TKey> inventory, SectionDefinition<TKey> section, ItemDefinition<TKey> definition)
     {
-        foreach (var tag in section.RequiredTagKeys)
-        {
-            if (!inventory.Catalog.Satisfies(definition, tag))
-                return false;
-        }
+        var hasTags = section.RequiredTagKeys.Count > 0;
+        var hasDefinitions = section.AllowedDefinitionIdSet.Count > 0;
 
-        return true;
+        if (!hasTags && !hasDefinitions)
+            return true;
+
+        if (hasTags && section.RequiredTagKeys.All(tag => inventory.Catalog.Satisfies(definition, tag)))
+            return true;
+
+        if (hasDefinitions && section.AllowedDefinitionIdSet.Contains(definition.Id))
+            return true;
+
+        return false;
     }
 
     private int FindFirstCompatibleEmptySlot(Inventory<TKey> inventory, List<int?> map, ItemDefinition<TKey> definition)

@@ -11,6 +11,11 @@ namespace Workes.InventorySystem.Layout;
 /// Layout that places item instances into named equipment slots.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
+/// <remarks>
+/// Equipment slot compatibility can use catalog-resolved tags, explicit item definition ids, or both. When both are
+/// configured, an item can be placed if it satisfies the required tags or its definition id is explicitly allowed.
+/// Slots without tag or definition restrictions accept any item that otherwise satisfies inventory rules.
+/// </remarks>
 public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 {
     private readonly List<EquipmentSlot<TKey>> _slots;
@@ -553,13 +558,19 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     private bool CanSlotAccept(Inventory<TKey> inventory, EquipmentSlot<TKey> slot, ItemDefinition<TKey> definition)
     {
-        foreach (var tag in slot.RequiredTagKeys)
-        {
-            if (!inventory.Catalog.Satisfies(definition, tag))
-                return false;
-        }
+        var hasTags = slot.RequiredTagKeys.Count > 0;
+        var hasDefinitions = slot.AllowedDefinitionIdSet.Count > 0;
 
-        return true;
+        if (!hasTags && !hasDefinitions)
+            return true;
+
+        if (hasTags && slot.RequiredTagKeys.All(tag => inventory.Catalog.Satisfies(definition, tag)))
+            return true;
+
+        if (hasDefinitions && slot.AllowedDefinitionIdSet.Contains(definition.Id))
+            return true;
+
+        return false;
     }
 
     private int FindFirstCompatibleEmptySlot(Inventory<TKey> inventory, List<int?> map, ItemDefinition<TKey> definition)

@@ -46,6 +46,48 @@ public class SectionedLayoutTests
     }
 
     [Test]
+    public void SectionDefinition_OptionsExposeAllowedDefinitionIds()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var section = new SectionDefinition<string>(
+            "weapons",
+            2,
+            new SectionDefinitionOptions<string>
+            {
+                AllowedDefinitionIds = new[] { "sword", "sword" },
+                AllowedDefinitions = new[] { sword, null! }
+            });
+
+        Assert.That(section.AllowedDefinitionIds, Is.EqualTo(new[] { "sword" }));
+    }
+
+    [Test]
+    public void SectionDefinition_OptionsRejectNullAllowedDefinitionId()
+    {
+        Assert.Throws<ArgumentException>(() => new SectionDefinition<string>(
+            "weapons",
+            1,
+            new SectionDefinitionOptions<string>
+            {
+                AllowedDefinitionIds = new[] { (string)null! }
+            }));
+    }
+
+    [Test]
+    public void SectionDefinition_OptionsIgnoreNullAllowedDefinition()
+    {
+        var section = new SectionDefinition<string>(
+            "weapons",
+            1,
+            new SectionDefinitionOptions<string>
+            {
+                AllowedDefinitions = new[] { (ItemDefinition<string>)null! }
+            });
+
+        Assert.That(section.AllowedDefinitionIds, Is.Empty);
+    }
+
+    [Test]
     public void GetAddressableContexts_ReturnsSectionOrderThenSlotOrder()
     {
         var inventory = CreateInventory(
@@ -97,6 +139,74 @@ public class SectionedLayoutTests
     }
 
     [Test]
+    public void SectionedLayout_AcceptsItemByAllowedDefinition()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>(
+                    "weapons",
+                    1,
+                    new SectionDefinitionOptions<string> { AllowedDefinitionIds = new[] { "sword" } })),
+            definitions: sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void SectionedLayout_RejectsItemWhenDefinitionNotAllowed()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>(
+                    "weapons",
+                    1,
+                    new SectionDefinitionOptions<string> { AllowedDefinitions = new[] { sword } })),
+            definitions: new ItemDefinition<string>[] { sword, apple });
+
+        Assert.That(inventory.TryAdd(apple, out var error), Is.False);
+        Assert.That(error, Is.EqualTo("No compatible section slot available."));
+    }
+
+    [Test]
+    public void SectionedLayout_AllowsItemWhenEitherTagOrDefinitionMatches()
+    {
+        var weapon = "gear:weapon";
+        var sword = new TaggedDefinition("sword", weapon);
+        var lockpick = new ItemDefinition<string>("lockpick");
+        var options = new SectionDefinitionOptions<string>
+        {
+            RequiredTags = new[] { weapon },
+            AllowedDefinitions = new[] { lockpick }
+        };
+        var swordInventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("tools", 1, options)),
+            tags: new[] { weapon },
+            definitions: new ItemDefinition<string>[] { sword, lockpick });
+        var lockpickInventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("tools", 1, options)),
+            tags: new[] { weapon },
+            definitions: new ItemDefinition<string>[] { sword, lockpick });
+
+        Assert.That(swordInventory.TryAdd(sword, out var swordError), Is.True, swordError);
+        Assert.That(lockpickInventory.TryAdd(lockpick, out var lockpickError), Is.True, lockpickError);
+    }
+
+    [Test]
+    public void SectionedLayout_WithNoTagsOrDefinitions_AllowsAnyDefinition()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("bag", 1)),
+            definitions: apple);
+
+        Assert.That(inventory.TryAdd(apple, out var error), Is.True, error);
+    }
+
+    [Test]
     public void NullContext_RejectsWhenNoCompatibleSlotAvailable()
     {
         var weapon = "gear:weapon";
@@ -108,6 +218,62 @@ public class SectionedLayoutTests
 
         Assert.That(inventory.TryAdd(apple, out var error), Is.False);
         Assert.That(error, Is.EqualTo("No compatible section slot available."));
+    }
+
+    [Test]
+    public void SectionedLayout_MoveSwapAndSortRespectAllowedDefinitions()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var helmet = new ItemDefinition<string>("helmet");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>(
+                    "weapons",
+                    2,
+                    new SectionDefinitionOptions<string> { AllowedDefinitions = new[] { sword } }),
+                new SectionDefinition<string>(
+                    "armor",
+                    2,
+                    new SectionDefinitionOptions<string> { AllowedDefinitions = new[] { helmet } }),
+                new SectionDefinition<string>("bag", 3)),
+            definitions: new ItemDefinition<string>[] { sword, helmet, apple });
+        inventory.Add(sword, context: SectionedLayoutContext<string>.Single("bag", 1));
+        inventory.Add(helmet, context: SectionedLayoutContext<string>.Single("bag", 0));
+        inventory.Add(apple, context: SectionedLayoutContext<string>.Single("bag", 2));
+
+        Assert.That(inventory.TryMove(
+            SectionedLayoutContext<string>.Single("bag", 1),
+            SectionedLayoutContext<string>.Single("weapons", 1),
+            out var moveError), Is.True, moveError);
+        Assert.That(inventory.TrySwap(
+            SectionedLayoutContext<string>.Single("weapons", 1),
+            SectionedLayoutContext<string>.Single("bag", 0),
+            out var swapError), Is.False);
+        Assert.That(swapError, Is.EqualTo("No compatible section slot available."));
+
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var sortError), Is.True, sortError);
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+        Assert.That(ItemAt(inventory, "armor", 0), Is.EqualTo("helmet"));
+        Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
+    }
+
+    [Test]
+    public void SectionedLayout_ParameterMutationPreservesAllowedDefinitions()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(
+            new SectionedLayout<string>(
+                new SectionDefinition<string>(
+                    "weapons",
+                    1,
+                    new SectionDefinitionOptions<string> { AllowedDefinitions = new[] { sword } })),
+            definitions: new ItemDefinition<string>[] { sword, apple });
+
+        Assert.That(inventory.TrySetLayoutParameter("section:weapons.slotCount", 2, out var parameterError), Is.True, parameterError);
+        Assert.That(inventory.TryAdd(apple, out var addError, 1, SectionedLayoutContext<string>.Single("weapons", 1)), Is.False);
+        Assert.That(addError, Is.EqualTo("No compatible section slot available."));
     }
 
     [Test]
