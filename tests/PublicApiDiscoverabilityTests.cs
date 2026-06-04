@@ -27,6 +27,8 @@ public class PublicApiDiscoverabilityTests
     {
         AssertHidden(typeof(FixedSizeStackResolver<string>), nameof(FixedSizeStackResolver<string>.ResolveMaxStackSize));
         AssertHidden(typeof(AttributeMaxStackResolver<string>), nameof(AttributeMaxStackResolver<string>.ResolveMaxStackSize));
+        AssertHidden(typeof(MultipliedAttributeStackResolver<string>), nameof(MultipliedAttributeStackResolver<string>.ResolveMaxStackSize));
+        AssertHidden(typeof(MultipliedAttributeStackResolver<string>), nameof(MultipliedAttributeStackResolver<string>.TryCreateWithParameter));
         AssertHidden(typeof(MaxTotalItemAmountCapacityPolicy<string>), nameof(MaxTotalItemAmountCapacityPolicy<string>.CanApply));
         AssertHidden(typeof(WeightCapacityPolicy<string>), nameof(WeightCapacityPolicy<string>.TryCreateWithParameter));
     }
