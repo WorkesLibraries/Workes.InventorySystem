@@ -4,8 +4,9 @@ namespace Workes.InventorySystem.Core;
 /// Controls optional rebuild behavior for runtime inventory parameter changes.
 /// </summary>
 /// <remarks>
-/// Preserve-only changes keep the existing stack shape and layout placement. Repack and stack rebuild options allow the
-/// inventory to rebuild current contents when a safe parameter change would otherwise require moving, splitting, or compacting stacks.
+/// Preserve-only changes keep the existing stack shape and layout placement. Stack resolver parameter changes support
+/// all actions. Layout parameter changes support only <see cref="InventoryParameterMutationActions.RepackLayout"/>.
+/// Capacity policy parameter changes reject mutation actions.
 /// </remarks>
 public sealed class InventoryParameterMutationOptions
 {
@@ -23,7 +24,7 @@ public sealed class InventoryParameterMutationOptions
     };
 
     /// <summary>
-    /// Gets options that allow both layout repacking and stack compression.
+    /// Gets options that allow both layout repacking and oversized stack splitting.
     /// </summary>
     public static InventoryParameterMutationOptions RepackAndCompress => new InventoryParameterMutationOptions
     {
@@ -32,7 +33,7 @@ public sealed class InventoryParameterMutationOptions
     };
 
     /// <summary>
-    /// Gets options that allow layout repacking and compatible stack compaction.
+    /// Gets options that allow layout repacking and compatible stack compression.
     /// </summary>
     public static InventoryParameterMutationOptions RepackAndCompact => new InventoryParameterMutationOptions
     {
@@ -41,7 +42,7 @@ public sealed class InventoryParameterMutationOptions
     };
 
     /// <summary>
-    /// Gets options that allow layout repacking, oversized stack splitting, and compatible stack compaction.
+    /// Gets options that allow layout repacking, oversized stack splitting, and compatible stack compression.
     /// </summary>
     public static InventoryParameterMutationOptions RepackCompressAndCompact => new InventoryParameterMutationOptions
     {
@@ -53,6 +54,11 @@ public sealed class InventoryParameterMutationOptions
     /// <summary>
     /// Gets or sets the optional actions to run during the parameter mutation.
     /// </summary>
+    /// <remarks>
+    /// Stack resolver parameter changes support all defined actions. Layout parameter changes support
+    /// <see cref="InventoryParameterMutationActions.RepackLayout"/> only. Capacity policy parameter changes support
+    /// <see cref="InventoryParameterMutationActions.None"/> only.
+    /// </remarks>
     public InventoryParameterMutationActions Actions { get; set; }
 
     /// <summary>
@@ -74,7 +80,7 @@ public sealed class InventoryParameterMutationOptions
     }
 
     /// <summary>
-    /// Gets or sets whether stack-compatible entries may be compacted into fuller stacks.
+    /// Gets or sets whether stack-compatible entries may be compressed into fuller stacks.
     /// </summary>
     public bool CompressCompatibleStacks
     {
@@ -83,7 +89,7 @@ public sealed class InventoryParameterMutationOptions
     }
 
     /// <summary>
-    /// Gets or sets whether stack-compatible entries may be compacted into fuller stacks.
+    /// Gets or sets whether stack-compatible entries may be compressed into fuller stacks.
     /// </summary>
     /// <remarks>
     /// This property is a compatibility alias for <see cref="CompressCompatibleStacks"/>.

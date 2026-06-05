@@ -1127,7 +1127,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling whether current stacks may be compressed and re-packed.</param>
+    /// <param name="options">Options controlling stack splitting, stack compression, and layout repack actions.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
@@ -1140,6 +1140,8 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (options == null)
             throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
+            return false;
+        if (!ValidateStackResolverMutationActions(options, out error))
             return false;
 
         if (_stackResolver is not IParameterizedStackResolver<TKey> parameterized)
@@ -1215,7 +1217,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling whether current stacks may be compressed and re-packed.</param>
+    /// <param name="options">Options controlling stack splitting, stack compression, and layout repack actions.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
@@ -1239,7 +1241,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options accepted for consistency with stack and layout parameter changes.</param>
+    /// <param name="options">Preserve-only options. Capacity parameter changes reject mutation actions.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
@@ -1252,6 +1254,8 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (options == null)
             throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
+            return false;
+        if (!ValidateCapacityMutationActions(options, out error))
             return false;
 
         if (_capacityPolicy is not IParameterizedCapacityPolicy<TKey> parameterized)
@@ -1286,7 +1290,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options accepted for consistency with stack and layout parameter changes.</param>
+    /// <param name="options">Preserve-only options. Capacity parameter changes reject mutation actions.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
@@ -1310,7 +1314,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling whether current items may be re-packed into the proposed layout.</param>
+    /// <param name="options">Options controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
@@ -1323,6 +1327,8 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (options == null)
             throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
+            return false;
+        if (!ValidateLayoutMutationActions(options, out error))
             return false;
 
         if (_layout is not IParameterizedInventoryLayout<TKey> parameterized)
@@ -1376,7 +1382,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling whether current items may be re-packed into the proposed layout.</param>
+    /// <param name="options">Options controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
@@ -1390,6 +1396,49 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (string.IsNullOrWhiteSpace(parameterId))
         {
             error = "Parameter id cannot be null or empty.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationOptions options, out string? error)
+    {
+        var supported =
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks |
+            InventoryParameterMutationActions.CompressCompatibleStacks;
+        var unsupported = options.Actions & ~supported;
+        if (unsupported != InventoryParameterMutationActions.None)
+        {
+            error = $"Stack resolver parameter changes do not support mutation action value '{options.Actions}'.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool ValidateLayoutMutationActions(InventoryParameterMutationOptions options, out string? error)
+    {
+        var supported = InventoryParameterMutationActions.RepackLayout;
+        var unsupported = options.Actions & ~supported;
+        if (unsupported != InventoryParameterMutationActions.None)
+        {
+            error = "Layout parameter changes only support the RepackLayout mutation action.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool ValidateCapacityMutationActions(InventoryParameterMutationOptions options, out string? error)
+    {
+        if (options.Actions != InventoryParameterMutationActions.None)
+        {
+            error = "Capacity policy parameter changes do not support mutation actions.";
             return false;
         }
 
