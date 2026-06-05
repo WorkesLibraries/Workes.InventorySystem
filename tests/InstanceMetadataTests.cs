@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
@@ -10,6 +11,125 @@ namespace Workes.InventorySystem.Tests;
 [TestFixture]
 public class InstanceMetadataTests
 {
+    [Test]
+    public void InstanceMetadata_Add_StoresNewValue()
+    {
+        var metadata = new InstanceMetadata();
+
+        metadata.Add("quality", "fresh");
+
+        Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+    }
+
+    [Test]
+    public void InstanceMetadata_Add_ThrowsWhenKeyExists()
+    {
+        var metadata = new InstanceMetadata();
+        metadata.Add("quality", "fresh");
+
+        Assert.Throws<InvalidOperationException>(() => metadata.Add("quality", "stale"));
+
+        Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+    }
+
+    [Test]
+    public void InstanceMetadata_Set_AddsOrReplacesValue()
+    {
+        var metadata = new InstanceMetadata();
+
+        metadata.Set("quality", "fresh");
+        metadata.Set("quality", "stale");
+
+        Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("stale"));
+    }
+
+    [Test]
+    public void InstanceMetadata_Change_ThrowsWhenKeyMissing()
+    {
+        var metadata = new InstanceMetadata();
+
+        Assert.Throws<InvalidOperationException>(() => metadata.Change("quality", "fresh"));
+
+        Assert.That(metadata.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void InstanceMetadata_Remove_ThrowsWhenKeyMissing()
+    {
+        var metadata = new InstanceMetadata();
+
+        Assert.Throws<InvalidOperationException>(() => metadata.Remove("quality"));
+    }
+
+    [Test]
+    public void InstanceMetadata_Remove_RemovesExistingValue()
+    {
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+
+        metadata.Remove("quality");
+
+        Assert.That(metadata.AsReadOnly().ContainsKey("quality"), Is.False);
+    }
+
+    [Test]
+    public void InstanceMetadata_Clear_RemovesAllValues()
+    {
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+        metadata.Set("owner", "player");
+
+        metadata.Clear();
+        metadata.Clear();
+
+        Assert.That(metadata.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void InstanceMetadata_Replace_ReplacesAllValues()
+    {
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+
+        metadata.Replace(new Dictionary<string, object> { ["rarity"] = "rare" });
+
+        Assert.That(metadata.AsReadOnly().ContainsKey("quality"), Is.False);
+        Assert.That(metadata.TryGet<string>("rarity", out var rarity), Is.True);
+        Assert.That(rarity, Is.EqualTo("rare"));
+
+        metadata.Replace(null);
+
+        Assert.That(metadata.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void InstanceMetadata_Transform_AppliesMutations()
+    {
+        var metadata = new InstanceMetadata();
+
+        metadata.Transform(proposed =>
+        {
+            proposed.Set("quality", "fresh");
+            proposed.Set("inspected", true);
+        });
+
+        Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+        Assert.That(metadata.TryGet<bool>("inspected", out var inspected), Is.True);
+        Assert.That(inspected, Is.True);
+    }
+
+    [Test]
+    public void InstanceMetadata_Transform_ThrowsForNullTransform()
+    {
+        var metadata = new InstanceMetadata();
+
+        Assert.Throws<ArgumentNullException>(() => metadata.Transform(null!));
+    }
+
     [Test]
     public void RestoreMetadata_CopiesDictionaryContainer()
     {

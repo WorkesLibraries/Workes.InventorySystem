@@ -32,14 +32,33 @@ public class InstanceMetadata
     public bool IsEmpty => _data == null || _data.Count == 0;
 
     /// <summary>
-    /// Stores or replaces a metadata value.
+    /// Adds a metadata value.
     /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. Use <see cref="TryAdd"/> for conditional flows.
+    /// </remarks>
     /// <param name="key">The metadata key.</param>
     /// <param name="value">The metadata value.</param>
-    public void Set(string key, object value)
+    /// <exception cref="InvalidOperationException">The key already exists or the owning inventory rejects the mutation.</exception>
+    public void Add(string key, object? value)
     {
-        if (!TrySet(key, value, out var error))
-            throw new InvalidOperationException(error);
+        ThrowIfRejected(TryAdd(key, value, out var error), error);
+    }
+
+    /// <summary>
+    /// Stores or replaces a metadata value.
+    /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. Use <see cref="TrySet"/> for conditional flows.
+    /// </remarks>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <exception cref="InvalidOperationException">The owning inventory rejects the mutation.</exception>
+    public void Set(string key, object? value)
+    {
+        ThrowIfRejected(TrySet(key, value, out var error), error);
     }
 
     /// <summary>
@@ -81,6 +100,21 @@ public class InstanceMetadata
             },
             null,
             out error);
+    }
+
+    /// <summary>
+    /// Replaces an existing metadata value.
+    /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. Use <see cref="TryChange"/> for conditional flows.
+    /// </remarks>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <exception cref="InvalidOperationException">The key does not exist or the owning inventory rejects the mutation.</exception>
+    public void Change(string key, object? value)
+    {
+        ThrowIfRejected(TryChange(key, value, out var error), error);
     }
 
     /// <summary>
@@ -129,11 +163,15 @@ public class InstanceMetadata
     /// <summary>
     /// Removes a metadata value.
     /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. Use <see cref="TryRemove"/> for conditional flows.
+    /// </remarks>
     /// <param name="key">The metadata key to remove.</param>
-    /// <returns><see langword="true"/> when a value was removed; otherwise, <see langword="false"/>.</returns>
-    public bool Remove(string key)
+    /// <exception cref="InvalidOperationException">The key does not exist or the owning inventory rejects the mutation.</exception>
+    public void Remove(string key)
     {
-        return TryRemove(key, out _);
+        ThrowIfRejected(TryRemove(key, out var error), error);
     }
 
     /// <summary>
@@ -154,6 +192,19 @@ public class InstanceMetadata
             },
             $"Metadata key '{key}' was not found.",
             out error);
+    }
+
+    /// <summary>
+    /// Removes every metadata value.
+    /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. Use <see cref="TryClear"/> for conditional flows.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The owning inventory rejects the mutation.</exception>
+    public void Clear()
+    {
+        ThrowIfRejected(TryClear(out var error), error);
     }
 
     /// <summary>
@@ -188,6 +239,36 @@ public class InstanceMetadata
             },
             null,
             out error);
+    }
+
+    /// <summary>
+    /// Replaces the entire metadata dictionary.
+    /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates through the owning inventory and throws
+    /// when the mutation is rejected. The dictionary container is copied, but stored values are not deep-cloned. Use
+    /// <see cref="TryReplace"/> for conditional flows.
+    /// </remarks>
+    /// <param name="values">The replacement values.</param>
+    /// <exception cref="InvalidOperationException">The owning inventory rejects the mutation.</exception>
+    public void Replace(IReadOnlyDictionary<string, object>? values)
+    {
+        ThrowIfRejected(TryReplace(values, out var error), error);
+    }
+
+    /// <summary>
+    /// Transforms metadata using a mutable clone.
+    /// </summary>
+    /// <remarks>
+    /// Detached metadata mutates directly. Inventory-owned metadata validates the transformed result through the owning
+    /// inventory and throws when the mutation is rejected. Use <see cref="TryTransform"/> for conditional flows.
+    /// </remarks>
+    /// <param name="transform">The mutation to apply to a proposed metadata copy.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="transform"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The owning inventory rejects the mutation.</exception>
+    public void Transform(Action<InstanceMetadata> transform)
+    {
+        ThrowIfRejected(TryTransform(transform, out var error), error);
     }
 
     /// <summary>
@@ -257,12 +338,15 @@ public class InstanceMetadata
     /// <summary>
     /// Replaces the stored metadata with a copy of an existing dictionary.
     /// </summary>
-    /// <remarks>The dictionary container is copied, but stored values are not deep-cloned.</remarks>
+    /// <remarks>
+    /// The dictionary container is copied, but stored values are not deep-cloned. Inventory-owned metadata validates
+    /// through the owning inventory and throws when the mutation is rejected.
+    /// </remarks>
     /// <param name="data">The metadata dictionary to restore.</param>
+    /// <exception cref="InvalidOperationException">The owning inventory rejects the mutation.</exception>
     public void RestoreMetadata(Dictionary<string, object> data)
     {
-        if (!TryReplace(data, out var error))
-            throw new InvalidOperationException(error);
+        Replace(data);
     }
 
     /// <summary>
@@ -355,5 +439,11 @@ public class InstanceMetadata
         ReplaceDirect(clone.AsReadOnly());
         error = null;
         return true;
+    }
+
+    private static void ThrowIfRejected(bool accepted, string? error)
+    {
+        if (!accepted)
+            throw new InvalidOperationException(error ?? "Metadata mutation was rejected.");
     }
 }

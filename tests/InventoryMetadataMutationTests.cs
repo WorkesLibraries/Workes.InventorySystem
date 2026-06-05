@@ -45,6 +45,25 @@ public class InventoryMetadataMutationTests
     }
 
     [Test]
+    public void InventoryOwnedMetadata_Set_FiresMetadataChanged()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), gem);
+        inventory.Add(gem, amount: 1, context: SlotLayoutContext<string>.Single(1));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
+
+        inventory.Items[0].Metadata.Set("quality", "polished");
+
+        var change = captured!.MetadataChanged.Single();
+        Assert.That(change.Instance, Is.SameAs(inventory.Items[0]));
+        Assert.That(change.BeforeMetadata, Is.Empty);
+        Assert.That(change.AfterMetadata["quality"], Is.EqualTo("polished"));
+        Assert.That(((SlotLayoutContext<string>)change.LayoutContext!).SlotIndex, Is.EqualTo(1));
+        Assert.That(captured.RequiresFullRefresh, Is.False);
+    }
+
+    [Test]
     public void InventoryOwnedMetadata_TryAdd_FailsWhenKeyExists()
     {
         var gem = new ItemDefinition<string>("gem");
@@ -58,6 +77,24 @@ public class InventoryMetadataMutationTests
         Assert.That(error, Is.Not.Null);
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
+    }
+
+    [Test]
+    public void InventoryOwnedMetadata_Add_ThrowsWhenKeyExists()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        inventory.Add(gem);
+        inventory.Items[0].Metadata.Set("quality", "fresh");
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Add("quality", "polished"));
+
+        Assert.That(ex!.Message, Does.Contain("quality"));
+        Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]
@@ -75,6 +112,22 @@ public class InventoryMetadataMutationTests
     }
 
     [Test]
+    public void InventoryOwnedMetadata_Change_ThrowsWhenKeyMissing()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), gem);
+        inventory.Add(gem);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Change("quality", "polished"));
+
+        Assert.That(ex!.Message, Does.Contain("quality"));
+        Assert.That(inventory.Items[0].Metadata.IsEmpty, Is.True);
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
     public void InventoryOwnedMetadata_TryRemove_FailsWhenKeyMissing()
     {
         var gem = new ItemDefinition<string>("gem");
@@ -85,6 +138,32 @@ public class InventoryMetadataMutationTests
 
         Assert.That(accepted, Is.False);
         Assert.That(error, Is.Not.Null);
+    }
+
+    [Test]
+    public void InventoryOwnedMetadata_Remove_ThrowsWhenRuleRejectsMutation()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            new RequireMetadataKeyRule<string>("quality"),
+            gem);
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        inventory.CommitTransaction(builder);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Remove("quality"));
+
+        Assert.That(ex!.Message, Does.Contain("quality"));
+        Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]
@@ -103,6 +182,34 @@ public class InventoryMetadataMutationTests
         Assert.That(inventory.Items[0].Metadata.AsReadOnly().ContainsKey("quality"), Is.False);
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("rarity", out var rarity), Is.True);
         Assert.That(rarity, Is.EqualTo("rare"));
+    }
+
+    [Test]
+    public void InventoryOwnedMetadata_Replace_ThrowsWhenProposedMetadataRejected()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            new RequireMetadataKeyRule<string>("quality"),
+            gem);
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        inventory.CommitTransaction(builder);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Replace(
+            new Dictionary<string, object> { ["rarity"] = "rare" }));
+
+        Assert.That(ex!.Message, Does.Contain("quality"));
+        Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+        Assert.That(inventory.Items[0].Metadata.AsReadOnly().ContainsKey("rarity"), Is.False);
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]
@@ -125,6 +232,33 @@ public class InventoryMetadataMutationTests
         Assert.That(quality, Is.EqualTo("fresh"));
         Assert.That(inventory.Items[0].Metadata.TryGet<bool>("inspected", out var inspected), Is.True);
         Assert.That(inspected, Is.True);
+    }
+
+    [Test]
+    public void InventoryOwnedMetadata_Transform_ThrowsWhenProposedMetadataRejected()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            new RequireMetadataKeyRule<string>("quality"),
+            gem);
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "fresh");
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        inventory.CommitTransaction(builder);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Transform(
+            proposed => proposed.Remove("quality")));
+
+        Assert.That(ex!.Message, Does.Contain("quality"));
+        Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]
@@ -167,6 +301,26 @@ public class InventoryMetadataMutationTests
         var accepted = inventory.Items[0].Metadata.TrySet("locked", true, out _);
 
         Assert.That(accepted, Is.False);
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void InventoryOwnedMetadata_Set_ThrowsWhenStackResolverRejectsMutation()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(
+            new MetadataDependentStackResolver("locked", 1, 10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            gem);
+        inventory.Add(gem, amount: 5);
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Set("locked", true));
+
+        Assert.That(ex!.Message, Does.Contain("exceed maximum stack size"));
+        Assert.That(inventory.Items[0].Metadata.AsReadOnly().ContainsKey("locked"), Is.False);
         Assert.That(events, Is.EqualTo(0));
     }
 

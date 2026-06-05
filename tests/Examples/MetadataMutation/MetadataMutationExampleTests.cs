@@ -36,8 +36,8 @@ public class MetadataMutationExampleTests
         operations.AppendLine("Add gem x5: committed");
 
         var gemStack = inventory.Items.Single();
-        bool setQuality = gemStack.Metadata.TrySet("quality", "common", out var setQualityError);
-        operations.AppendLine($"Set quality = common on gem x5: {FormatResult(setQuality, setQualityError)}");
+        gemStack.Metadata.Set("quality", "common");
+        operations.AppendLine("Set quality = common on gem x5: committed");
 
         bool changeQuality = gemStack.Metadata.TryChange("quality", "polished", out var changeQualityError);
         operations.AppendLine($"Change quality = polished on gem x5: {FormatResult(changeQuality, changeQualityError)}");
@@ -51,7 +51,6 @@ public class MetadataMutationExampleTests
         bool removeRequiredQuality = questStack!.Metadata.TryRemove("quality", out var removeRequiredQualityError);
         operations.AppendLine($"Try remove required quality metadata: {FormatResult(removeRequiredQuality, removeRequiredQualityError)}");
 
-        Assert.That(setQuality, Is.True, setQualityError);
         Assert.That(changeQuality, Is.True, changeQualityError);
         Assert.That(splitQuestStack, Is.True, splitQuestStackError);
         Assert.That(ruleAdded, Is.True, ruleError);
