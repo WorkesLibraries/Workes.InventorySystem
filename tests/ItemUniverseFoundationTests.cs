@@ -894,196 +894,81 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void RegisterAuto_AssignsIntIdsStartingAtOne()
+    public void RegisterMigration_ResolvesOldIdToRegisteredDefinition()
     {
-        var catalog = new ItemCatalog<int>();
+        var catalog = new ItemCatalog<string>();
+        var coin = new ItemDefinition<string>("coin:copper");
 
-        catalog.Registry.EnableAutoIncrement();
-        var coin = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-        var potion = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
+        catalog.Registry.Register(coin);
+        catalog.Registry.RegisterMigration("coin:old_copper", "coin:copper");
         catalog.Freeze();
 
-        Assert.That(coin.Id, Is.EqualTo(1));
-        Assert.That(potion.Id, Is.EqualTo(2));
-        Assert.That(catalog.Registry.Resolve(1), Is.SameAs(coin));
-        Assert.That(catalog.Registry.Resolve(2), Is.SameAs(potion));
+        Assert.That(catalog.Registry.Resolve("coin:old_copper"), Is.SameAs(coin));
     }
 
     [Test]
-    public void RegisterAuto_AssignsLongIdsStartingAtOne()
+    public void RegisterMigration_RejectsMigrationFromRegisteredDefinition()
     {
-        var catalog = new ItemCatalog<long>();
+        var catalog = new ItemCatalog<string>();
+        catalog.Registry.Register(new ItemDefinition<string>("coin:copper"));
 
-        catalog.Registry.EnableAutoIncrement();
-        var coin = catalog.Registry.RegisterAuto(id => new ItemDefinition<long>(id));
-        var potion = catalog.Registry.RegisterAuto(id => new ItemDefinition<long>(id));
-        catalog.Freeze();
-
-        Assert.That(coin.Id, Is.EqualTo(1L));
-        Assert.That(potion.Id, Is.EqualTo(2L));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:copper", "coin:silver"));
     }
 
     [Test]
-    public void EnableAutoIncrement_UsesConfiguredFirstId()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement(100);
-        var coin = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(coin.Id, Is.EqualTo(100));
-    }
-
-    [Test]
-    public void RegisterAuto_ThrowsWhenAutoIncrementIsNotEnabled()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id)));
-    }
-
-    [Test]
-    public void EnableAutoIncrement_ThrowsForUnsupportedKeyType()
+    public void RegisterMigration_RejectsDuplicateSourceId()
     {
         var catalog = new ItemCatalog<string>();
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.EnableAutoIncrement());
+        catalog.Registry.RegisterMigration("coin:old", "coin:copper");
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", "coin:silver"));
     }
 
     [Test]
-    public void RegisterAuto_ThrowsWhenFactoryReturnsWrongId()
+    public void RegisterMigration_RejectsMigrationLoop()
     {
-        var catalog = new ItemCatalog<int>();
+        var catalog = new ItemCatalog<string>();
 
-        catalog.Registry.EnableAutoIncrement();
+        catalog.Registry.RegisterMigration("coin:old", "coin:new");
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(99)));
-
-        var coin = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-        Assert.That(coin.Id, Is.EqualTo(1));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:new", "coin:old"));
     }
 
     [Test]
-    public void RegisterAuto_ThrowsWhenFactoryReturnsNull()
+    public void Resolve_ThrowsWhenMigrationTargetIsUnregistered()
     {
-        var catalog = new ItemCatalog<int>();
+        var catalog = new ItemCatalog<string>();
 
-        catalog.Registry.EnableAutoIncrement();
+        catalog.Registry.RegisterMigration("coin:old", "coin:new");
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterAuto(id => null!));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.Resolve("coin:old"));
     }
 
     [Test]
-    public void EnableAutoIncrement_ThrowsWhenRegistryIsFrozen()
+    public void RegisterMigration_ResolvesExplicitIntIds()
     {
         var catalog = new ItemCatalog<int>();
+        var coin = new ItemDefinition<int>(1001);
 
+        catalog.Registry.Register(coin);
+        catalog.Registry.RegisterMigration(1, 1001);
         catalog.Freeze();
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.EnableAutoIncrement());
+        Assert.That(catalog.Registry.Resolve(1), Is.SameAs(coin));
     }
 
     [Test]
-    public void EnableAutoIncrement_ThrowsWhenAlreadyEnabled()
+    public void RegisterMigration_ResolvesExplicitLongIds()
     {
-        var catalog = new ItemCatalog<int>();
+        var catalog = new ItemCatalog<long>();
+        var coin = new ItemDefinition<long>(1001L);
 
-        catalog.Registry.EnableAutoIncrement();
+        catalog.Registry.Register(coin);
+        catalog.Registry.RegisterMigration(1L, 1001L);
+        catalog.Freeze();
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.EnableAutoIncrement());
-    }
-
-    [Test]
-    public void RegisterAuto_ThrowsOnOverflow()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement(int.MaxValue);
-        var max = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(max.Id, Is.EqualTo(int.MaxValue));
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id)));
-    }
-
-    [Test]
-    public void FollowMode_ExplicitIdBeforeEnableAdvancesInitialCounter()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.Register(new ItemDefinition<int>(10));
-        catalog.Registry.EnableAutoIncrement(AutoIncrementMode.FollowExplicitRegistrations);
-        var generated = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(generated.Id, Is.EqualTo(11));
-    }
-
-    [Test]
-    public void FollowMode_ExplicitIdAfterEnableAdvancesCounter()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement();
-        catalog.Registry.Register(new ItemDefinition<int>(10));
-        var generated = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(generated.Id, Is.EqualTo(11));
-    }
-
-    [Test]
-    public void FollowMode_ExplicitLowerIdDoesNotMoveCounterBackwards()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement(10);
-        catalog.Registry.Register(new ItemDefinition<int>(3));
-        var generated = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(generated.Id, Is.EqualTo(10));
-    }
-
-    [Test]
-    public void FollowMode_RegisterAutoSkipsAlreadyRegisteredIds()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.Register(new ItemDefinition<int>(1));
-        catalog.Registry.Register(new ItemDefinition<int>(2));
-        catalog.Registry.EnableAutoIncrement();
-        var generated = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(generated.Id, Is.EqualTo(3));
-    }
-
-    [Test]
-    public void StrictMode_ThrowsWhenDefinitionsAlreadyRegistered()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.Register(new ItemDefinition<int>(1));
-
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.EnableAutoIncrement(AutoIncrementMode.Strict));
-    }
-
-    [Test]
-    public void StrictMode_RegisterThrowsAfterAutoIncrementEnabled()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement(AutoIncrementMode.Strict);
-
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.Register(new ItemDefinition<int>(1)));
-    }
-
-    [Test]
-    public void StrictMode_RegisterAutoSucceeds()
-    {
-        var catalog = new ItemCatalog<int>();
-
-        catalog.Registry.EnableAutoIncrement(AutoIncrementMode.Strict);
-        var generated = catalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-
-        Assert.That(generated.Id, Is.EqualTo(1));
-        Assert.That(catalog.Registry.Resolve(1), Is.SameAs(generated));
+        Assert.That(catalog.Registry.Resolve(1L), Is.SameAs(coin));
     }
 
     [Test]

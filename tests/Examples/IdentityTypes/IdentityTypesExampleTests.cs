@@ -11,7 +11,7 @@ namespace Workes.InventorySystem.Tests.Examples.IdentityTypes;
 public class IdentityTypesExampleTests
 {
     [Test]
-    public void CatalogsCanUseStringGuidAndAutoIncrementIntIdentities()
+    public void CatalogsCanUseStringGuidAndExplicitIntegerIdentities()
     {
         var stringCatalog = new ItemCatalog<string>();
         var stringCoin = new ItemDefinition<string>("coin");
@@ -25,30 +25,20 @@ public class IdentityTypesExampleTests
         guidCatalog.Freeze();
 
         var intCatalog = new ItemCatalog<int>();
-        intCatalog.Registry.EnableAutoIncrement();
-        var intCoin = intCatalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
-        var intPotion = intCatalog.Registry.RegisterAuto(id => new ItemDefinition<int>(id));
+        var intCoin = new ItemDefinition<int>(1001);
+        var intPotion = new ItemDefinition<int>(1002);
+        intCatalog.Registry.Register(intCoin);
+        intCatalog.Registry.Register(intPotion);
+        intCatalog.Registry.RegisterMigration(1, 1001);
         intCatalog.Freeze();
-
-        var strictCatalog = new ItemCatalog<int>();
-        strictCatalog.Registry.EnableAutoIncrement(AutoIncrementMode.Strict);
-        var explicitAfterStrictWasRejected = false;
-        try
-        {
-            strictCatalog.Registry.Register(new ItemDefinition<int>(1));
-        }
-        catch (InvalidOperationException)
-        {
-            explicitAfterStrictWasRejected = true;
-        }
 
         Assert.That(stringCatalog.Registry.Resolve("coin"), Is.SameAs(stringCoin));
         Assert.That(guidCatalog.Registry.Resolve(potionId), Is.SameAs(guidPotion));
-        Assert.That(intCoin.Id, Is.EqualTo(1));
-        Assert.That(intPotion.Id, Is.EqualTo(2));
-        Assert.That(explicitAfterStrictWasRejected, Is.True);
+        Assert.That(intCatalog.Registry.Resolve(1001), Is.SameAs(intCoin));
+        Assert.That(intCatalog.Registry.Resolve(1002), Is.SameAs(intPotion));
+        Assert.That(intCatalog.Registry.Resolve(1), Is.SameAs(intCoin));
 
-        var output = BuildOutput(stringCoin, guidPotion, intCoin, intPotion, explicitAfterStrictWasRejected);
+        var output = BuildOutput(stringCoin, guidPotion, intCatalog, intCoin, intPotion);
         var outputPath = WriteOutput(output);
         TestContext.Out.WriteLine($"Identity types example written to: {outputPath}");
     }
@@ -56,9 +46,9 @@ public class IdentityTypesExampleTests
     private static string BuildOutput(
         ItemDefinition<string> stringCoin,
         ItemDefinition<Guid> guidPotion,
+        ItemCatalog<int> intCatalog,
         ItemDefinition<int> intCoin,
-        ItemDefinition<int> intPotion,
-        bool explicitAfterStrictWasRejected)
+        ItemDefinition<int> intPotion)
     {
         var builder = new StringBuilder();
         builder.AppendLine("Identity Types Example");
@@ -72,14 +62,16 @@ public class IdentityTypesExampleTests
         builder.AppendLine("-------------");
         builder.AppendLine($"potion resolved by id: {guidPotion.Id}");
         builder.AppendLine();
-        builder.AppendLine("Auto-Increment Int Identity");
-        builder.AppendLine("---------------------------");
-        builder.AppendLine($"coin generated id: {intCoin.Id}");
-        builder.AppendLine($"potion generated id: {intPotion.Id}");
-        builder.AppendLine();
-        builder.AppendLine("Strict Auto-Increment");
+        builder.AppendLine("Explicit Int Identity");
         builder.AppendLine("---------------------");
-        builder.AppendLine($"explicit registration after strict enable: {(explicitAfterStrictWasRejected ? "rejected" : "accepted")}");
+        builder.AppendLine($"coin resolved by id: {intCoin.Id}");
+        builder.AppendLine($"potion resolved by id: {intPotion.Id}");
+        builder.AppendLine($"old id 1 migrated to: {intCatalog.Registry.Resolve(1).Id}");
+        builder.AppendLine();
+        builder.AppendLine("Notes");
+        builder.AppendLine("-----");
+        builder.AppendLine("Item definition ids are explicit stable identities.");
+        builder.AppendLine("The examples use strings for readability, but integer-like ids remain supported when chosen deliberately.");
 
         return builder.ToString();
     }

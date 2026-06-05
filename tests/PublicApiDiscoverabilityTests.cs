@@ -42,6 +42,25 @@ public class PublicApiDiscoverabilityTests
         Assert.That(typeof(IRulePolicy<>).IsPublic, Is.True);
     }
 
+    [Test]
+    public void AutoIncrementMode_IsNotPublicApi()
+    {
+        var type = typeof(ItemRegistry<>).Assembly.GetType("Workes.InventorySystem.Core.AutoIncrementMode");
+
+        Assert.That(type, Is.Null);
+    }
+
+    [Test]
+    public void ItemRegistry_DoesNotExposeAutoIncrementApis()
+    {
+        var type = typeof(ItemRegistry<int>);
+
+        Assert.That(type.GetMethod("EnableAutoIncrement", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetMethod("RegisterAuto", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetProperty("AutoIncrementEnabled", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetProperty("AutoIncrementMode", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+    }
+
     private static void AssertHidden(Type type, string methodName)
     {
         var method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);
