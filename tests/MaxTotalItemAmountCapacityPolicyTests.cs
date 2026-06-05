@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
@@ -22,7 +23,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new MaxTotalItemAmountCapacityPolicy<string>(5), apple);
         inventory.TryAdd(apple, out _, 3);
-        var instance = new ItemInstance<string>(apple, 2);
+        var instance = CreateCandidateInstance(apple, 2);
 
         var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
 
@@ -36,7 +37,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new MaxTotalItemAmountCapacityPolicy<string>(5), apple);
         inventory.TryAdd(apple, out _, 4);
-        var instance = new ItemInstance<string>(apple, 2);
+        var instance = CreateCandidateInstance(apple, 2);
 
         var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
 
@@ -138,6 +139,14 @@ public class MaxTotalItemAmountCapacityPolicyTests
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
         return manager.CreateInventory();
+    }
+
+    private static ItemInstance<string> CreateCandidateInstance(ItemDefinition<string> definition, int amount)
+    {
+        var inventory = CreateInventory(new UnlimitedCapacityPolicy<string>(), definition);
+
+        Assert.That(inventory.TryAdd(definition, out var error, amount), Is.True, error);
+        return inventory.Items.Single();
     }
 
     private static InventoryManager<string> CreateManager(ItemCatalog<string>? catalog, ICapacityPolicy<string> capacityPolicy)

@@ -117,19 +117,21 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
-    public void TryRemove_RejectsInvalidAmountAndDetachedItem()
+    public void TryRemove_RejectsInvalidAmountAndItemFromAnotherInventory()
     {
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
         manager.Catalog.Freeze();
         var source = manager.CreateInventory();
+        var other = manager.CreateInventory();
+        other.TryAdd(apple, out _, 1);
         var builder = InventoryTransfer.From(source);
-        var detached = new ItemInstance<string>(apple, 1);
+        var foreignItem = other.Items[0];
 
-        Assert.That(builder.TryRemove(detached, 1, out var detachedError), Is.False);
-        Assert.That(detachedError, Is.EqualTo("Item not found in inventory."));
-        Assert.That(builder.TryRemove(detached, 0, out var amountError), Is.False);
+        Assert.That(builder.TryRemove(foreignItem, 1, out var foreignError), Is.False);
+        Assert.That(foreignError, Is.EqualTo("Item not found in inventory."));
+        Assert.That(builder.TryRemove(foreignItem, 0, out var amountError), Is.False);
         Assert.That(amountError, Is.EqualTo("Amount must be greater than zero."));
     }
 

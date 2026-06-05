@@ -92,6 +92,41 @@ public class PublicApiDiscoverabilityTests
         Assert.That(type.GetMethod(nameof(TagCatalog.UseNonNamespacedTagsOnly), BindingFlags.Public | BindingFlags.Instance), Is.Not.Null);
     }
 
+    [Test]
+    public void ItemInstance_DoesNotExposePublicConstructors()
+    {
+        var constructors = typeof(ItemInstance<string>).GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.That(constructors, Is.Empty);
+    }
+
+    [Test]
+    public void ItemInstance_DoesNotExposePublicAmountMutators()
+    {
+        var type = typeof(ItemInstance<string>);
+
+        Assert.That(type.GetMethod("SetAmount", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetMethod("AddAmount", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetMethod("ReduceAmount", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+    }
+
+    [Test]
+    public void ItemInstance_OwnershipMethodsAreNotPublic()
+    {
+        var type = typeof(ItemInstance<string>);
+
+        Assert.That(type.GetMethod("AttachOwner", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+        Assert.That(type.GetMethod("DetachOwner", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+    }
+
+    [Test]
+    public void InventoryTransferEntry_DoesNotExposePublicConstructors()
+    {
+        var constructors = typeof(InventoryTransferEntry<string>).GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.That(constructors, Is.Empty);
+    }
+
     private static void AssertHidden(Type type, string methodName)
     {
         var method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);

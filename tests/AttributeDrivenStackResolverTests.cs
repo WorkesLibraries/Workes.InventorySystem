@@ -75,7 +75,7 @@ public class AttributeDrivenStackResolverTests
         var coin = new StackableOnlyDefinition("coin", stackable: true);
         var inventory = CreateInventory(new ConditionalMaxStackResolver<string>(Stackable, 10), coin);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin));
 
         Assert.That(maxStack, Is.EqualTo(10));
     }
@@ -86,7 +86,7 @@ public class AttributeDrivenStackResolverTests
         var sword = new StackableOnlyDefinition("sword", stackable: false);
         var inventory = CreateInventory(new ConditionalMaxStackResolver<string>(Stackable, 10), sword);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(sword));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(sword));
 
         Assert.That(maxStack, Is.EqualTo(1));
     }
@@ -97,7 +97,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new ConditionalMaxStackResolver<string>(Stackable, 10), note);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note));
 
         Assert.That(maxStack, Is.EqualTo(1));
     }
@@ -108,7 +108,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new ConditionalMaxStackResolver<string>(Stackable, 10, missingAttributeIsStackable: true), note);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note));
 
         Assert.That(maxStack, Is.EqualTo(10));
     }
@@ -148,7 +148,7 @@ public class AttributeDrivenStackResolverTests
         var coin = new MaxStackOnlyDefinition("coin", 25);
         var inventory = CreateInventory(new AttributeMaxStackResolver<string>(MaxStack), coin);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin));
 
         Assert.That(maxStack, Is.EqualTo(25));
     }
@@ -159,7 +159,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new AttributeMaxStackResolver<string>(MaxStack, missingAttributeMaxStack: 3), note);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note));
 
         Assert.That(maxStack, Is.EqualTo(3));
     }
@@ -171,7 +171,7 @@ public class AttributeDrivenStackResolverTests
         var inventory = CreateInventory(new AttributeMaxStackResolver<string>(MaxStack), note);
 
         Assert.Throws<InvalidOperationException>(() =>
-            inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note)));
+            inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note)));
     }
 
     [Test]
@@ -181,7 +181,7 @@ public class AttributeDrivenStackResolverTests
         var inventory = CreateInventory(new AttributeMaxStackResolver<string>(MaxStack), broken);
 
         Assert.Throws<InvalidOperationException>(() =>
-            inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(broken)));
+            inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(broken)));
     }
 
     [Test]
@@ -266,7 +266,7 @@ public class AttributeDrivenStackResolverTests
         var coin = new StackRatioDefinition("coin", 4);
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 2.5), coin);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin));
 
         Assert.That(maxStack, Is.EqualTo(10));
     }
@@ -277,7 +277,7 @@ public class AttributeDrivenStackResolverTests
         var coin = new StackRatioDefinition("coin", 3);
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 1.5), coin);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin));
 
         Assert.That(maxStack, Is.EqualTo(4));
     }
@@ -288,7 +288,7 @@ public class AttributeDrivenStackResolverTests
         var coin = new StackRatioDefinition("coin", 1);
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 0.5), coin);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin));
 
         Assert.That(maxStack, Is.EqualTo(1));
     }
@@ -299,7 +299,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 3, missingAttributeBaseStack: 2), note);
 
-        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note));
+        var maxStack = inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note));
 
         Assert.That(maxStack, Is.EqualTo(6));
     }
@@ -311,7 +311,7 @@ public class AttributeDrivenStackResolverTests
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 3), note);
 
         Assert.Throws<InvalidOperationException>(() =>
-            inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(note)));
+            inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(note)));
     }
 
     [Test]
@@ -321,7 +321,7 @@ public class AttributeDrivenStackResolverTests
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 3), broken);
 
         Assert.Throws<InvalidOperationException>(() =>
-            inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(broken)));
+            inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(broken)));
     }
 
     [Test]
@@ -331,7 +331,7 @@ public class AttributeDrivenStackResolverTests
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 2), coin);
 
         Assert.Throws<InvalidOperationException>(() =>
-            inventory.StackResolver.ResolveMaxStackSize(inventory, new ItemInstance<string>(coin)));
+            inventory.StackResolver.ResolveMaxStackSize(inventory, CreateProbeInstance(coin)));
     }
 
     [Test]
@@ -490,4 +490,13 @@ public class AttributeDrivenStackResolverTests
         manager.Catalog.Freeze();
         return manager.CreateInventory();
     }
+
+    private static ItemInstance<string> CreateProbeInstance(ItemDefinition<string> definition)
+    {
+        var inventory = CreateInventory(new FixedSizeStackResolver<string>(1000), definition);
+
+        Assert.That(inventory.TryAdd(definition, out var error), Is.True, error);
+        return inventory.Items.Single();
+    }
 }
+

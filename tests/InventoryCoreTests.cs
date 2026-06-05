@@ -46,6 +46,49 @@ public class InventoryCoreTests
     }
 
     [Test]
+    public void Inventory_TryAdd_CreatesInventoryOwnedItemInstance()
+    {
+        var manager = new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>());
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        Assert.That(inventory.TryAdd(apple, out var error, 3), Is.True, error);
+        var instance = inventory.Items.Single();
+        instance.Metadata.Set("quality", "fresh");
+
+        Assert.That(instance.Definition, Is.SameAs(apple));
+        Assert.That(instance.Amount, Is.EqualTo(3));
+        Assert.That(instance.Metadata.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(quality, Is.EqualTo("fresh"));
+    }
+
+    [Test]
+    public void InventoryTransaction_TryAdd_CreatesInventoryOwnedItemInstance()
+    {
+        var manager = new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>());
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+
+        Assert.That(builder.TryAdd(apple, out var buildError, 2), Is.True, buildError);
+        Assert.That(inventory.TryCommitTransaction(builder.Build(), out var commitError), Is.True, commitError);
+
+        var instance = inventory.Items.Single();
+        Assert.That(instance.Definition, Is.SameAs(apple));
+        Assert.That(instance.Amount, Is.EqualTo(2));
+    }
+
+    [Test]
     public void Serialize_And_Deserialize_RoundTrips_Items_And_Counts()
     {
         var manager = new InventoryManager<string>

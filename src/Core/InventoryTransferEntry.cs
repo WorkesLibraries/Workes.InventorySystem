@@ -5,6 +5,10 @@ namespace Workes.InventorySystem.Core;
 /// <summary>
 /// Describes one item amount planned for cross-inventory transfer.
 /// </summary>
+/// <remarks>
+/// Transfer entries are inspection results produced by transfer builders and transfer internals. Callers should stage
+/// transfers through <see cref="InventoryTransfer.From{TKey}(Inventory{TKey})"/> rather than constructing entries directly.
+/// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class InventoryTransferEntry<TKey>
 {
@@ -29,7 +33,7 @@ public sealed class InventoryTransferEntry<TKey>
     public ItemInstance<TKey> SourceInstance { get; }
 
     /// <summary>
-    /// Creates a transfer entry.
+    /// Creates a transfer entry for transfer-builder inspection.
     /// </summary>
     /// <param name="definition">The item definition to transfer.</param>
     /// <param name="amount">The amount to transfer.</param>
@@ -37,7 +41,7 @@ public sealed class InventoryTransferEntry<TKey>
     /// <param name="sourceInstance">The source item instance this entry comes from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="definition"/> or <paramref name="sourceInstance"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="amount"/> is less than or equal to zero.</exception>
-    public InventoryTransferEntry(
+    internal InventoryTransferEntry(
         ItemDefinition<TKey> definition,
         int amount,
         InstanceMetadata? metadata,

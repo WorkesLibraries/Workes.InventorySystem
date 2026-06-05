@@ -143,7 +143,7 @@ public class InventoryTransferTests
     }
 
     [Test]
-    public void SourceItemNotInSourceInventory_IsRejected()
+    public void SourceItemFromAnotherInventory_IsRejected()
     {
         var manager = CreateManager();
         var apple = new ItemDefinition<string>("apple");
@@ -151,9 +151,11 @@ public class InventoryTransferTests
         manager.Catalog.Freeze();
         var source = manager.CreateInventory();
         var target = manager.CreateInventory();
-        var detached = new ItemInstance<string>(apple, 1);
+        var other = manager.CreateInventory();
+        other.TryAdd(apple, out _, 1);
+        var foreignItem = other.Items[0];
 
-        var result = source.TryTransferTo(target, detached, 1, null, out var error);
+        var result = source.TryTransferTo(target, foreignItem, 1, null, out var error);
 
         Assert.That(result, Is.False);
         Assert.That(error, Is.EqualTo("Item not found in source inventory."));

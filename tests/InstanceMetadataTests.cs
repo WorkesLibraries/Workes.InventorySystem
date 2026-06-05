@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System;
+using System.Linq;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
@@ -169,17 +170,6 @@ public class InstanceMetadataTests
     }
 
     [Test]
-    public void ItemInstance_KeepsProvidedMetadataReference()
-    {
-        var apple = new ItemDefinition<string>("apple");
-        var metadata = new InstanceMetadata();
-
-        var instance = new ItemInstance<string>(apple, 1, metadata);
-
-        Assert.That(ReferenceEquals(instance.Metadata, metadata), Is.True);
-    }
-
-    [Test]
     public void TransactionAdd_ClonesCallerMetadataForInsertedInstance()
     {
         var apple = new ItemDefinition<string>("apple");
@@ -198,42 +188,54 @@ public class InstanceMetadataTests
     }
 
     [Test]
-    public void InventoryTransferEntry_ClonesProvidedMetadata()
+    public void InventoryTransferBuilder_EntriesCloneSourceMetadata()
     {
         var apple = new ItemDefinition<string>("apple");
-        var sourceInstance = new ItemInstance<string>(apple);
+        var inventory = CreateInventory(apple);
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
+        var builder = InventoryTransaction<string>.From(inventory);
+        builder.TryAdd(apple, 1, null, metadata, out _);
+        inventory.CommitTransaction(builder.Build());
+        var transfer = InventoryTransfer.From(inventory);
 
-        var entry = new InventoryTransferEntry<string>(apple, 1, metadata, sourceInstance);
-        metadata.Set("quality", "stale");
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True, error);
+        var entry = transfer.Entries.Single();
+        inventory.Items[0].Metadata.Set("quality", "stale");
 
         Assert.That(entry.Metadata, Is.Not.Null);
-        Assert.That(ReferenceEquals(entry.Metadata, metadata), Is.False);
+        Assert.That(ReferenceEquals(entry.Metadata, inventory.Items[0].Metadata), Is.False);
         Assert.That(entry.Metadata!.TryGet<string>("quality", out var value), Is.True);
         Assert.That(value, Is.EqualTo("fresh"));
     }
 
     [Test]
-    public void InventoryTransferEntry_StoresNullForEmptyMetadata()
+    public void InventoryTransferBuilder_EntriesStoreNullForEmptyMetadata()
     {
         var apple = new ItemDefinition<string>("apple");
-        var sourceInstance = new ItemInstance<string>(apple);
+        var inventory = CreateInventory(apple);
+        inventory.TryAdd(apple, out _, 1);
+        var transfer = InventoryTransfer.From(inventory);
 
-        var entry = new InventoryTransferEntry<string>(apple, 1, new InstanceMetadata(), sourceInstance);
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True, error);
+        var entry = transfer.Entries.Single();
 
         Assert.That(entry.Metadata, Is.Null);
     }
 
     [Test]
-    public void InventoryTransferEntry_StoresNullForNullMetadata()
+    public void InventoryTransferBuilder_EntriesExposeSourceInstance()
     {
         var apple = new ItemDefinition<string>("apple");
-        var sourceInstance = new ItemInstance<string>(apple);
+        var inventory = CreateInventory(apple);
+        inventory.TryAdd(apple, out _, 1);
+        var sourceInstance = inventory.Items[0];
+        var transfer = InventoryTransfer.From(inventory);
 
-        var entry = new InventoryTransferEntry<string>(apple, 1, null, sourceInstance);
+        Assert.That(transfer.TryRemove(sourceInstance, 1, out var error), Is.True, error);
+        var entry = transfer.Entries.Single();
 
-        Assert.That(entry.Metadata, Is.Null);
+        Assert.That(entry.SourceInstance, Is.SameAs(sourceInstance));
     }
 
     private static Inventory<string> CreateInventory(params ItemDefinition<string>[] definitions)
