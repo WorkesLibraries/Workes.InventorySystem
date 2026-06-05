@@ -41,6 +41,28 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         public InstanceMetadata? Metadata { get; }
     }
 
+    private sealed class StackMutationEntry
+    {
+        public StackMutationEntry(int? originalIndex, ItemDefinition<TKey> definition, int originalAmount, int amount, InstanceMetadata? metadata)
+        {
+            OriginalIndex = originalIndex;
+            Definition = definition;
+            OriginalAmount = originalAmount;
+            Amount = amount;
+            Metadata = metadata;
+        }
+
+        public int? OriginalIndex { get; }
+
+        public ItemDefinition<TKey> Definition { get; }
+
+        public int OriginalAmount { get; }
+
+        public int Amount { get; set; }
+
+        public InstanceMetadata? Metadata { get; }
+    }
+
     /// <summary>
     /// Gets inventory-level attributes.
     /// </summary>
@@ -1130,7 +1152,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return false;
 
         var previous = _stackResolver;
-        if (!options.CompressStacks)
+        if (options.Actions == InventoryParameterMutationActions.None)
         {
             if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
                 return false;
@@ -1140,8 +1162,30 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return true;
         }
 
-        if (!TryCreateCompressedContents(proposedResolver, options, out var proposedContents, out var changedShape, out error) || proposedContents == null)
+        if (!TryCreateStackMutationEntries(proposedResolver, options, out var entries, out var changedShape, out error) || entries == null)
             return false;
+
+        if (options.RepackLayout)
+        {
+            var proposedContents = CreateProposedContentsFromStackMutationEntries(entries);
+            if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+                return false;
+
+            if (!TryValidateProposedContents(proposedContents, proposedResolver, _capacityPolicy, proposedLayout, out error))
+                return false;
+
+            ApplyConfigurationRebuild(
+                proposedContents,
+                proposedResolver,
+                _capacityPolicy,
+                proposedLayout,
+                InventoryConfigurationChangeKind.StackResolver,
+                parameterId,
+                value,
+                previous,
+                proposedResolver);
+            return true;
+        }
 
         if (!changedShape)
         {
@@ -1150,22 +1194,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return true;
         }
 
-        if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+        if (!TryCreateStackMutationTransaction(entries, out var transaction, out error) || transaction == null)
             return false;
 
-        if (!TryValidateProposedContents(proposedContents, proposedResolver, _capacityPolicy, proposedLayout, out error))
-            return false;
-
-        ApplyConfigurationRebuild(
-            proposedContents,
-            proposedResolver,
-            _capacityPolicy,
-            proposedLayout,
-            InventoryConfigurationChangeKind.StackResolver,
-            parameterId,
-            value,
-            previous,
-            proposedResolver);
+        ApplyStackParameterMutationTransaction(transaction, previous, proposedResolver, parameterId, value);
         return true;
     }
 
@@ -1465,62 +1497,206 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return contents;
     }
 
-    private bool TryCreateCompressedContents(
+    private bool TryCreateStackMutationEntries(
         IStackResolver<TKey> resolver,
         InventoryParameterMutationOptions options,
-        out List<ProposedItemState>? proposedContents,
+        out List<StackMutationEntry>? entries,
         out bool changedShape,
         out string? error)
     {
-        proposedContents = new List<ProposedItemState>();
+        entries = CreateCurrentStackMutationEntries();
         changedShape = false;
         error = null;
 
-        foreach (var item in _items)
+        if (!TryApplySplitOversizedStacks(entries, resolver, options.SplitOversizedStacks, out var splitChanged, out error))
         {
+            entries = null;
+            return false;
+        }
+
+        changedShape = splitChanged;
+
+        if (options.CompressCompatibleStacks)
+        {
+            if (!TryApplyCompressCompatibleStacks(entries, resolver, out var compressionChanged, out error))
+            {
+                entries = null;
+                return false;
+            }
+
+            changedShape = changedShape || compressionChanged;
+        }
+
+        return true;
+    }
+
+    private List<StackMutationEntry> CreateCurrentStackMutationEntries()
+    {
+        var entries = new List<StackMutationEntry>(_items.Count);
+        for (int index = 0; index < _items.Count; index++)
+        {
+            var item = _items[index];
             var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
-            var prototype = new ItemInstance<TKey>(item.Definition, 1, metadata);
-            if (!TryResolveMaxStackSize(resolver, prototype, out int maxStack, out error))
-            {
-                proposedContents = null;
-                return false;
-            }
+            entries.Add(new StackMutationEntry(index, item.Definition, item.Amount, item.Amount, metadata));
+        }
 
-            if (item.Amount <= maxStack)
-            {
-                proposedContents.Add(new ProposedItemState(item.Definition, item.Amount, metadata));
+        return entries;
+    }
+
+    private bool TryApplySplitOversizedStacks(
+        List<StackMutationEntry> entries,
+        IStackResolver<TKey> resolver,
+        bool splitOversizedStacks,
+        out bool changedShape,
+        out string? error)
+    {
+        changedShape = false;
+        error = null;
+        int originalEntryCount = entries.Count;
+
+        for (int i = 0; i < originalEntryCount; i++)
+        {
+            var entry = entries[i];
+            if (entry.Amount <= 0)
                 continue;
-            }
 
-            if (!options.CompressStacks)
+            var prototype = new ItemInstance<TKey>(entry.Definition, 1, CloneMetadataOrNull(entry.Metadata));
+            if (!TryResolveMaxStackSize(resolver, prototype, out int maxStack, out error))
+                return false;
+
+            if (entry.Amount <= maxStack)
+                continue;
+
+            if (!splitOversizedStacks)
             {
-                error = $"Stack resolver parameter change would make current stack '{item.Definition.Id}' amount {item.Amount} exceed max stack size {maxStack}.";
-                proposedContents = null;
+                error = $"Stack resolver parameter change would make current stack '{entry.Definition.Id}' amount {entry.Amount} exceed max stack size {maxStack}.";
                 return false;
             }
 
-            if (!options.RepackLayout)
-            {
-                error = "Stack compression would create additional stacks and requires layout repack.";
-                proposedContents = null;
-                return false;
-            }
-
+            int remaining = entry.Amount - maxStack;
+            entry.Amount = maxStack;
             changedShape = true;
-            int remaining = item.Amount;
+
             while (remaining > 0)
             {
                 int chunk = Math.Min(remaining, maxStack);
-                var chunkMetadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
-                proposedContents.Add(new ProposedItemState(item.Definition, chunk, chunkMetadata));
+                entries.Add(new StackMutationEntry(null, entry.Definition, 0, chunk, CloneMetadataOrNull(entry.Metadata)));
                 remaining -= chunk;
             }
         }
 
-        if (proposedContents.Count != _items.Count)
-            changedShape = true;
+        return true;
+    }
+
+    private bool TryApplyCompressCompatibleStacks(
+        List<StackMutationEntry> entries,
+        IStackResolver<TKey> resolver,
+        out bool changedShape,
+        out string? error)
+    {
+        changedShape = false;
+        error = null;
+
+        for (int targetIndex = 0; targetIndex < entries.Count; targetIndex++)
+        {
+            var target = entries[targetIndex];
+            if (target.Amount <= 0)
+                continue;
+
+            var targetPrototype = new ItemInstance<TKey>(target.Definition, 1, CloneMetadataOrNull(target.Metadata));
+            if (!TryResolveMaxStackSize(resolver, targetPrototype, out int targetMaxStack, out error))
+                return false;
+
+            for (int sourceIndex = targetIndex + 1; sourceIndex < entries.Count && target.Amount < targetMaxStack; sourceIndex++)
+            {
+                var source = entries[sourceIndex];
+                if (source.Amount <= 0 || !StackMutationEntriesAreCompatible(target, source))
+                    continue;
+
+                int move = Math.Min(targetMaxStack - target.Amount, source.Amount);
+                target.Amount += move;
+                source.Amount -= move;
+                changedShape = true;
+            }
+        }
 
         return true;
+    }
+
+    private bool TryCreateStackMutationTransaction(
+        IReadOnlyList<StackMutationEntry> entries,
+        out InventoryTransaction<TKey>? transaction,
+        out string? error)
+    {
+        var amountDeltas = new List<(int index, int delta)>();
+        var removed = new List<(int index, ItemInstance<TKey> instance)>();
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
+
+        foreach (var entry in entries)
+        {
+            if (entry.OriginalIndex.HasValue)
+            {
+                int index = entry.OriginalIndex.Value;
+                if (entry.Amount <= 0)
+                    removed.Add((index, _items[index]));
+                else if (entry.Amount != entry.OriginalAmount)
+                    amountDeltas.Add((index, entry.Amount - entry.OriginalAmount));
+
+                continue;
+            }
+
+            if (entry.Amount <= 0)
+                continue;
+
+            added.Add((new ItemInstance<TKey>(entry.Definition, entry.Amount, CloneMetadataOrNull(entry.Metadata)), null));
+        }
+
+        var candidate = new InventoryTransaction<TKey>(this, amountDeltas, removed, added);
+        if (!TryPrepareTransaction(candidate, null, out var prepared, out error) || prepared == null)
+        {
+            transaction = null;
+            return false;
+        }
+
+        transaction = prepared;
+        return true;
+    }
+
+    private List<ProposedItemState> CreateProposedContentsFromStackMutationEntries(IReadOnlyList<StackMutationEntry> entries)
+    {
+        var contents = new List<ProposedItemState>();
+        foreach (var entry in entries)
+        {
+            if (entry.Amount <= 0)
+                continue;
+
+            contents.Add(new ProposedItemState(entry.Definition, entry.Amount, CloneMetadataOrNull(entry.Metadata)));
+        }
+
+        return contents;
+    }
+
+    private static InstanceMetadata? CloneMetadataOrNull(InstanceMetadata? metadata)
+    {
+        return metadata != null && !metadata.IsEmpty ? CloneMetadata(metadata) : null;
+    }
+
+    private static bool StackMutationEntriesAreCompatible(StackMutationEntry left, StackMutationEntry right)
+    {
+        if (!ReferenceEquals(left.Definition, right.Definition))
+            return false;
+
+        return MetadataStructurallyEqual(left.Metadata, right.Metadata);
+    }
+
+    private static bool MetadataStructurallyEqual(InstanceMetadata? left, InstanceMetadata? right)
+    {
+        bool leftEmpty = left == null || left.IsEmpty;
+        bool rightEmpty = right == null || right.IsEmpty;
+        if (leftEmpty || rightEmpty)
+            return leftEmpty && rightEmpty;
+
+        return left!.StructuralEquals(right!);
     }
 
     private bool TryValidateProposedContents(
@@ -1904,6 +2080,27 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             requiresFullRefresh);
 
         Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(configurationChanged: new[] { change }));
+    }
+
+    private void ApplyStackParameterMutationTransaction(
+        InventoryTransaction<TKey> transaction,
+        IStackResolver<TKey> previousResolver,
+        IStackResolver<TKey> proposedResolver,
+        string parameterId,
+        object? value)
+    {
+        var change = new InventoryConfigurationChanged<TKey>(
+            InventoryConfigurationChangeKind.StackResolver,
+            parameterId,
+            value,
+            previousResolver,
+            proposedResolver,
+            requiresFullRefresh: false);
+
+        _stackResolver = proposedResolver;
+        var args = ApplyPreparedTransactionCore(transaction, configurationChanged: new[] { change });
+        if (args != null)
+            Changed?.Invoke(this, args);
     }
 
     /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>
@@ -2541,6 +2738,17 @@ public class Inventory<TKey> : IInstanceMetadataOwner
 
     private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)
     {
+        var args = ApplyPreparedTransactionCore(transaction, cleared);
+        if (args != null)
+            Changed?.Invoke(this, args);
+    }
+
+    private InventoryChangedEventArgs<TKey>? ApplyPreparedTransactionCore(
+        InventoryTransaction<TKey> transaction,
+        bool cleared = false,
+        IEnumerable<InventoryConfigurationChanged<TKey>>? configurationChanged = null,
+        bool requiresFullRefresh = false)
+    {
         if (transaction == null)
             throw new ArgumentNullException(nameof(transaction));
         if (transaction.Inventory != this)
@@ -2598,8 +2806,17 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         transaction.MarkApplied();
 
         bool hasChanges = transaction.AmountDeltas.Count > 0 || transaction.Removed.Count > 0 || transaction.Added.Count > 0;
-        if (hasChanges || cleared)
-            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(addedEvents, removedEvents, modifiedEvents, cleared: cleared));
+        bool hasConfigurationChanges = configurationChanged != null && configurationChanged.Any();
+        if (!hasChanges && !cleared && !hasConfigurationChanges)
+            return null;
+
+        return new InventoryChangedEventArgs<TKey>(
+            addedEvents,
+            removedEvents,
+            modifiedEvents,
+            cleared: cleared,
+            configurationChanged: configurationChanged,
+            requiresFullRefresh: requiresFullRefresh);
     }
 
     private readonly struct ModifiedEventCapture
