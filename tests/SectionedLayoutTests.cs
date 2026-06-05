@@ -389,6 +389,33 @@ public class SectionedLayoutTests
     }
 
     [Test]
+    public void SectionedLayout_NonNamespacedMode_AcceptsItemsByRequiredTag()
+    {
+        var weapon = "gear.weapon";
+        var sword = new TaggedDefinition("sword", weapon);
+        var inventory = CreateNonNamespacedInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("weapons", 1, weapon)),
+            new[] { weapon },
+            sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void SectionedLayout_NonNamespacedMode_AcceptsItemsByParentTag()
+    {
+        var sword = new TaggedDefinition("sword", "gear.weapon.sword");
+        var inventory = CreateNonNamespacedInventory(
+            new SectionedLayout<string>(new SectionDefinition<string>("weapons", 1, "gear.weapon")),
+            new[] { "gear.weapon.sword" },
+            sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
+    }
+
+    [Test]
     public void TryMove_MovesToCompatibleEmptySectionSlot()
     {
         var apple = new ItemDefinition<string>("apple");
@@ -661,6 +688,25 @@ public class SectionedLayoutTests
             layout);
 
         foreach (var tag in tags ?? Array.Empty<string>())
+            manager.Catalog.Tags.Define(tag);
+        foreach (var definition in definitions)
+            manager.Registry.Register(definition);
+        manager.Catalog.Freeze();
+        return manager.CreateInventory();
+    }
+
+    private static Inventory<string> CreateNonNamespacedInventory(
+        IInventoryLayout<string> layout,
+        string[] tags,
+        params ItemDefinition<string>[] definitions)
+    {
+        var manager = new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            layout);
+
+        manager.Catalog.Tags.UseNonNamespacedTagsOnly();
+        foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

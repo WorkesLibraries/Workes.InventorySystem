@@ -63,7 +63,7 @@ public class InventoryRuleTests
 
         foreach (var def in definitions)
         {
-            foreach (var tag in def.Tags.All())
+            foreach (var tag in def.Tags)
             {
                 manager.Catalog.Tags.Define(tag);
             }
@@ -127,12 +127,9 @@ public class InventoryRuleTests
         var food = "core:food";
         var sweet = "core:food.sweet";
 
-        var apple = new ItemDefinition<string>("apple");
-        apple.Tags.Add(food);
-        apple.Tags.Add(sweet);
+        var apple = new ItemDefinition<string>("apple", food, sweet);
 
-        var berry = new ItemDefinition<string>("berry");
-        berry.Tags.Add(food);
+        var berry = new ItemDefinition<string>("berry", food);
 
         var rule = new RequireAllTagsRule<string>(food, sweet);
         var inventory = CreateInventoryWithRules(rule, apple, berry);
@@ -152,8 +149,7 @@ public class InventoryRuleTests
         var food = "core:food";
         var healing = "core:effects.healing";
 
-        var apple = new ItemDefinition<string>("apple");
-        apple.Tags.Add(healing);
+        var apple = new ItemDefinition<string>("apple", healing);
 
         var berry = new ItemDefinition<string>("berry");
         // no tags

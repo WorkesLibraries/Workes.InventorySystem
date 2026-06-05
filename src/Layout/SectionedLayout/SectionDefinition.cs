@@ -37,7 +37,7 @@ public sealed class SectionDefinition<TKey>
     /// </summary>
     public IReadOnlyList<TKey> AllowedDefinitionIds { get; }
 
-    internal IReadOnlyList<TagKey> RequiredTagKeys { get; }
+    internal IReadOnlyList<string> RequiredTagIds { get; }
     internal IReadOnlyCollection<TKey> AllowedDefinitionIdSet { get; }
 
     /// <summary>
@@ -69,15 +69,15 @@ public sealed class SectionDefinition<TKey>
             throw new ArgumentOutOfRangeException(nameof(slotCount), "Section slot count must be greater than zero.");
         options ??= new SectionDefinitionOptions<TKey>();
 
-        var keys = options.RequiredTags != null
-            ? options.RequiredTags.Where(t => t != null).Select(TagKey.Parse).ToList()
-            : new List<TagKey>();
+        var tags = options.RequiredTags != null
+            ? options.RequiredTags.Where(t => t != null).ToList()
+            : new List<string>();
         var allowedIds = BuildAllowedDefinitionIds(options);
 
         Id = id;
         SlotCount = slotCount;
-        RequiredTagKeys = keys.AsReadOnly();
-        RequiredTags = keys.Select(tag => tag.Id).ToList().AsReadOnly();
+        RequiredTagIds = tags.AsReadOnly();
+        RequiredTags = tags.AsReadOnly();
         AllowedDefinitionIds = allowedIds.AsReadOnly();
         AllowedDefinitionIdSet = allowedIds.AsReadOnly();
     }

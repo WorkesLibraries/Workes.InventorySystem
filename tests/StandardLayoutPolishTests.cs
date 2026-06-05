@@ -94,6 +94,33 @@ public class StandardLayoutPolishTests
     }
 
     [Test]
+    public void EquipmentLayout_NonNamespacedMode_AcceptsItemsByRequiredTag()
+    {
+        var weapon = "gear.weapon";
+        var sword = new TaggedDefinition("sword", weapon);
+        var inventory = CreateNonNamespacedInventory(
+            new EquipmentLayout<string>(new EquipmentSlot<string>("main-hand", weapon)),
+            new[] { weapon },
+            sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
+    }
+
+    [Test]
+    public void EquipmentLayout_NonNamespacedMode_AcceptsItemsByParentTag()
+    {
+        var sword = new TaggedDefinition("sword", "gear.weapon.sword");
+        var inventory = CreateNonNamespacedInventory(
+            new EquipmentLayout<string>(new EquipmentSlot<string>("main-hand", "gear.weapon")),
+            new[] { "gear.weapon.sword" },
+            sword);
+
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
+    }
+
+    [Test]
     public void EquipmentSlot_OptionsExposeAllowedDefinitionIds()
     {
         var sword = new ItemDefinition<string>("sword");
@@ -353,6 +380,28 @@ public class StandardLayoutPolishTests
             capacityPolicy,
             layout);
 
+        foreach (var tag in tags)
+            manager.Catalog.Tags.Define(tag);
+        manager.Catalog.Attributes.Define<double>(Weight);
+        manager.Catalog.Attributes.Define<int>(FootprintWidth);
+        manager.Catalog.Attributes.Define<int>(FootprintHeight);
+        foreach (var definition in definitions)
+            manager.Registry.Register(definition);
+        manager.Catalog.Freeze();
+        return manager.CreateInventory();
+    }
+
+    private static Inventory<string> CreateNonNamespacedInventory(
+        IInventoryLayout<string> layout,
+        IEnumerable<string> tags,
+        params ItemDefinition<string>[] definitions)
+    {
+        var manager = new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            layout);
+
+        manager.Catalog.Tags.UseNonNamespacedTagsOnly();
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
         manager.Catalog.Attributes.Define<double>(Weight);

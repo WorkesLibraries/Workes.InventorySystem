@@ -10,7 +10,7 @@ namespace Workes.InventorySystem.Rules;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
 {
-    private readonly TagKey[] _tags;
+    private readonly string[] _tagIds;
     /// <inheritdoc />
     public string Id { get; }
 
@@ -24,17 +24,17 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
         if (tagIds == null || tagIds.Length == 0)
             throw new ArgumentException("At least one tag is required.", nameof(tagIds));
 
-        var tags = new TagKey[tagIds.Length];
+        var tags = new string[tagIds.Length];
         for (var i = 0; i < tagIds.Length; i++)
         {
             if (string.IsNullOrWhiteSpace(tagIds[i]))
                 throw new ArgumentException("Required tags cannot contain null.", nameof(tagIds));
 
-            tags[i] = TagKey.Parse(tagIds[i]);
+            tags[i] = tagIds[i];
         }
 
-        var tagsDescription = string.Join(", ", Array.ConvertAll(tags, t => t.ToString()));
-        _tags = tags;
+        var tagsDescription = string.Join(", ", tags);
+        _tagIds = tags;
         Id = $"RequireAnyTag[{tagsDescription}]";
     }
 
@@ -45,13 +45,13 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
         NormalizedInventoryTransaction<TKey> transaction,
         out string? error)
     {
-        var requiredTagsDescription = string.Join(", ", Array.ConvertAll(_tags, t => t.ToString()));
+        var requiredTagsDescription = string.Join(", ", _tagIds);
         foreach (var (definition, _, _) in transaction.Added)
         {
             bool hasAny = false;
-            foreach (var tag in _tags)
+            foreach (var tagId in _tagIds)
             {
-                if (inventory.Catalog.Satisfies(definition, tag))
+                if (inventory.Catalog.Satisfies(definition, tagId))
                 {
                     hasAny = true;
                     break;

@@ -739,13 +739,13 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
 
     private bool CanSectionAccept(Inventory<TKey> inventory, SectionDefinition<TKey> section, ItemDefinition<TKey> definition)
     {
-        var hasTags = section.RequiredTagKeys.Count > 0;
+        var hasTags = section.RequiredTagIds.Count > 0;
         var hasDefinitions = section.AllowedDefinitionIdSet.Count > 0;
 
         if (!hasTags && !hasDefinitions)
             return true;
 
-        if (hasTags && section.RequiredTagKeys.All(tag => inventory.Catalog.Satisfies(definition, tag)))
+        if (hasTags && section.RequiredTagIds.All(tagId => inventory.Catalog.Satisfies(definition, inventory.Catalog.Tags.GetKey(tagId))))
             return true;
 
         if (hasDefinitions && section.AllowedDefinitionIdSet.Contains(definition.Id))

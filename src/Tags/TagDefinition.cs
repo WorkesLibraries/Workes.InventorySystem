@@ -10,8 +10,9 @@ public sealed class TagDefinition
     internal TagDefinition(TagKey key)
     {
         Id = key.Id;
-        Namespace = key.Namespace!;
-        Path = key.Path!;
+        Mode = key.Mode;
+        Namespace = key.Namespace;
+        Path = key.Path;
         Segments = key.Segments;
     }
 
@@ -21,9 +22,14 @@ public sealed class TagDefinition
     public string Id { get; }
 
     /// <summary>
-    /// Gets the namespace portion of the tag id.
+    /// Gets the catalog mode this tag belongs to.
     /// </summary>
-    public string Namespace { get; }
+    public TagCatalogMode Mode { get; }
+
+    /// <summary>
+    /// Gets the namespace portion of the tag id, or <see langword="null"/> for non-namespaced tags.
+    /// </summary>
+    public string? Namespace { get; }
 
     /// <summary>
     /// Gets the path portion of the tag id.

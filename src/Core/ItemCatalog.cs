@@ -135,8 +135,9 @@ public sealed class ItemCatalog<TKey>
     {
         foreach (var schema in Schemas.Schemas)
         {
-            foreach (var tag in schema.DirectTagKeys)
+            foreach (var tagId in schema.DirectTagIds)
             {
+                var tag = Tags.ParseKey(tagId);
                 if (!Tags.Contains(tag))
                     throw new InvalidOperationException($"Tag '{tag}' is used by schema '{schema.Id}' but is not declared in the item catalog tag catalog.");
             }
@@ -144,8 +145,9 @@ public sealed class ItemCatalog<TKey>
 
         foreach (var definition in Registry.Definitions)
         {
-            foreach (var tag in definition.Tags.AllKeys())
+            foreach (var tagId in definition.DirectTagIds)
             {
+                var tag = Tags.ParseKey(tagId);
                 if (!Tags.Contains(tag))
                     throw new InvalidOperationException($"Tag '{tag}' is used by definition '{definition.Id}' but is not declared in the item catalog tag catalog.");
             }
@@ -171,10 +173,10 @@ public sealed class ItemCatalog<TKey>
 
         var resolved = new Dictionary<TagKey, ResolvedTag>();
 
-        foreach (var tag in definition.Schema.GetResolvedDirectSchemaTags())
+        foreach (var tag in definition.Schema.GetResolvedDirectSchemaTags(Tags))
             AddWithHierarchy(resolved, tag, TagSource.Schema);
 
-        foreach (var tag in definition.Tags.AllKeys())
+        foreach (var tag in definition.DirectTagKeys(Tags))
             AddWithHierarchy(resolved, tag, TagSource.Definition);
 
         return new List<ResolvedTag>(resolved.Values);

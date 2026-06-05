@@ -4,11 +4,21 @@ using System.Collections.Generic;
 namespace Workes.InventorySystem.Tags;
 
 /// <summary>
-/// Declares canonical namespaced tags and their generated parent hierarchy tags.
+/// Declares canonical tags and their generated parent hierarchy tags.
 /// </summary>
 public sealed class TagCatalog
 {
     private readonly Dictionary<string, TagKey> _tags = new(StringComparer.Ordinal);
+    private bool _modeExplicitlySelected;
+
+    /// <summary>
+    /// Gets whether this catalog accepts namespaced or non-namespaced tag ids.
+    /// </summary>
+    /// <remarks>
+    /// New tag catalogs default to namespaced ids. Call <see cref="UseNonNamespacedTagsOnly"/> before defining tags
+    /// to use non-namespaced dot-hierarchy ids instead.
+    /// </remarks>
+    public TagCatalogMode Mode { get; private set; } = TagCatalogMode.Namespaced;
 
     /// <summary>
     /// Gets all tags declared in the catalog, including generated parent tags.
@@ -23,22 +33,42 @@ public sealed class TagCatalog
     }
 
     /// <summary>
-    /// Defines a namespaced tag from its string identifier.
+    /// Configures this catalog to accept only namespaced tag ids.
     /// </summary>
-    /// <param name="id">A tag id in the form <c>namespace:path.segment</c>.</param>
+    /// <remarks>This is the default mode. The mode must be selected before any tags are defined.</remarks>
+    /// <exception cref="InvalidOperationException">Tags are already defined or the catalog is configured for non-namespaced tags.</exception>
+    public void UseNamespacedTagsOnly()
+    {
+        SelectMode(TagCatalogMode.Namespaced);
+    }
+
+    /// <summary>
+    /// Configures this catalog to accept only non-namespaced tag ids.
+    /// </summary>
+    /// <remarks>The mode must be selected before any tags are defined. Non-namespaced tags can still use dot hierarchy.</remarks>
+    /// <exception cref="InvalidOperationException">Tags are already defined or the catalog is configured for namespaced tags.</exception>
+    public void UseNonNamespacedTagsOnly()
+    {
+        SelectMode(TagCatalogMode.NonNamespaced);
+    }
+
+    /// <summary>
+    /// Defines a tag from its string identifier using the current catalog mode.
+    /// </summary>
+    /// <param name="id">A tag id valid for the catalog's current mode.</param>
     /// <returns>The canonical catalog tag.</returns>
-    /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is not valid for the current catalog mode.</exception>
     public TagDefinition Define(string id)
     {
-        return new TagDefinition(DefineKey(TagKey.Parse(id)));
+        return new TagDefinition(DefineKey(ParseKey(id)));
     }
 
     internal TagKey DefineKey(TagKey tag)
     {
         if (tag == null)
             throw new ArgumentNullException(nameof(tag));
-        if (!tag.IsNamespaced)
-            throw new ArgumentException("Catalog tags must use namespaced hierarchical ids.", nameof(tag));
+        if (tag.Mode != Mode)
+            throw new ArgumentException("Catalog tag mode does not match this tag catalog.", nameof(tag));
 
         var canonical = AddCanonical(tag);
         foreach (var parent in GetHierarchy(tag))
@@ -110,10 +140,15 @@ public sealed class TagCatalog
         return tag;
     }
 
+    internal TagKey ParseKey(string id)
+    {
+        return TagKey.Parse(id, Mode);
+    }
+
     internal bool TryGetKey(string id, out TagKey? tag)
     {
         tag = null;
-        if (!TagKey.TryParse(id, out var parsed) || parsed == null)
+        if (!TagKey.TryParse(id, Mode, out var parsed) || parsed == null)
             return false;
 
         return TryGetKey(parsed, out tag);
@@ -148,13 +183,16 @@ public sealed class TagCatalog
             throw new ArgumentNullException(nameof(tag));
 
         var parents = new List<TagKey>();
-        if (!tag.IsNamespaced || tag.Namespace == null || tag.Segments.Count <= 1)
+        if (tag.Segments.Count <= 1)
             return parents;
 
         for (int count = tag.Segments.Count - 1; count >= 1; count--)
         {
             var path = string.Join(".", CopySegments(tag.Segments, count));
-            parents.Add(TagKey.Parse(tag.Namespace + ":" + path));
+            var id = tag.IsNamespaced
+                ? tag.Namespace + ":" + path
+                : path;
+            parents.Add(TagKey.Parse(id, Mode));
         }
 
         return parents;
@@ -175,5 +213,25 @@ public sealed class TagCatalog
 
         _tags.Add(tag.Id, tag);
         return tag;
+    }
+
+    private void SelectMode(TagCatalogMode mode)
+    {
+        if (_tags.Count > 0)
+            throw new InvalidOperationException("Tag catalog mode must be selected before tags are defined.");
+
+        if (_modeExplicitlySelected)
+        {
+            if (Mode == mode)
+                return;
+
+            var configured = Mode == TagCatalogMode.Namespaced
+                ? "namespaced"
+                : "non-namespaced";
+            throw new InvalidOperationException($"Tag catalog is already configured for {configured} tags.");
+        }
+
+        Mode = mode;
+        _modeExplicitlySelected = true;
     }
 }

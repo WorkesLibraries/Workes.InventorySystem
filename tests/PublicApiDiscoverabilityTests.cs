@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
 using NUnit.Framework;
@@ -6,6 +7,7 @@ using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Stacking;
+using Workes.InventorySystem.Tags;
 
 namespace Workes.InventorySystem.Tests;
 
@@ -59,6 +61,35 @@ public class PublicApiDiscoverabilityTests
         Assert.That(type.GetMethod("RegisterAuto", BindingFlags.Public | BindingFlags.Instance), Is.Null);
         Assert.That(type.GetProperty("AutoIncrementEnabled", BindingFlags.Public | BindingFlags.Instance), Is.Null);
         Assert.That(type.GetProperty("AutoIncrementMode", BindingFlags.Public | BindingFlags.Instance), Is.Null);
+    }
+
+    [Test]
+    public void TagKey_IsNotPublicApi()
+    {
+        var type = typeof(TagCatalog).Assembly.GetType("Workes.InventorySystem.Tags.TagKey");
+
+        Assert.That(type, Is.Not.Null);
+        Assert.That(type!.IsPublic, Is.False);
+    }
+
+    [Test]
+    public void TagContainer_IsNotPublicApi()
+    {
+        var type = typeof(TagCatalog).Assembly.GetType("Workes.InventorySystem.Tags.TagContainer");
+
+        Assert.That(type, Is.Not.Null);
+        Assert.That(type!.IsPublic, Is.False);
+        Assert.That(typeof(ItemDefinition<string>).GetProperty("Tags")!.PropertyType, Is.EqualTo(typeof(IReadOnlyCollection<string>)));
+    }
+
+    [Test]
+    public void TagCatalog_ExposesModeSelectionApis()
+    {
+        var type = typeof(TagCatalog);
+
+        Assert.That(type.GetProperty(nameof(TagCatalog.Mode), BindingFlags.Public | BindingFlags.Instance), Is.Not.Null);
+        Assert.That(type.GetMethod(nameof(TagCatalog.UseNamespacedTagsOnly), BindingFlags.Public | BindingFlags.Instance), Is.Not.Null);
+        Assert.That(type.GetMethod(nameof(TagCatalog.UseNonNamespacedTagsOnly), BindingFlags.Public | BindingFlags.Instance), Is.Not.Null);
     }
 
     private static void AssertHidden(Type type, string methodName)

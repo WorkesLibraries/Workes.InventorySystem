@@ -235,7 +235,25 @@ public class TagFocusedItemUniverseExampleTests
         Assert.That(toolBeltResults[1].accepted, Is.True);
         Assert.That(toolBeltResults[2].accepted, Is.False);
 
-        var artifactPath = WriteExampleOutput(catalog, definitions, ritualResults, toolBeltResults);
+        var flatCatalog = new ItemCatalog<string>();
+        flatCatalog.Tags.UseNonNamespacedTagsOnly();
+        flatCatalog.Tags.Define("equipment.tools.knife");
+        var flatKnife = new ItemDefinition<string>("flat_knife", "equipment.tools.knife");
+        flatCatalog.Registry.Register(flatKnife);
+        flatCatalog.Freeze();
+        var flatSatisfiesTools = flatCatalog.Satisfies(flatKnife, "equipment.tools");
+        var flatSatisfiesEquipment = flatCatalog.Satisfies(flatKnife, "equipment");
+
+        Assert.That(flatSatisfiesTools, Is.True);
+        Assert.That(flatSatisfiesEquipment, Is.True);
+
+        var artifactPath = WriteExampleOutput(
+            catalog,
+            definitions,
+            ritualResults,
+            toolBeltResults,
+            flatSatisfiesTools,
+            flatSatisfiesEquipment);
         TestContext.Out.WriteLine("Item universe foundation tags example output: " + artifactPath);
     }
 
@@ -287,7 +305,9 @@ public class TagFocusedItemUniverseExampleTests
         ItemCatalog<string> catalog,
         IReadOnlyCollection<ItemDefinition<string>> definitions,
         IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, string? error)> ritualResults,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, string? error)> toolBeltResults)
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, string? error)> toolBeltResults,
+        bool flatSatisfiesTools,
+        bool flatSatisfiesEquipment)
     {
         var outputDirectory = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "ItemUniverseFoundation");
         Directory.CreateDirectory(outputDirectory);
@@ -350,6 +370,12 @@ public class TagFocusedItemUniverseExampleTests
             builder.AppendLine();
         }
 
+        builder.AppendLine();
+        builder.AppendLine("Non-Namespaced Tags");
+        builder.AppendLine("-------------------");
+        builder.AppendLine("flat_knife satisfies equipment.tools: " + (flatSatisfiesTools ? "yes" : "no"));
+        builder.AppendLine("flat_knife satisfies equipment: " + (flatSatisfiesEquipment ? "yes" : "no"));
+
         File.WriteAllText(outputPath, builder.ToString());
         return outputPath;
     }
@@ -380,7 +406,7 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine("  Schema: " + definition.Schema.Id);
         builder.AppendLine("  Direct definition tags:");
 
-        var directTags = definition.Tags.All().OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var directTags = definition.Tags.OrderBy(t => t, StringComparer.Ordinal).ToList();
         if (directTags.Count == 0)
         {
             builder.AppendLine("    none");

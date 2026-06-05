@@ -16,7 +16,7 @@ namespace Workes.InventorySystem.Core;
 public sealed class ItemSchema<TKey>
 {
     private readonly Dictionary<object, SchemaAttribute> _attributes = new();
-    private readonly List<TagKey> _directTags = new();
+    private readonly List<string> _directTags = new();
 
     /// <summary>
     /// Gets the default schema used when no explicit schema is supplied.
@@ -50,7 +50,7 @@ public sealed class ItemSchema<TKey>
     /// <summary>
     /// Gets tags declared directly on this schema.
     /// </summary>
-    public IReadOnlyCollection<string> DirectTags => _directTags.ConvertAll(tag => tag.Id).AsReadOnly();
+    public IReadOnlyCollection<string> DirectTags => _directTags.AsReadOnly();
 
     /// <summary>
     /// Gets attributes required directly by this schema.
@@ -154,19 +154,27 @@ public sealed class ItemSchema<TKey>
     /// </summary>
     /// <param name="id">The tag id to add.</param>
     /// <returns>This schema for fluent configuration.</returns>
-    /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
     /// <exception cref="InvalidOperationException">The schema is frozen.</exception>
+    /// <remarks>Tag ids are validated against the owning catalog's tag mode when the catalog is frozen.</remarks>
     public ItemSchema<TKey> AddTag(string id)
     {
-        var tag = TagKey.Parse(id);
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("Tag id cannot be null or empty.", nameof(id));
 
         EnsureMutable();
-        if (!_directTags.Contains(tag))
-            _directTags.Add(tag);
+        if (!ContainsDirectTag(id))
+            _directTags.Add(id);
         return this;
     }
 
-    internal IEnumerable<TagKey> DirectTagKeys => _directTags;
+    internal IEnumerable<string> DirectTagIds => _directTags;
+
+    internal IEnumerable<TagKey> DirectTagKeys(TagCatalog catalog)
+    {
+        foreach (var tag in _directTags)
+            yield return catalog.GetKey(tag);
+    }
 
     internal IEnumerable<object> GetRequiredAttributeKeys()
     {
@@ -203,16 +211,16 @@ public sealed class ItemSchema<TKey>
             yield return attribute;
     }
 
-    internal IEnumerable<TagKey> GetResolvedDirectSchemaTags()
+    internal IEnumerable<TagKey> GetResolvedDirectSchemaTags(TagCatalog catalog)
     {
         if (Parent != null)
         {
-            foreach (var tag in Parent.GetResolvedDirectSchemaTags())
+            foreach (var tag in Parent.GetResolvedDirectSchemaTags(catalog))
                 yield return tag;
         }
 
         foreach (var tag in _directTags)
-            yield return tag;
+            yield return catalog.GetKey(tag);
     }
 
     internal void Freeze()
@@ -249,6 +257,17 @@ public sealed class ItemSchema<TKey>
     {
         if (Frozen)
             throw new InvalidOperationException($"Schema '{Id}' is frozen and cannot be modified.");
+    }
+
+    private bool ContainsDirectTag(string id)
+    {
+        foreach (var tag in _directTags)
+        {
+            if (string.Equals(tag, id, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     private void ValidateParentOwnership(ItemSchema<TKey> parent)

@@ -558,13 +558,13 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     private bool CanSlotAccept(Inventory<TKey> inventory, EquipmentSlot<TKey> slot, ItemDefinition<TKey> definition)
     {
-        var hasTags = slot.RequiredTagKeys.Count > 0;
+        var hasTags = slot.RequiredTagIds.Count > 0;
         var hasDefinitions = slot.AllowedDefinitionIdSet.Count > 0;
 
         if (!hasTags && !hasDefinitions)
             return true;
 
-        if (hasTags && slot.RequiredTagKeys.All(tag => inventory.Catalog.Satisfies(definition, tag)))
+        if (hasTags && slot.RequiredTagIds.All(tagId => inventory.Catalog.Satisfies(definition, inventory.Catalog.Tags.GetKey(tagId))))
             return true;
 
         if (hasDefinitions && slot.AllowedDefinitionIdSet.Contains(definition.Id))

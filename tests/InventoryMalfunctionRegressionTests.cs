@@ -220,15 +220,13 @@ public class InventoryMalfunctionRegressionTests
     }
 
     [Test]
-    public void TagContainer_ResolvesEquivalentTags_ById()
+    public void ItemDefinitionTags_ResolveEquivalentTags_ById()
     {
         var a = "core:food";
         var b = "core:food";
-        var tags = new TagContainer();
+        var definition = new ItemDefinition<string>("apple", a);
 
-        tags.Add(a);
-
-        Assert.That(tags.Has(b), Is.True);
+        Assert.That(definition.HasTag(b), Is.True);
     }
 
     [Test]

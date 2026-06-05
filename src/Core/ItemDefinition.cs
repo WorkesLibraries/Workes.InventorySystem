@@ -18,6 +18,7 @@ namespace Workes.InventorySystem.Core;
 public class ItemDefinition<TKey>
 {
     private readonly AttributeContainer _attributes = new();
+    private readonly TagContainer _tags = new();
 
     /// <summary>
     /// Gets the identifier for this item type.
@@ -40,9 +41,12 @@ public class ItemDefinition<TKey>
     public IAttributeView Attributes => _attributes;
 
     /// <summary>
-    /// Gets the tags declared directly on this item definition.
+    /// Gets the direct tag ids declared on this item definition.
     /// </summary>
-    public TagContainer Tags { get; } = new();
+    /// <remarks>
+    /// Tag ids are validated against the owning catalog's tag mode when the catalog is frozen.
+    /// </remarks>
+    public IReadOnlyCollection<string> Tags => _tags.All().ToList().AsReadOnly();
 
     /// <summary>
     /// Creates an item definition using the default schema.
@@ -132,10 +136,11 @@ public class ItemDefinition<TKey>
     /// Defines a direct tag for this item definition.
     /// </summary>
     /// <param name="id">The tag id to add.</param>
-    /// <exception cref="ArgumentException"><paramref name="id"/> is not a valid namespaced tag id.</exception>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
+    /// <remarks>Tag ids are validated against the owning catalog's tag mode when the catalog is frozen.</remarks>
     protected void DefineTag(string id)
     {
-        Tags.Add(id);
+        _tags.Add(id);
     }
 
     /// <summary>
@@ -156,8 +161,16 @@ public class ItemDefinition<TKey>
     /// </summary>
     /// <param name="id">The tag id to search for.</param>
     /// <returns><see langword="true"/> when the direct tag is present; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>This checks direct definition tags only. Use <see cref="ItemCatalog{TKey}.Satisfies(ItemDefinition{TKey}, string)"/> for catalog-resolved tag membership.</remarks>
     public bool HasTag(string id)
     {
-        return Tags.Has(id);
+        return _tags.Has(id);
+    }
+
+    internal IEnumerable<string> DirectTagIds => _tags.All();
+
+    internal IEnumerable<TagKey> DirectTagKeys(TagCatalog catalog)
+    {
+        return _tags.AllKeys(catalog);
     }
 }

@@ -40,7 +40,7 @@ public class SimpleItemUniverseExampleTests
 
         Assert.That(definitions.All(d => d.Schema == ItemSchema<string>.Default), Is.True);
         Assert.That(definitions.All(d => !d.Attributes.GetAllKeys().Any()), Is.True);
-        Assert.That(definitions.All(d => !d.Tags.All().Any()), Is.True);
+        Assert.That(definitions.All(d => !d.Tags.Any()), Is.True);
 
         var artifactPath = WriteExampleOutput(definitions);
         TestContext.Out.WriteLine("Item universe foundation simple example output: " + artifactPath);

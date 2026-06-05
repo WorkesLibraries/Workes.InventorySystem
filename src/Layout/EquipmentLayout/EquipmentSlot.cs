@@ -32,7 +32,7 @@ public sealed class EquipmentSlot<TKey>
     /// </summary>
     public IReadOnlyList<TKey> AllowedDefinitionIds { get; }
 
-    internal IReadOnlyList<TagKey> RequiredTagKeys { get; }
+    internal IReadOnlyList<string> RequiredTagIds { get; }
     internal IReadOnlyCollection<TKey> AllowedDefinitionIdSet { get; }
 
     /// <summary>
@@ -58,14 +58,14 @@ public sealed class EquipmentSlot<TKey>
             throw new ArgumentException("Equipment slot id cannot be null or empty.", nameof(id));
         options ??= new EquipmentSlotOptions<TKey>();
 
-        var keys = options.RequiredTags != null
-            ? options.RequiredTags.Where(t => t != null).Select(TagKey.Parse).ToList()
-            : new List<TagKey>();
+        var tags = options.RequiredTags != null
+            ? options.RequiredTags.Where(t => t != null).ToList()
+            : new List<string>();
         var allowedIds = BuildAllowedDefinitionIds(options);
 
         Id = id;
-        RequiredTagKeys = keys.AsReadOnly();
-        RequiredTags = keys.Select(tag => tag.Id).ToList().AsReadOnly();
+        RequiredTagIds = tags.AsReadOnly();
+        RequiredTags = tags.AsReadOnly();
         AllowedDefinitionIds = allowedIds.AsReadOnly();
         AllowedDefinitionIdSet = allowedIds.AsReadOnly();
     }

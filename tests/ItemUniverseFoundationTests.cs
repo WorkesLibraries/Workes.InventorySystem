@@ -159,9 +159,10 @@ public class ItemUniverseFoundationTests
                 .RequireAttribute<int>(ChopPower, inherited: true)
                 .AddTag(AxeTag);
 
-        public AxeDefinition(string id, int weight, int durability, int chopPower)
+        public AxeDefinition(string id, int weight, int durability, int chopPower, params string[] tags)
             : base(id, AxeSchema, weight, durability)
         {
+            DefineTags(tags);
             DefineAttribute(ChopPower, chopPower);
         }
     }
@@ -972,6 +973,58 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
+    public void TagCatalog_DefaultMode_IsNamespaced()
+    {
+        var catalog = new TagCatalog();
+
+        Assert.That(catalog.Mode, Is.EqualTo(TagCatalogMode.Namespaced));
+    }
+
+    [Test]
+    public void TagCatalog_UseNamespacedTagsOnly_IsIdempotentBeforeTags()
+    {
+        var catalog = new TagCatalog();
+
+        catalog.UseNamespacedTagsOnly();
+        catalog.UseNamespacedTagsOnly();
+
+        Assert.That(catalog.Mode, Is.EqualTo(TagCatalogMode.Namespaced));
+    }
+
+    [Test]
+    public void TagCatalog_UseNonNamespacedTagsOnly_SwitchesModeBeforeTags()
+    {
+        var catalog = new TagCatalog();
+
+        catalog.UseNonNamespacedTagsOnly();
+
+        Assert.That(catalog.Mode, Is.EqualTo(TagCatalogMode.NonNamespaced));
+    }
+
+    [Test]
+    public void TagCatalog_UseOppositeModeAfterExplicitMode_Throws()
+    {
+        var namespaced = new TagCatalog();
+        namespaced.UseNamespacedTagsOnly();
+
+        var nonNamespaced = new TagCatalog();
+        nonNamespaced.UseNonNamespacedTagsOnly();
+
+        Assert.Throws<InvalidOperationException>(() => namespaced.UseNonNamespacedTagsOnly());
+        Assert.Throws<InvalidOperationException>(() => nonNamespaced.UseNamespacedTagsOnly());
+    }
+
+    [Test]
+    public void TagCatalog_UseModeAfterTagsDefined_Throws()
+    {
+        var catalog = new TagCatalog();
+        catalog.Define("core:food");
+
+        Assert.Throws<InvalidOperationException>(() => catalog.UseNamespacedTagsOnly());
+        Assert.Throws<InvalidOperationException>(() => catalog.UseNonNamespacedTagsOnly());
+    }
+
+    [Test]
     public void TagCatalog_Define_ReturnsNamespacedTagDefinition()
     {
         var catalog = new TagCatalog();
@@ -979,12 +1032,81 @@ public class ItemUniverseFoundationTests
         var tag = catalog.Define("core:equipment.tools.axe");
 
         Assert.That(tag.Id, Is.EqualTo("core:equipment.tools.axe"));
+        Assert.That(tag.Mode, Is.EqualTo(TagCatalogMode.Namespaced));
         Assert.That(tag.Namespace, Is.EqualTo("core"));
         Assert.That(tag.Path, Is.EqualTo("equipment.tools.axe"));
         Assert.That(tag.Segments, Is.EqualTo(new[] { "equipment", "tools", "axe" }));
         Assert.Throws<ArgumentException>(() => catalog.Define("Food"));
         Assert.Throws<ArgumentException>(() => catalog.Define("core:"));
         Assert.Throws<ArgumentException>(() => catalog.Define("core:equipment..axe"));
+    }
+
+    [Test]
+    public void TagCatalog_NonNamespacedMode_DefinesFlatTag()
+    {
+        var catalog = new TagCatalog();
+        catalog.UseNonNamespacedTagsOnly();
+
+        var tag = catalog.Define("food");
+
+        Assert.That(tag.Id, Is.EqualTo("food"));
+        Assert.That(tag.Mode, Is.EqualTo(TagCatalogMode.NonNamespaced));
+        Assert.That(tag.Namespace, Is.Null);
+        Assert.That(tag.Path, Is.EqualTo("food"));
+        Assert.That(tag.Segments, Is.EqualTo(new[] { "food" }));
+    }
+
+    [Test]
+    public void TagCatalog_NonNamespacedMode_DefinesDotHierarchyParents()
+    {
+        var catalog = new TagCatalog();
+        catalog.UseNonNamespacedTagsOnly();
+
+        catalog.Define("equipment.tools.axe");
+
+        Assert.That(catalog.Contains("equipment.tools.axe"), Is.True);
+        Assert.That(catalog.Contains("equipment.tools"), Is.True);
+        Assert.That(catalog.Contains("equipment"), Is.True);
+    }
+
+    [Test]
+    public void TagCatalog_NonNamespacedMode_RejectsNamespacedTags()
+    {
+        var catalog = new TagCatalog();
+        catalog.UseNonNamespacedTagsOnly();
+
+        Assert.Throws<ArgumentException>(() => catalog.Define("core:food"));
+    }
+
+    [Test]
+    public void TagCatalog_NamespacedMode_RejectsNonNamespacedTags()
+    {
+        var catalog = new TagCatalog();
+
+        Assert.Throws<ArgumentException>(() => catalog.Define("consumables.food"));
+    }
+
+    [Test]
+    public void TagCatalog_NonNamespacedMode_RejectsInvalidFlatTags()
+    {
+        var catalog = new TagCatalog();
+        catalog.UseNonNamespacedTagsOnly();
+
+        Assert.Throws<ArgumentException>(() => catalog.Define("equipment..tools"));
+        Assert.Throws<ArgumentException>(() => catalog.Define("equipment tools"));
+        Assert.Throws<ArgumentException>(() => catalog.Define("equipment/tools"));
+    }
+
+    [Test]
+    public void TagCatalog_NonNamespacedMode_GetHierarchy_ReturnsDotParents()
+    {
+        var catalog = new TagCatalog();
+        catalog.UseNonNamespacedTagsOnly();
+        catalog.Define("equipment.tools.axe");
+
+        var hierarchy = catalog.GetHierarchy("equipment.tools.axe").Select(t => t.Id).ToArray();
+
+        Assert.That(hierarchy, Is.EqualTo(new[] { "equipment.tools", "equipment" }));
     }
 
     [Test]
@@ -1040,6 +1162,72 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
+    public void CatalogFreeze_NamespacedMode_RejectsNonNamespacedSchemaTag()
+    {
+        var schema = ItemSchema<string>.Create("flat-schema-tag").AddTag("food");
+        var definition = SchemaTagDefinition.Create("apple", schema);
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.Define("core:food");
+
+        catalog.Registry.Register(definition);
+
+        Assert.Throws<ArgumentException>(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_NonNamespacedMode_AllowsNonNamespacedSchemaTag()
+    {
+        var schema = ItemSchema<string>.Create("flat-schema-tag").AddTag("food.fruit");
+        var definition = SchemaTagDefinition.Create("apple", schema);
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("food.fruit");
+
+        catalog.Registry.Register(definition);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_NonNamespacedMode_RejectsNamespacedSchemaTag()
+    {
+        var schema = ItemSchema<string>.Create("namespaced-schema-tag").AddTag("core:food");
+        var definition = SchemaTagDefinition.Create("apple", schema);
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("food");
+
+        catalog.Registry.Register(definition);
+
+        Assert.Throws<ArgumentException>(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_NonNamespacedMode_AllowsNonNamespacedDefinitionTag()
+    {
+        var definition = new ItemDefinition<string>("apple", "food.fruit");
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("food.fruit");
+
+        catalog.Registry.Register(definition);
+
+        Assert.DoesNotThrow(() => catalog.Freeze());
+    }
+
+    [Test]
+    public void CatalogFreeze_NonNamespacedMode_RejectsUndeclaredDefinitionTag()
+    {
+        var definition = new ItemDefinition<string>("apple", "food.fruit");
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+
+        catalog.Registry.Register(definition);
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Freeze());
+    }
+
+    [Test]
     public void CatalogFreeze_FailsWhenSchemaTagIsNotDeclared()
     {
         var schema = ItemSchema<string>.Create("undeclared-schema-tag")
@@ -1064,9 +1252,11 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void DefinitionTagAuthoring_RejectsFlatTagId()
+    public void DefinitionTagAuthoring_DefersModeValidationToCatalogFreeze()
     {
-        Assert.Throws<ArgumentException>(() => new ItemDefinition<string>("food", "Food"));
+        var definition = new ItemDefinition<string>("food", "Food");
+
+        Assert.That(definition.Tags, Is.EqualTo(new[] { "Food" }));
     }
 
     [Test]
@@ -1100,9 +1290,8 @@ public class ItemUniverseFoundationTests
     [Test]
     public void CatalogResolvedTags_IncludeSchemaDefinitionAndGeneratedParentTags()
     {
-        var definition = new AxeDefinition("obsidian-axe", weight: 5, durability: 10, chopPower: 20);
         var material = "c:materials.obsidian";
-        definition.Tags.Add(material);
+        var definition = new AxeDefinition("obsidian-axe", weight: 5, durability: 10, chopPower: 20, material);
         var catalog = new ItemCatalog<string>();
 
         DefineAttributes(catalog);
@@ -1121,6 +1310,50 @@ public class ItemUniverseFoundationTests
         var resolved = catalog.ResolveTags(definition);
         Assert.That(resolved.Any(t => t.Id.Equals(material) && t.Source == TagSource.Definition), Is.True);
         Assert.That(resolved.Any(t => t.Id.Equals("core:equipment.tools") && t.Source == TagSource.GeneratedParent), Is.True);
+    }
+
+    [Test]
+    public void CatalogResolveTags_NonNamespacedMode_ReturnsDirectAndGeneratedParentTags()
+    {
+        var definition = new ItemDefinition<string>("axe", "equipment.tools.axe");
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("equipment.tools.axe");
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        var resolved = catalog.ResolveTags(definition);
+
+        Assert.That(resolved.Any(t => t.Id == "equipment.tools.axe" && t.Source == TagSource.Definition), Is.True);
+        Assert.That(resolved.Any(t => t.Id == "equipment.tools" && t.Source == TagSource.GeneratedParent), Is.True);
+        Assert.That(resolved.Any(t => t.Id == "equipment" && t.Source == TagSource.GeneratedParent), Is.True);
+    }
+
+    [Test]
+    public void CatalogSatisfies_NonNamespacedMode_UsesGeneratedParents()
+    {
+        var definition = new ItemDefinition<string>("axe", "equipment.tools.axe");
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("equipment.tools.axe");
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        Assert.That(catalog.Satisfies(definition, "equipment.tools.axe"), Is.True);
+        Assert.That(catalog.Satisfies(definition, "equipment.tools"), Is.True);
+        Assert.That(catalog.Satisfies(definition, "equipment"), Is.True);
+    }
+
+    [Test]
+    public void CatalogSatisfies_NamespacedMode_DoesNotAcceptFlatIds()
+    {
+        var definition = new ItemDefinition<string>("axe", "core:equipment.tools.axe");
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.Define("core:equipment.tools.axe");
+        catalog.Registry.Register(definition);
+        catalog.Freeze();
+
+        Assert.That(catalog.Satisfies(definition, "equipment.tools.axe"), Is.False);
     }
 
     [Test]

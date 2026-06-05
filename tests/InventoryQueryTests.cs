@@ -138,6 +138,27 @@ public class InventoryQueryTests
     }
 
     [Test]
+    public void FindByTag_NonNamespacedMode_UsesDotHierarchy()
+    {
+        var fruit = "food.ingredient.fruit";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define(fruit);
+        var apple = new ItemDefinition<string>("apple", fruit);
+        var stone = new ItemDefinition<string>("stone");
+        catalog.Registry.Register(apple);
+        catalog.Registry.Register(stone);
+        catalog.Freeze();
+        var inventory = CreateManager(catalog).CreateInventory();
+
+        inventory.TryAdd(apple, out _, 2);
+        inventory.TryAdd(stone, out _, 1);
+
+        Assert.That(inventory.FindByTag("food.ingredient").Single().Definition, Is.SameAs(apple));
+        Assert.That(inventory.FindByTag("food").Single().Definition, Is.SameAs(apple));
+    }
+
+    [Test]
     public void CountByTag_SumsResolvedTagMatches()
     {
         var fruit = "food:ingredient.fruit";
@@ -155,6 +176,26 @@ public class InventoryQueryTests
         inventory.TryAdd(berry, out _, 2);
 
         Assert.That(inventory.CountByTag(ingredient), Is.EqualTo(5));
+    }
+
+    [Test]
+    public void CountByTag_NonNamespacedMode_UsesDotHierarchy()
+    {
+        var fruit = "food.ingredient.fruit";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define(fruit);
+        var apple = new ItemDefinition<string>("apple", fruit);
+        var berry = new ItemDefinition<string>("berry", fruit);
+        catalog.Registry.Register(apple);
+        catalog.Registry.Register(berry);
+        catalog.Freeze();
+        var inventory = CreateManager(catalog).CreateInventory();
+
+        inventory.TryAdd(apple, out _, 3);
+        inventory.TryAdd(berry, out _, 2);
+
+        Assert.That(inventory.CountByTag("food.ingredient"), Is.EqualTo(5));
     }
 
     [Test]
@@ -178,6 +219,40 @@ public class InventoryQueryTests
 
         Assert.That(inventory.ContainsAllTags(ingredient, fruit), Is.True);
         Assert.That(inventory.ContainsAllTags(ingredient, wood), Is.False);
+    }
+
+    [Test]
+    public void ContainsAllTags_NonNamespacedMode_UsesDotHierarchy()
+    {
+        var fruit = "food.ingredient.fruit";
+        var fresh = "state.fresh";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define(fruit);
+        catalog.Tags.Define(fresh);
+        var apple = new ItemDefinition<string>("apple", fruit, fresh);
+        catalog.Registry.Register(apple);
+        catalog.Freeze();
+        var inventory = CreateManager(catalog).CreateInventory();
+
+        inventory.TryAdd(apple, out _, 1);
+
+        Assert.That(inventory.ContainsAllTags("food.ingredient", "state"), Is.True);
+    }
+
+    [Test]
+    public void FindByTag_NamespacedMode_DoesNotMatchFlatTag()
+    {
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.Define("core:food.fruit");
+        var apple = new ItemDefinition<string>("apple", "core:food.fruit");
+        catalog.Registry.Register(apple);
+        catalog.Freeze();
+        var inventory = CreateManager(catalog).CreateInventory();
+
+        inventory.TryAdd(apple, out _, 1);
+
+        Assert.That(inventory.FindByTag("food.fruit"), Is.Empty);
     }
 
     [Test]

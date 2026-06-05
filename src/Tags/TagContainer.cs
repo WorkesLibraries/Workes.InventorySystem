@@ -4,17 +4,20 @@ namespace Workes.InventorySystem.Tags;
 /// <summary>
 /// Stores the tags declared for an item definition.
 /// </summary>
-public class TagContainer
+internal sealed class TagContainer
 {
-    private readonly HashSet<TagKey> _tags = new();
+    private readonly HashSet<string> _tags = new(System.StringComparer.Ordinal);
 
     /// <summary>
     /// Adds a tag to the container.
     /// </summary>
     /// <param name="id">The tag id to add.</param>
-    public void Add(string id)
+    internal void Add(string id)
     {
-        _tags.Add(TagKey.Parse(id));
+        if (string.IsNullOrWhiteSpace(id))
+            throw new System.ArgumentException("Tag id cannot be null or empty.", nameof(id));
+
+        _tags.Add(id);
     }
 
     /// <summary>
@@ -22,30 +25,24 @@ public class TagContainer
     /// </summary>
     /// <param name="id">The tag id to search for.</param>
     /// <returns><see langword="true"/> when the tag is present; otherwise, <see langword="false"/>.</returns>
-    public bool Has(string id)
+    internal bool Has(string id)
     {
-        return _tags.Contains(TagKey.Parse(id));
+        return _tags.Contains(id);
     }
 
     /// <summary>
     /// Returns all tags in the container.
     /// </summary>
     /// <returns>The stored tags.</returns>
-    public IEnumerable<string> All()
+    internal IEnumerable<string> All()
     {
         foreach (var tag in _tags)
-            yield return tag.Id;
+            yield return tag;
     }
 
-    internal void Add(TagKey tag)
+    internal IEnumerable<TagKey> AllKeys(TagCatalog catalog)
     {
-        _tags.Add(tag);
+        foreach (var tag in _tags)
+            yield return catalog.GetKey(tag);
     }
-
-    internal bool Has(TagKey tag)
-    {
-        return _tags.Contains(tag);
-    }
-
-    internal IEnumerable<TagKey> AllKeys() => _tags;
 }

@@ -559,6 +559,30 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
+    public void TryMoveByTagTo_NonNamespacedMode_UsesDotHierarchy()
+    {
+        var fruit = "food.ingredient.fruit";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define(fruit);
+        var apple = new ItemDefinition<string>("apple", fruit);
+        var stone = new ItemDefinition<string>("stone");
+        catalog.Registry.Register(apple);
+        catalog.Registry.Register(stone);
+        catalog.Freeze();
+        var source = CreateManager(catalog).CreateInventory();
+        var target = CreateManager(catalog).CreateInventory();
+        source.TryAdd(apple, out _, 2);
+        source.TryAdd(stone, out _, 3);
+
+        var result = source.TryMoveByTagTo(target, "food.ingredient", targetContext: null, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(target.Count(apple), Is.EqualTo(2));
+        Assert.That(source.Count(stone), Is.EqualTo(3));
+    }
+
+    [Test]
     public void TryMoveAllTags_RequiresEveryResolvedTag()
     {
         var fruit = "food:ingredient.fruit";
@@ -582,6 +606,52 @@ public class InventoryTransferExpansionTests
         Assert.That(target.Count(apple), Is.EqualTo(1));
         Assert.That(target.Count(berry), Is.EqualTo(0));
         Assert.That(source.Count(berry), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TryMoveAllTagsTo_NonNamespacedMode_UsesCatalogResolvedTags()
+    {
+        var fruit = "food.ingredient.fruit";
+        var fresh = "state.fresh";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define(fruit);
+        catalog.Tags.Define(fresh);
+        var apple = new ItemDefinition<string>("apple", fruit, fresh);
+        var berry = new ItemDefinition<string>("berry", fruit);
+        catalog.Registry.Register(apple);
+        catalog.Registry.Register(berry);
+        catalog.Freeze();
+        var source = CreateManager(catalog).CreateInventory();
+        var target = CreateManager(catalog).CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        source.TryAdd(berry, out _, 1);
+
+        var result = source.TryMoveAllTagsTo(target, new[] { "food.ingredient", "state" }, targetContext: null, out var error);
+
+        Assert.That(result, Is.True, error);
+        Assert.That(target.Count(apple), Is.EqualTo(1));
+        Assert.That(target.Count(berry), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TryMoveByTagTo_WrongModeTag_ReturnsFalseWithError()
+    {
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.UseNonNamespacedTagsOnly();
+        catalog.Tags.Define("food");
+        var apple = new ItemDefinition<string>("apple", "food");
+        catalog.Registry.Register(apple);
+        catalog.Freeze();
+        var source = CreateManager(catalog).CreateInventory();
+        var target = CreateManager(catalog).CreateInventory();
+        source.TryAdd(apple, out _, 1);
+
+        var result = source.TryMoveByTagTo(target, "core:food", targetContext: null, out var error);
+
+        Assert.That(result, Is.False);
+        Assert.That(error, Is.EqualTo("Transfer contains no items."));
+        Assert.That(source.Count(apple), Is.EqualTo(1));
     }
 
     [Test]
