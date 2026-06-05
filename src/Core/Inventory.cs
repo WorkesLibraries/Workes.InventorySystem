@@ -423,6 +423,9 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     {
         transaction = null;
         error = null;
+        if (!TryValidateRegisteredDefinition(definition, out error))
+            return false;
+
         if (amount <= 0)
         {
             error = "Amount must be greater than zero.";
@@ -475,6 +478,42 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (source != null && !source.IsEmpty)
             clone.RestoreMetadata(new Dictionary<string, object>(source.ToDictionary()));
         return clone;
+    }
+
+    private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out string? error)
+    {
+        if (definition == null)
+        {
+            error = "Item definition cannot be null.";
+            return false;
+        }
+
+        if (definition.Id == null || !Manager.Registry.TryGet(definition.Id, out var registeredDefinition))
+        {
+            error = $"Item definition '{definition.Id}' is not registered in this inventory's item catalog.";
+            return false;
+        }
+
+        if (!ReferenceEquals(registeredDefinition, definition))
+        {
+            error = $"Item definition '{definition.Id}' is not the registered definition instance for this inventory's item catalog.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out string? error)
+    {
+        foreach (var (instance, _) in transaction.Added)
+        {
+            if (!TryValidateRegisteredDefinition(instance.Definition, out error))
+                return false;
+        }
+
+        error = null;
+        return true;
     }
 
     internal bool TryApplyMetadataMutation(
@@ -816,6 +855,9 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out string? error)
     {
         error = null;
+        if (!TryValidateTransactionDefinitions(tx, out error))
+            return false;
+
         var normalized = GenerateNormalizedInventoryTransaction(tx);
         if (!_capacityPolicy.CanApply(this, normalized, out error))
             return false;

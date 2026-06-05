@@ -58,6 +58,7 @@ public class EquipmentDefinitionRestrictionExampleTests
 
         manager.Catalog.Tags.Define(weapon);
         manager.Catalog.Tags.Define(armor);
+        manager.Registry.Register(familyHeirloom);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();
