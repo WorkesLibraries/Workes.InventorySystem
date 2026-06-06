@@ -9,7 +9,7 @@ namespace Workes.InventorySystem.Core;
 public class ItemRegistry<TKey>
 {
     private readonly Dictionary<TKey, ItemDefinition<TKey>> _definitions = new();
-    private readonly Dictionary<TKey, TKey> _migrations = new();
+    private readonly Dictionary<TKey, ItemDefinition<TKey>> _migrations = new();
     private readonly Action<ItemDefinition<TKey>>? _onDefinitionRegistered;
     private readonly Action? _onFreeze;
 
@@ -58,44 +58,43 @@ public class ItemRegistry<TKey>
     }
 
     /// <summary>
-    /// Registers a migration from an old definition id to a new definition id.
+    /// Registers a migration from an obsolete definition id to a registered replacement definition.
     /// </summary>
     /// <remarks>
-    /// Migrations map obsolete explicit ids to replacement explicit ids for save compatibility.
-    /// Migration targets should be stable ids for registered replacement definitions.
+    /// Migrations map obsolete explicit ids to canonical registered replacement definitions for save compatibility.
+    /// The replacement definition must already be registered in this registry, and detached same-id definitions are
+    /// rejected. Multiple obsolete ids can point to the same replacement definition.
     /// </remarks>
     /// <param name="oldId">The obsolete definition id.</param>
-    /// <param name="newId">The replacement definition id.</param>
-    /// <exception cref="InvalidOperationException">The registry is frozen, the migration duplicates an existing mapping, or the mapping creates a loop.</exception>
-    /// <exception cref="ArgumentNullException"><paramref name="oldId"/> or <paramref name="newId"/> is <see langword="null"/>.</exception>
-    public void RegisterMigration(TKey oldId, TKey newId)
+    /// <param name="replacementDefinition">The registered replacement definition.</param>
+    /// <exception cref="InvalidOperationException">The registry is frozen, the migration duplicates an existing mapping, or the replacement definition is not the registered definition instance.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="oldId"/> or <paramref name="replacementDefinition"/> is <see langword="null"/>.</exception>
+    public void RegisterMigration(TKey oldId, ItemDefinition<TKey> replacementDefinition)
     {
         if (_frozen)
             throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
 
-        if (oldId == null || newId == null)
-            throw new ArgumentNullException("Old or new ID cannot be null");
+        if (oldId == null)
+            throw new ArgumentNullException("Old ID cannot be null");
 
-        if (_migrations.ContainsKey(oldId))
-            throw new InvalidOperationException("Migration from this ID already exists.");
+        if (replacementDefinition == null)
+            throw new ArgumentNullException("Migration replacement definition cannot be null");
 
         if (_definitions.ContainsKey(oldId))
             throw new InvalidOperationException("Can't migrate from a registered definition.");
 
-        EnsureNoMigrationLoop(newId, oldId);
+        if (_migrations.ContainsKey(oldId))
+            throw new InvalidOperationException("Migration from this ID already exists.");
 
-        _migrations[oldId] = newId;
-    }
+        if (!_definitions.TryGetValue(replacementDefinition.Id, out var registeredDefinition))
+            throw new InvalidOperationException(
+                $"Migration replacement definition '{replacementDefinition.Id}' is not registered in this item registry.");
 
-    private void EnsureNoMigrationLoop(TKey newId, TKey oldId)
-    {
-        var current = newId;
-        while (_migrations.TryGetValue(current, out var migratedId))
-        {
-            current = migratedId;
-            if (EqualityComparer<TKey>.Default.Equals(current, oldId))
-                throw new InvalidOperationException("Migration loop detected.");
-        }
+        if (!ReferenceEquals(registeredDefinition, replacementDefinition))
+            throw new InvalidOperationException(
+                $"Migration replacement definition '{replacementDefinition.Id}' is not the registered definition instance for this item registry.");
+
+        _migrations[oldId] = replacementDefinition;
     }
 
     /// <summary>
@@ -120,15 +119,15 @@ public class ItemRegistry<TKey>
     }
 
     /// <summary>
-    /// Resolves a definition id, following registered migrations.
+    /// Resolves a registered definition id or obsolete id registered through migrations.
     /// </summary>
     /// <param name="id">The current or migrated definition id.</param>
     /// <returns>The resolved registered definition.</returns>
     /// <exception cref="InvalidOperationException">No registered definition can be resolved.</exception>
     public ItemDefinition<TKey> Resolve(TKey id)
     {
-        while (_migrations.TryGetValue(id, out var migratedId)) // Resolve any migrations recursively
-            id = migratedId;
+        if (_migrations.TryGetValue(id, out var migratedDefinition))
+            return migratedDefinition;
 
         if (!_definitions.TryGetValue(id, out var definition))
             throw new InvalidOperationException(

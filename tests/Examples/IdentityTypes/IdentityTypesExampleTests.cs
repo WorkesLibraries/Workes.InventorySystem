@@ -29,7 +29,7 @@ public class IdentityTypesExampleTests
         var intPotion = new ItemDefinition<int>(1002);
         intCatalog.Registry.Register(intCoin);
         intCatalog.Registry.Register(intPotion);
-        intCatalog.Registry.RegisterMigration(1, 1001);
+        intCatalog.Registry.RegisterMigration(1, intCoin);
         intCatalog.Freeze();
 
         Assert.That(stringCatalog.Registry.Resolve("coin"), Is.SameAs(stringCoin));

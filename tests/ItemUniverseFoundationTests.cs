@@ -893,7 +893,7 @@ public class ItemUniverseFoundationTests
         var coin = new ItemDefinition<string>("coin:copper");
 
         catalog.Registry.Register(coin);
-        catalog.Registry.RegisterMigration("coin:old_copper", "coin:copper");
+        catalog.Registry.RegisterMigration("coin:old_copper", coin);
         catalog.Freeze();
 
         Assert.That(catalog.Registry.Resolve("coin:old_copper"), Is.SameAs(coin));
@@ -903,39 +903,78 @@ public class ItemUniverseFoundationTests
     public void RegisterMigration_RejectsMigrationFromRegisteredDefinition()
     {
         var catalog = new ItemCatalog<string>();
-        catalog.Registry.Register(new ItemDefinition<string>("coin:copper"));
+        var coin = new ItemDefinition<string>("coin:copper");
+        catalog.Registry.Register(coin);
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:copper", "coin:silver"));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:copper", coin));
     }
 
     [Test]
     public void RegisterMigration_RejectsDuplicateSourceId()
     {
         var catalog = new ItemCatalog<string>();
+        var copper = new ItemDefinition<string>("coin:copper");
+        var silver = new ItemDefinition<string>("coin:silver");
+        catalog.Registry.Register(copper);
+        catalog.Registry.Register(silver);
 
-        catalog.Registry.RegisterMigration("coin:old", "coin:copper");
+        catalog.Registry.RegisterMigration("coin:old", copper);
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", "coin:silver"));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", silver));
     }
 
     [Test]
-    public void RegisterMigration_RejectsMigrationLoop()
+    public void RegisterMigration_RejectsUnregisteredReplacementDefinition()
     {
         var catalog = new ItemCatalog<string>();
+        var coin = new ItemDefinition<string>("coin:copper");
 
-        catalog.Registry.RegisterMigration("coin:old", "coin:new");
-
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:new", "coin:old"));
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", coin));
     }
 
     [Test]
-    public void Resolve_ThrowsWhenMigrationTargetIsUnregistered()
+    public void RegisterMigration_RejectsDetachedReplacementDefinitionWithRegisteredId()
+    {
+        var catalog = new ItemCatalog<string>();
+        var registeredCoin = new ItemDefinition<string>("coin:copper");
+        var detachedCoin = new ItemDefinition<string>("coin:copper");
+        catalog.Registry.Register(registeredCoin);
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", detachedCoin));
+    }
+
+    [Test]
+    public void RegisterMigration_AllowsMultipleOldIdsToSameReplacementDefinition()
+    {
+        var catalog = new ItemCatalog<string>();
+        var coin = new ItemDefinition<string>("coin:copper");
+        catalog.Registry.Register(coin);
+
+        catalog.Registry.RegisterMigration("coin:v1", coin);
+        catalog.Registry.RegisterMigration("coin:v2", coin);
+        catalog.Freeze();
+
+        Assert.That(catalog.Registry.Resolve("coin:v1"), Is.SameAs(coin));
+        Assert.That(catalog.Registry.Resolve("coin:v2"), Is.SameAs(coin));
+    }
+
+    [Test]
+    public void RegisterMigration_RejectsNullReplacementDefinition()
     {
         var catalog = new ItemCatalog<string>();
 
-        catalog.Registry.RegisterMigration("coin:old", "coin:new");
+        Assert.Throws<ArgumentNullException>(() => catalog.Registry.RegisterMigration("coin:old", null!));
+    }
 
-        Assert.Throws<InvalidOperationException>(() => catalog.Registry.Resolve("coin:old"));
+    [Test]
+    public void RegisterMigration_RejectsWhenRegistryIsFrozen()
+    {
+        var catalog = new ItemCatalog<string>();
+        var coin = new ItemDefinition<string>("coin:copper");
+        catalog.Registry.Register(coin);
+        catalog.Freeze();
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Registry.RegisterMigration("coin:old", coin));
     }
 
     [Test]
@@ -945,7 +984,7 @@ public class ItemUniverseFoundationTests
         var coin = new ItemDefinition<int>(1001);
 
         catalog.Registry.Register(coin);
-        catalog.Registry.RegisterMigration(1, 1001);
+        catalog.Registry.RegisterMigration(1, coin);
         catalog.Freeze();
 
         Assert.That(catalog.Registry.Resolve(1), Is.SameAs(coin));
@@ -958,7 +997,7 @@ public class ItemUniverseFoundationTests
         var coin = new ItemDefinition<long>(1001L);
 
         catalog.Registry.Register(coin);
-        catalog.Registry.RegisterMigration(1L, 1001L);
+        catalog.Registry.RegisterMigration(1L, coin);
         catalog.Freeze();
 
         Assert.That(catalog.Registry.Resolve(1L), Is.SameAs(coin));
@@ -1385,5 +1424,4 @@ public class ItemUniverseFoundationTests
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
     }
 }
-
 
