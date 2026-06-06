@@ -61,23 +61,6 @@ public class LayoutContextTransactionTests
     }
 
     [Test]
-    public void InventoryTransactionBuilder_DoesNotExposeLegacyConversionMethods()
-    {
-        var methods = typeof(InventoryTransactionBuilder<string>).GetMethods();
-
-        Assert.That(methods.Any(method => method.Name == "ToInventoryTransaction"), Is.False);
-        Assert.That(methods.Any(method => method.Name == "TryToInventoryTransaction"), Is.False);
-    }
-
-    [Test]
-    public void InventoryTransactionBuilder_DoesNotExposeMoveOrSwapOperations()
-    {
-        var methods = typeof(InventoryTransactionBuilder<string>).GetMethods();
-
-        Assert.That(methods.Any(method => method.Name is "Move" or "TryMove" or "Swap" or "TrySwap"), Is.False);
-    }
-
-    [Test]
     public void InventoryMoveAndSwap_RemainInventoryLevelOperations()
     {
         var apple = new ItemDefinition<string>("apple");

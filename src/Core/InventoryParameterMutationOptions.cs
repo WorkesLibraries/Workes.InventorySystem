@@ -92,7 +92,7 @@ public sealed class InventoryParameterMutationOptions
     /// Gets or sets whether stack-compatible entries may be compressed into fuller stacks.
     /// </summary>
     /// <remarks>
-    /// This property is a compatibility alias for <see cref="CompressCompatibleStacks"/>.
+    /// This property maps directly to <see cref="CompressCompatibleStacks"/>.
     /// </remarks>
     public bool CompactCompatibleStacks
     {
@@ -104,7 +104,7 @@ public sealed class InventoryParameterMutationOptions
     /// Gets or sets whether oversized stacks may be split into multiple valid stacks.
     /// </summary>
     /// <remarks>
-    /// This property is a compatibility alias for <see cref="SplitOversizedStacks"/>.
+    /// This property maps directly to <see cref="SplitOversizedStacks"/>.
     /// </remarks>
     public bool CompressStacks
     {

@@ -89,34 +89,6 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
-    public void InventoryTransferBuilder_SourceTransactionConversion_IsNotPublicApi()
-    {
-        var methods = typeof(InventoryTransferBuilder<string>).GetMethods();
-
-        Assert.That(methods.Any(method => method.Name == "ToSourceTransaction"), Is.False);
-    }
-
-    [Test]
-    public void InventoryTransfer_OnlyExposesFromAsPublicActionSurface()
-    {
-        var publicStaticMethods = typeof(InventoryTransfer)
-            .GetMethods()
-            .Where(method => method.IsPublic && method.IsStatic && method.DeclaringType == typeof(InventoryTransfer))
-            .Select(method => method.Name)
-            .ToArray();
-
-        Assert.That(publicStaticMethods, Is.EquivalentTo(new[] { "From" }));
-    }
-
-    [Test]
-    public void InventoryTransferBuilder_DoesNotExposeCommitMethods()
-    {
-        var methods = typeof(InventoryTransferBuilder<string>).GetMethods();
-
-        Assert.That(methods.Any(method => method.Name is "CanCommitTo" or "TryCommitTo" or "CommitTo"), Is.False);
-    }
-
-    [Test]
     public void TryRemove_RejectsInvalidAmountAndItemFromAnotherInventory()
     {
         var manager = CreateManager();

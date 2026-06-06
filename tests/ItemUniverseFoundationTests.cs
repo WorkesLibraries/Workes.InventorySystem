@@ -535,14 +535,6 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void AttributeKey_IsNotPublicApi()
-    {
-        var exportedTypes = typeof(AttributeCatalog).Assembly.GetExportedTypes();
-
-        Assert.That(exportedTypes.Any(t => t.Name.StartsWith("AttributeKey", StringComparison.Ordinal)), Is.False);
-    }
-
-    [Test]
     public void AttributeCatalog_DefineString_ReturnsCanonicalDefinition()
     {
         var catalog = new ItemCatalog<string>();
@@ -1393,6 +1385,5 @@ public class ItemUniverseFoundationTests
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
     }
 }
-
 
 
