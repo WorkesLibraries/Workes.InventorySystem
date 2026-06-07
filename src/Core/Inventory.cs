@@ -2175,6 +2175,27 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             requiresFullRefresh: true));
     }
 
+    private void ApplyLayoutRepack(
+        IInventoryLayout<TKey> proposedLayout,
+        IReadOnlyList<int> orderedStorageIndices,
+        IReadOnlyList<IReadOnlyList<ILayoutContext<TKey>>> before)
+    {
+        _layout = proposedLayout;
+        foreach (var storageIndex in orderedStorageIndices)
+            _layout.OnItemAdded(this, storageIndex, null);
+
+        var after = CaptureLayoutContextsByStorageIndex();
+        var moved = new List<ItemMoved<TKey>>();
+        for (int index = 0; index < _items.Count; index++)
+        {
+            if (!ContextListsEqual(before[index], after[index]))
+                moved.Add(new ItemMoved<TKey>(_items[index], before[index], after[index]));
+        }
+
+        if (moved.Count > 0)
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(moved: moved, requiresFullRefresh: true));
+    }
+
     private void FireConfigurationChanged(
         InventoryConfigurationChangeKind kind,
         string parameterId,
@@ -3278,6 +3299,42 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     {
         if (!TryMergeMove(contextFrom, contextTo, out var error, amount))
             ThrowMutationFailure(error, "Merge move operation failed.");
+    }
+
+    /// <summary>
+    /// Attempts to rebuild current layout placement in current layout order using normal auto-placement.
+    /// </summary>
+    /// <param name="error">A consumer-facing reason when repack is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when layout repack succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// Repacking preserves inventory item instances and storage order. It changes layout placement only.
+    /// Repack is not sorting and does not use item comparer ordering.
+    /// </remarks>
+    public bool TryRepackLayout(out string? error)
+    {
+        var before = CaptureLayoutContextsByStorageIndex();
+        var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
+        var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
+
+        if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+            return false;
+
+        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
+            return false;
+
+        ApplyLayoutRepack(proposedLayout, orderedStorageIndices, before);
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Rebuilds current layout placement in current layout order using normal auto-placement, or throws when repack is rejected.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The repack operation is rejected.</exception>
+    public void RepackLayout()
+    {
+        if (!TryRepackLayout(out var error))
+            ThrowMutationFailure(error, "Layout repack failed.");
     }
 
     /// <summary>
