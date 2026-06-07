@@ -187,7 +187,9 @@ public class FunctionalCompletionRegressionTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
         foreach (var definition in definitions)
@@ -203,7 +205,9 @@ public class FunctionalCompletionRegressionTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new MultiCellGridLayout<string>(5, 5, provider));
+            new MultiCellGridLayout<string>(5, 5, provider),
+            new ItemCatalog<string>()
+            );
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();

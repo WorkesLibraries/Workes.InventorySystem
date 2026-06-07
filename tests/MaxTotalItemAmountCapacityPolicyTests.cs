@@ -155,7 +155,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
             new FixedSizeStackResolver<string>(10),
             capacityPolicy,
             new EntryLayout<string>(),
-            catalog: catalog);
+            catalog ?? new ItemCatalog<string>());
     }
 }
 

@@ -405,7 +405,7 @@ public class InventoryChangedEventTests
             new FixedSizeStackResolver<string>(10),
             capacityPolicy,
             layout,
-            catalog: catalog);
+            catalog ?? new ItemCatalog<string>());
     }
 }
 

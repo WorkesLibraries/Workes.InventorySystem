@@ -47,19 +47,19 @@ public class InventoryManager<TKey>
     /// <param name="defaultStackResolver">The default stack resolver.</param>
     /// <param name="defaultCapacityPolicy">The default capacity policy.</param>
     /// <param name="defaultLayout">The default layout cloned for new inventories.</param>
+    /// <param name="catalog">The item catalog shared by inventories created by this manager.</param>
     /// <param name="defaultRules">Optional default rules.</param>
-    /// <param name="catalog">Optional item catalog; a new catalog is created when omitted.</param>
     public InventoryManager(
         IStackResolver<TKey> defaultStackResolver,
         ICapacityPolicy<TKey> defaultCapacityPolicy,
         IInventoryLayout<TKey> defaultLayout,
-        RuleContainer<TKey>? defaultRules = null,
-        ItemCatalog<TKey>? catalog = null)
+        ItemCatalog<TKey> catalog,
+        RuleContainer<TKey>? defaultRules = null)
     {
         DefaultStackResolver = defaultStackResolver;
         DefaultCapacityPolicy = defaultCapacityPolicy;
         DefaultLayout = defaultLayout;
-        Catalog = catalog ?? new ItemCatalog<TKey>();
+        Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         if (defaultRules != null)
             DefaultRules = defaultRules;
         else

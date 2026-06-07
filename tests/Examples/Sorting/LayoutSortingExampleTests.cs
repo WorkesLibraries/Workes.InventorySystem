@@ -76,7 +76,9 @@ public class LayoutSortingExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
         manager.Catalog.Freeze();

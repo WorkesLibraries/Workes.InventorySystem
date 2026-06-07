@@ -86,7 +86,9 @@ public class StackIncreaseCompactionPolicyMutationExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
-            new SlotLayout<string>(slotCount));
+            new SlotLayout<string>(slotCount),
+            new ItemCatalog<string>()
+            );
         foreach (var definitionId in definitionIds)
             manager.Registry.Register(new ItemDefinition<string>(definitionId));
         manager.Catalog.Freeze();

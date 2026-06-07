@@ -51,7 +51,9 @@ public class SectionDefinitionRestrictionExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         manager.Catalog.Tags.Define(tool);
         foreach (var definition in definitions)

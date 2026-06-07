@@ -21,7 +21,9 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(5),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
         manager.Registry.Register(apple);
         manager.Registry.Register(potion);
         manager.Catalog.Freeze();

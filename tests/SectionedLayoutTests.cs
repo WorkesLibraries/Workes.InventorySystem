@@ -685,7 +685,9 @@ public class SectionedLayoutTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
 
         foreach (var tag in tags ?? Array.Empty<string>())
             manager.Catalog.Tags.Define(tag);
@@ -703,7 +705,9 @@ public class SectionedLayoutTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
 
         manager.Catalog.Tags.UseNonNamespacedTagsOnly();
         foreach (var tag in tags)
@@ -721,7 +725,9 @@ public class SectionedLayoutTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         foreach (var tag in tags ?? Array.Empty<string>())
             manager.Catalog.Tags.Define(tag);

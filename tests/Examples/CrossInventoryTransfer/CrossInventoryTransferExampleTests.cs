@@ -69,8 +69,9 @@ public class CrossInventoryTransferExampleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            rules,
-            catalog);
+            catalog,
+            rules
+            );
     }
 
     private static IReadOnlyList<string> Describe(Inventory<string> inventory)

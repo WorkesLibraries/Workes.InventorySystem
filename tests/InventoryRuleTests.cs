@@ -58,6 +58,7 @@ public class InventoryRuleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
+            new ItemCatalog<string>(),
             ruleContainer
         );
 
@@ -92,6 +93,7 @@ public class InventoryRuleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
+            new ItemCatalog<string>(),
             ruleContainer
         );
         manager.Catalog.Freeze();

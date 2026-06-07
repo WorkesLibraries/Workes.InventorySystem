@@ -28,7 +28,9 @@ public class InventoryMalfunctionRegressionTests
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             layout ?? new EntryLayout<string>(),
-            rules);
+            new ItemCatalog<string>(),
+            rules
+            );
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

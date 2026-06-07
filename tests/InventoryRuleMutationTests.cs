@@ -143,7 +143,9 @@ public class InventoryRuleMutationTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            rules);
+            new ItemCatalog<string>(),
+            rules
+            );
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

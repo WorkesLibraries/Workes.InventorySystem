@@ -53,7 +53,9 @@ public class LayoutContextExampleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             layout,
-            new RuleContainer<string>());
+            new ItemCatalog<string>(),
+            new RuleContainer<string>()
+            );
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

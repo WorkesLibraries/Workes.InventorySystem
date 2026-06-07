@@ -23,7 +23,9 @@ public class GridLayoutTests
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             layout,
-            new RuleContainer<string>());
+            new ItemCatalog<string>(),
+            new RuleContainer<string>()
+            );
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

@@ -19,7 +19,9 @@ public class InventoryMutationErgonomicsExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(99),
             new MaxTotalItemAmountCapacityPolicy<string>(30),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         var coin = new ItemDefinition<string>("coin");
         var potion = new ItemDefinition<string>("potion");

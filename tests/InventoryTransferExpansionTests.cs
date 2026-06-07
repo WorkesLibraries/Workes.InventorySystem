@@ -24,8 +24,8 @@ public class InventoryTransferExpansionTests
             new FixedSizeStackResolver<string>(maxStack),
             capacityPolicy ?? new UnlimitedCapacityPolicy<string>(),
             layout ?? new EntryLayout<string>(),
-            rules,
-            catalog);
+            catalog ?? new ItemCatalog<string>(),
+            rules);
     }
 
     private sealed class MaxTotalAmountCapacityPolicy : ICapacityPolicy<string>

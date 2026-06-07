@@ -159,7 +159,9 @@ public class MultiCellGridAnchorAndSortTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
         manager.Catalog.Attributes.Define<int>(Width);
         manager.Catalog.Attributes.Define<int>(Height);
         foreach (var definition in definitions)

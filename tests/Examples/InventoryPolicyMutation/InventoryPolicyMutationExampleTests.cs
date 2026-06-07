@@ -23,7 +23,9 @@ public class InventoryPolicyMutationExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(5),
             new MaxTotalItemAmountCapacityPolicy<string>(11),
-            new SlotLayout<string>(2));
+            new SlotLayout<string>(2),
+            new ItemCatalog<string>()
+            );
 
         manager.Registry.Register(coin);
         manager.Registry.Register(potion);

@@ -22,7 +22,9 @@ public class RepackAndCompressPolicyMutationExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(20),
-            new SlotLayout<string>(4));
+            new SlotLayout<string>(4),
+            new ItemCatalog<string>()
+            );
 
         manager.Registry.Register(coin);
         manager.Registry.Register(potion);

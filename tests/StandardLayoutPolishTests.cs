@@ -378,7 +378,9 @@ public class StandardLayoutPolishTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             capacityPolicy,
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
 
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);
@@ -399,7 +401,9 @@ public class StandardLayoutPolishTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
 
         manager.Catalog.Tags.UseNonNamespacedTagsOnly();
         foreach (var tag in tags)

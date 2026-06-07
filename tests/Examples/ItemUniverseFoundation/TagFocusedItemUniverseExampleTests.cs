@@ -263,8 +263,9 @@ public class TagFocusedItemUniverseExampleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            rules,
-            catalog);
+            catalog,
+            rules
+            );
     }
 
     private static void DefineCoreTags(ItemCatalog<string> catalog)

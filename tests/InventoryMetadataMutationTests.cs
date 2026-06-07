@@ -503,7 +503,13 @@ public class InventoryMetadataMutationTests
         RuleContainer<string> rules,
         ItemDefinition<string> definition)
     {
-        var manager = new InventoryManager<string>(stackResolver, capacityPolicy, layout, rules);
+        var manager = new InventoryManager<string>(
+        stackResolver,
+        capacityPolicy,
+        layout,
+        new ItemCatalog<string>(),
+        rules
+        );
         manager.Registry.Register(definition);
         manager.Catalog.Freeze();
         return manager.CreateInventory();

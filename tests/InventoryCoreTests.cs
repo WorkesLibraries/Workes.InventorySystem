@@ -16,7 +16,8 @@ public class InventoryCoreTests
         return new InventoryManager<string>(
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
-            new SlotLayout<string>(slotCount)
+            new SlotLayout<string>(slotCount),
+            new ItemCatalog<string>()
         );
     }
 
@@ -26,7 +27,9 @@ public class InventoryCoreTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         Assert.Throws<InvalidOperationException>(() => manager.CreateInventory());
     }
@@ -37,7 +40,9 @@ public class InventoryCoreTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         manager.Registry.Register(new ItemDefinition<string>("apple"));
         manager.Catalog.Freeze();
@@ -51,7 +56,9 @@ public class InventoryCoreTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
         manager.Catalog.Freeze();
@@ -73,7 +80,9 @@ public class InventoryCoreTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
         manager.Catalog.Freeze();
@@ -95,7 +104,8 @@ public class InventoryCoreTests
         (
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>()
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
         );
 
         var apple = new ItemDefinition<string>("apple");
@@ -136,7 +146,8 @@ public class InventoryCoreTests
         (
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>()
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
         );
 
         var apple = new ItemDefinition<string>("apple");
@@ -180,7 +191,8 @@ public class InventoryCoreTests
         (
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>()
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
         );
 
         var apple = new ItemDefinition<string>("apple");
@@ -470,7 +482,9 @@ public class InventoryCoreTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new MaxTotalItemAmountCapacityPolicy<string>(1),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
         var apple = new ItemDefinition<string>("apple");
         manager.Registry.Register(apple);
         manager.Catalog.Freeze();

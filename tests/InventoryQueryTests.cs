@@ -30,7 +30,7 @@ public class InventoryQueryTests
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            catalog: catalog);
+            catalog ?? new ItemCatalog<string>());
     }
 
     [Test]

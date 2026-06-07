@@ -69,7 +69,9 @@ public class SectionedLayoutExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            layout);
+            layout,
+            new ItemCatalog<string>()
+            );
 
         foreach (var tag in tags)
             manager.Catalog.Tags.Define(tag);

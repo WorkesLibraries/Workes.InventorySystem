@@ -74,7 +74,9 @@ public class WeightCapacityPolicyExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             capacity,
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
         manager.Catalog.Attributes.Define<double>(Weight);
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

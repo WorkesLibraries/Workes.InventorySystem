@@ -478,7 +478,9 @@ public class AttributeDrivenStackResolverTests
         var manager = new InventoryManager<string>(
             stackResolver,
             new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>());
+            new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         manager.Catalog.Attributes.Define<bool>(Stackable);
         manager.Catalog.Attributes.Define<int>(MaxStack);

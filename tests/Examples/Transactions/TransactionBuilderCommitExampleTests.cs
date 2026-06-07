@@ -20,7 +20,9 @@ public class TransactionBuilderCommitExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new SlotLayout<string>(4));
+            new SlotLayout<string>(4),
+            new ItemCatalog<string>()
+            );
 
         manager.Registry.Register(apple);
         manager.Registry.Register(sword);

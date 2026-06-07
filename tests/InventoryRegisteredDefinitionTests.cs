@@ -19,7 +19,9 @@ public class InventoryRegisteredDefinitionTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(maxStack),
             new UnlimitedCapacityPolicy<string>(),
-            layout ?? new EntryLayout<string>());
+            layout ?? new EntryLayout<string>(),
+            new ItemCatalog<string>()
+            );
 
         foreach (var definition in definitions)
             manager.Registry.Register(definition);

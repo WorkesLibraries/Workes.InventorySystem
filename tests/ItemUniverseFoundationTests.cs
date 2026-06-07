@@ -57,8 +57,8 @@ public class ItemUniverseFoundationTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            rules,
-            catalog);
+            catalog ?? new ItemCatalog<string>(),
+            rules);
     }
 
     private static void DefineTags(ItemCatalog<string> catalog, params string[] tags)
@@ -260,12 +260,23 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void InventoryManager_CreatesDefaultCatalog_AndRegistryForwardsToCatalog()
+    public void InventoryManager_UsesExplicitCatalog_AndRegistryForwardsToCatalog()
     {
-        var manager = CreateManager();
+        var catalog = new ItemCatalog<string>();
+        var manager = CreateManager(catalog);
 
-        Assert.That(manager.Catalog, Is.Not.Null);
+        Assert.That(manager.Catalog, Is.SameAs(catalog));
         Assert.That(manager.Registry, Is.SameAs(manager.Catalog.Registry));
+    }
+
+    [Test]
+    public void InventoryManager_NullCatalog_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            null!));
     }
 
     [Test]
@@ -301,13 +312,14 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void ManagerWithoutCatalog_StillRequiresFreezeBeforeInventoryCreation()
+    public void ManagerWithExplicitCatalog_StillRequiresFreezeBeforeInventoryCreation()
     {
-        var manager = CreateManager();
+        var catalog = new ItemCatalog<string>();
+        var manager = CreateManager(catalog);
 
         manager.Registry.Register(new ItemDefinition<string>("apple"));
 
-        Assert.That(manager.Catalog, Is.Not.Null);
+        Assert.That(manager.Catalog, Is.SameAs(catalog));
         Assert.Throws<InvalidOperationException>(() => manager.CreateInventory());
 
         manager.Catalog.Freeze();
@@ -1424,4 +1436,3 @@ public class ItemUniverseFoundationTests
         Assert.That(inventory.TryAdd(axe, out var error), Is.True, error);
     }
 }
-

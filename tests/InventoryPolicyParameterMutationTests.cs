@@ -1088,7 +1088,12 @@ public class InventoryPolicyParameterMutationTests
         IInventoryLayout<string> layout,
         params ItemDefinition<string>[] definitions)
     {
-        var manager = new InventoryManager<string>(stackResolver, capacityPolicy, layout);
+        var manager = new InventoryManager<string>(
+        stackResolver,
+        capacityPolicy,
+        layout,
+        new ItemCatalog<string>()
+        );
         foreach (var definition in definitions)
             manager.Registry.Register(definition);
 

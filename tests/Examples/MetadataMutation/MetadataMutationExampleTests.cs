@@ -23,7 +23,9 @@ public class MetadataMutationExampleTests
         var manager = new InventoryManager<string>(
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
-            new SlotLayout<string>(3));
+            new SlotLayout<string>(3),
+            new ItemCatalog<string>()
+            );
 
         manager.Registry.Register(gem);
         manager.Registry.Register(potion);

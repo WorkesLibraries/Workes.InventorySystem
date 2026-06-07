@@ -248,8 +248,9 @@ public class AttributeFocusedItemUniverseExampleTests
             new FixedSizeStackResolver<string>(10),
             new UnlimitedCapacityPolicy<string>(),
             new EntryLayout<string>(),
-            rules,
-            catalog);
+            catalog,
+            rules
+            );
     }
 
     private static (ItemDefinition<string> definition, bool accepted, string? error) EvaluateAdd(
