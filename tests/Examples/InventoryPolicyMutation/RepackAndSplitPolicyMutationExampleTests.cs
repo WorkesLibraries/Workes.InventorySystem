@@ -11,10 +11,10 @@ namespace Workes.InventorySystem.Tests.Examples.InventoryPolicyMutation;
 
 [TestFixture]
 [Category("Example")]
-public class RepackAndCompressPolicyMutationExampleTests
+public class RepackAndSplitPolicyMutationExampleTests
 {
     [Test]
-    public void BackpackDowngradeFlow_UsesOptionalRepackAndCompression()
+    public void BackpackDowngradeFlow_UsesOptionalRepackAndSplitting()
     {
         var coin = new ItemDefinition<string>("coin");
         var potion = new ItemDefinition<string>("potion");
@@ -39,15 +39,16 @@ public class RepackAndCompressPolicyMutationExampleTests
         inventory.Add(potion, amount: 1, context: SlotLayoutContext<string>.Single(3));
         operations.AppendLine("Add potion x1 at slot 3: committed");
 
-        bool lowerWithoutCompression = inventory.TrySetStackResolverParameter("maxStack", 5, out var lowerWithoutCompressionError);
-        operations.AppendLine($"Lower maxStack to 5 without compression: {FormatResult(lowerWithoutCompression, lowerWithoutCompressionError)}");
+        bool lowerWithoutSplit = inventory.TrySetStackResolverParameter("maxStack", 5, out var lowerWithoutSplitError);
+        operations.AppendLine($"Lower maxStack to 5 without split: {FormatResult(lowerWithoutSplit, lowerWithoutSplitError)}");
 
-        bool lowerWithCompression = inventory.TrySetStackResolverParameter(
+        bool lowerWithSplitAndRepack = inventory.TrySetStackResolverParameter(
             "maxStack",
             5,
-            InventoryParameterMutationOptions.RepackAndCompress,
-            out var lowerWithCompressionError);
-        operations.AppendLine($"Lower maxStack to 5 with compression/repack: {FormatResult(lowerWithCompression, lowerWithCompressionError)}");
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks,
+            out var lowerWithSplitAndRepackError);
+        operations.AppendLine($"Lower maxStack to 5 with split/repack: {FormatResult(lowerWithSplitAndRepack, lowerWithSplitAndRepackError)}");
 
         bool shrinkWithoutRepack = inventory.TrySetLayoutParameter("slotCount", 2, out var shrinkWithoutRepackError);
         operations.AppendLine($"Shrink slotCount to 2 without repack: {FormatResult(shrinkWithoutRepack, shrinkWithoutRepackError)}");
@@ -55,12 +56,12 @@ public class RepackAndCompressPolicyMutationExampleTests
         bool shrinkWithRepack = inventory.TrySetLayoutParameter(
             "slotCount",
             3,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var shrinkWithRepackError);
         operations.AppendLine($"Shrink slotCount to 3 with repack: {FormatResult(shrinkWithRepack, shrinkWithRepackError)}");
 
-        Assert.That(lowerWithoutCompression, Is.False);
-        Assert.That(lowerWithCompression, Is.True, lowerWithCompressionError);
+        Assert.That(lowerWithoutSplit, Is.False);
+        Assert.That(lowerWithSplitAndRepack, Is.True, lowerWithSplitAndRepackError);
         Assert.That(shrinkWithoutRepack, Is.False);
         Assert.That(shrinkWithRepack, Is.True, shrinkWithRepackError);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 5, 5, 1 }));
@@ -70,7 +71,7 @@ public class RepackAndCompressPolicyMutationExampleTests
 
         var output = BuildOutput(operations.ToString(), inventory);
         var outputPath = WriteOutput(output);
-        TestContext.Out.WriteLine($"Inventory policy repack/compress example written to: {outputPath}");
+        TestContext.Out.WriteLine($"Inventory policy repack/split example written to: {outputPath}");
     }
 
     private static string FormatResult(bool accepted, string? error)
@@ -81,8 +82,8 @@ public class RepackAndCompressPolicyMutationExampleTests
     private static string BuildOutput(string operations, Inventory<string> inventory)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("Inventory Policy Repack And Compression Example");
-        builder.AppendLine("===============================================");
+        builder.AppendLine("Inventory Policy Repack And Split Example");
+        builder.AppendLine("=========================================");
         builder.AppendLine();
         builder.AppendLine("Operations");
         builder.AppendLine("----------");
@@ -105,7 +106,7 @@ public class RepackAndCompressPolicyMutationExampleTests
             "InventoryPolicyMutation");
         Directory.CreateDirectory(directory);
 
-        var path = Path.Combine(directory, "RepackAndCompressPolicyMutationExample.txt");
+        var path = Path.Combine(directory, "RepackAndSplitPolicyMutationExample.txt");
         File.WriteAllText(path, output);
         return path;
     }

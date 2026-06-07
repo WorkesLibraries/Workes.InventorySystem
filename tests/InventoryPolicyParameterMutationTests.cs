@@ -47,70 +47,6 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
-    public void InventoryParameterMutationOptions_BooleanPropertiesMapToActions()
-    {
-        var options = new InventoryParameterMutationOptions();
-
-        options.RepackLayout = true;
-        options.SplitOversizedStacks = true;
-        options.CompressCompatibleStacks = true;
-
-        Assert.That(options.Actions, Is.EqualTo(
-            InventoryParameterMutationActions.RepackLayout |
-            InventoryParameterMutationActions.SplitOversizedStacks |
-            InventoryParameterMutationActions.CompressCompatibleStacks));
-
-        options.SplitOversizedStacks = false;
-
-        Assert.That(options.Actions, Is.EqualTo(
-            InventoryParameterMutationActions.RepackLayout |
-            InventoryParameterMutationActions.CompressCompatibleStacks));
-    }
-
-    [Test]
-    public void InventoryParameterMutationOptions_CompressStacksAliasesSplitOversizedStacks()
-    {
-        var options = new InventoryParameterMutationOptions { CompressStacks = true };
-
-        Assert.That(options.SplitOversizedStacks, Is.True);
-        Assert.That(options.Actions.HasFlag(InventoryParameterMutationActions.SplitOversizedStacks), Is.True);
-
-        options.CompressStacks = false;
-
-        Assert.That(options.SplitOversizedStacks, Is.False);
-    }
-
-    [Test]
-    public void InventoryParameterMutationOptions_CompactCompatibleStacksAliasesCompressCompatibleStacks()
-    {
-        var options = new InventoryParameterMutationOptions { CompactCompatibleStacks = true };
-
-        Assert.That(options.CompressCompatibleStacks, Is.True);
-        Assert.That(options.Actions.HasFlag(InventoryParameterMutationActions.CompressCompatibleStacks), Is.True);
-
-        options.CompactCompatibleStacks = false;
-
-        Assert.That(options.CompressCompatibleStacks, Is.False);
-    }
-
-    [Test]
-    public void InventoryParameterMutationOptions_PresetsUseExpectedActions()
-    {
-        Assert.That(InventoryParameterMutationOptions.PreserveOnly.Actions, Is.EqualTo(InventoryParameterMutationActions.None));
-        Assert.That(InventoryParameterMutationOptions.RepackOnly.Actions, Is.EqualTo(InventoryParameterMutationActions.RepackLayout));
-        Assert.That(InventoryParameterMutationOptions.RepackAndCompress.Actions, Is.EqualTo(
-            InventoryParameterMutationActions.RepackLayout |
-            InventoryParameterMutationActions.SplitOversizedStacks));
-        Assert.That(InventoryParameterMutationOptions.RepackAndCompact.Actions, Is.EqualTo(
-            InventoryParameterMutationActions.RepackLayout |
-            InventoryParameterMutationActions.CompressCompatibleStacks));
-        Assert.That(InventoryParameterMutationOptions.RepackCompressAndCompact.Actions, Is.EqualTo(
-            InventoryParameterMutationActions.RepackLayout |
-            InventoryParameterMutationActions.SplitOversizedStacks |
-            InventoryParameterMutationActions.CompressCompatibleStacks));
-    }
-
-    [Test]
     public void TrySetLayoutParameter_RejectsSplitOversizedStacksAction()
     {
         var coin = new ItemDefinition<string>("coin");
@@ -119,7 +55,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
             3,
-            new InventoryParameterMutationOptions { SplitOversizedStacks = true },
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -136,7 +72,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
             3,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -154,7 +90,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
             2,
-            InventoryParameterMutationOptions.RepackOnly,
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -172,7 +108,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetCapacityPolicyParameter(
             "maxTotalItemAmount",
             12,
-            InventoryParameterMutationOptions.RepackOnly,
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -190,7 +126,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetCapacityPolicyParameter(
             "maxTotalItemAmount",
             12,
-            new InventoryParameterMutationOptions { SplitOversizedStacks = true },
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -207,7 +143,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetCapacityPolicyParameter(
             "maxTotalItemAmount",
             12,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -224,7 +160,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetCapacityPolicyParameter(
             "maxTotalItemAmount",
             12,
-            InventoryParameterMutationOptions.PreserveOnly,
+            InventoryParameterMutationActions.None,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -236,7 +172,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin);
-        var options = new InventoryParameterMutationOptions { Actions = (InventoryParameterMutationActions)128 };
+        var options = (InventoryParameterMutationActions)128;
 
         var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, options, out var error);
 
@@ -249,7 +185,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(2), coin);
-        var options = new InventoryParameterMutationOptions { Actions = (InventoryParameterMutationActions)128 };
+        var options = (InventoryParameterMutationActions)128;
 
         var accepted = inventory.TrySetLayoutParameter("slotCount", 3, options, out var error);
 
@@ -262,7 +198,7 @@ public class InventoryPolicyParameterMutationTests
     {
         var coin = new ItemDefinition<string>("coin");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
-        var options = new InventoryParameterMutationOptions { Actions = (InventoryParameterMutationActions)128 };
+        var options = (InventoryParameterMutationActions)128;
 
         var accepted = inventory.TrySetCapacityPolicyParameter("maxTotalItemAmount", 12, options, out var error);
 
@@ -312,7 +248,8 @@ public class InventoryPolicyParameterMutationTests
         var events = new List<InventoryChangedEventArgs<string>>();
         inventory.Changed += (_, args) => events.Add(args);
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompact, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.CompressCompatibleStacks, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 5, 4 }));
@@ -329,7 +266,7 @@ public class InventoryPolicyParameterMutationTests
         inventory.Add(coin, amount: 40);
         int events = 0;
         inventory.Changed += (_, _) => events++;
-        var options = new InventoryParameterMutationOptions { CompressCompatibleStacks = true };
+        var options = InventoryParameterMutationActions.CompressCompatibleStacks;
 
         var accepted = inventory.TrySetStackResolverParameter("maxStack", 25, options, out var error);
 
@@ -351,7 +288,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             25,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -360,13 +297,14 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
-    public void TrySetStackResolverParameter_RepackAndCompressDoesNotCompactOnUpgrade()
+    public void TrySetStackResolverParameter_RepackAndSplitDoesNotCompactOnUpgrade()
     {
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(3), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(4), apple);
         inventory.Add(apple, amount: 9);
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 3, 3, 3 }));
@@ -379,7 +317,9 @@ public class InventoryPolicyParameterMutationTests
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(5), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(4), apple);
         inventory.Add(apple, amount: 9);
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 3, InventoryParameterMutationOptions.RepackCompressAndCompact, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 3, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks |
+            InventoryParameterMutationActions.CompressCompatibleStacks, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 3, 3, 3 }));
@@ -402,7 +342,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             6,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out error);
 
         Assert.That(accepted, Is.True, error);
@@ -431,7 +371,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             6,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out error);
 
         Assert.That(accepted, Is.True, error);
@@ -448,7 +388,8 @@ public class InventoryPolicyParameterMutationTests
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(3), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(4), apple);
         inventory.Add(apple, amount: 9);
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompact, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.CompressCompatibleStacks, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Amount, Is.EqualTo(5));
@@ -465,7 +406,8 @@ public class InventoryPolicyParameterMutationTests
         var events = new List<InventoryChangedEventArgs<string>>();
         inventory.Changed += (_, args) => events.Add(args);
 
-        Assert.That(inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompact, out var error), Is.True, error);
+        Assert.That(inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.CompressCompatibleStacks, out var error), Is.True, error);
 
         Assert.That(events, Has.Count.EqualTo(1));
         Assert.That(events.Single().RequiresFullRefresh, Is.True);
@@ -485,7 +427,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             5,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -524,7 +466,8 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items, Has.Count.EqualTo(2));
@@ -536,6 +479,45 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
+    public void TrySetStackResolverParameter_RepackSplit_PreservesCurrentLayoutOrder()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var gem = new ItemDefinition<string>("gem");
+        var inventory = CreateInventory(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new SlotLayout<string>(5),
+            coin,
+            gem);
+
+        inventory.Add(coin, amount: 10, context: SlotLayoutContext<string>.Single(3));
+        inventory.Add(gem, amount: 2, context: SlotLayoutContext<string>.Single(1));
+
+        var accepted = inventory.TrySetStackResolverParameter(
+            "maxStack",
+            4,
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks,
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+
+        var first = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0));
+        var second = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1));
+        var third = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2));
+        var fourth = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(3));
+
+        Assert.That(first!.Definition, Is.SameAs(gem));
+        Assert.That(first.Amount, Is.EqualTo(2));
+        Assert.That(second!.Definition, Is.SameAs(coin));
+        Assert.That(second.Amount, Is.EqualTo(4));
+        Assert.That(third!.Definition, Is.SameAs(coin));
+        Assert.That(third.Amount, Is.EqualTo(4));
+        Assert.That(fourth!.Definition, Is.SameAs(coin));
+        Assert.That(fourth.Amount, Is.EqualTo(2));
+    }
+
+    [Test]
     public void TrySetStackResolverParameter_SplitsOversizedStacksWithoutRepack()
     {
         var coin = new ItemDefinition<string>("coin");
@@ -543,7 +525,7 @@ public class InventoryPolicyParameterMutationTests
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(4), coin, potion);
         inventory.Add(coin, amount: 10);
         inventory.Add(potion, amount: 2);
-        var options = new InventoryParameterMutationOptions { SplitOversizedStacks = true };
+        var options = InventoryParameterMutationActions.SplitOversizedStacks;
 
         var accepted = inventory.TrySetStackResolverParameter("maxStack", 4, options, out var error);
 
@@ -566,7 +548,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             4,
-            new InventoryParameterMutationOptions { SplitOversizedStacks = true },
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -584,7 +566,8 @@ public class InventoryPolicyParameterMutationTests
         inventory.Add(coin, amount: 10);
         inventory.Changed += (_, _) => events++;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks, out var error);
 
         Assert.That(accepted, Is.False);
         Assert.That(error, Does.Contain("Not enough empty slots"));
@@ -614,7 +597,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items.Select(item => item.Definition.Id), Is.EqualTo(new[] { "coin", "gem" }));
@@ -631,7 +614,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(coin));
@@ -648,7 +631,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(coin));
@@ -669,7 +652,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(table));
@@ -688,7 +671,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single("bag", 0))!.Definition, Is.SameAs(coin));
@@ -708,7 +691,7 @@ public class InventoryPolicyParameterMutationTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
 
-        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationOptions.RepackOnly, out var error);
+        var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("first"))!.Definition, Is.SameAs(coin));
@@ -807,7 +790,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
             2,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -816,6 +799,36 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.Layout));
         Assert.That(captured.RequiresFullRefresh, Is.True);
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_RepackLayout_CompactsSlotsByCurrentLayoutOrder()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var potion = new ItemDefinition<string>("potion");
+        var inventory = CreateInventory(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new SlotLayout<string>(5),
+            sword,
+            apple,
+            potion);
+
+        inventory.Add(sword, context: SlotLayoutContext<string>.Single(4));
+        inventory.Add(apple, context: SlotLayoutContext<string>.Single(1));
+        inventory.Add(potion, context: SlotLayoutContext<string>.Single(3));
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "slotCount",
+            3,
+            InventoryParameterMutationActions.RepackLayout,
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(potion));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2))!.Definition, Is.SameAs(sword));
     }
 
     [Test]
@@ -832,13 +845,15 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
             1,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.False);
         Assert.That(error, Does.Contain("Not enough empty slots"));
         Assert.That(events, Is.EqualTo(0));
         Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(2));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(coin));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(gem));
     }
 
     [Test]
@@ -878,7 +893,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "width",
             2,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -900,7 +915,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "width",
             2,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -923,7 +938,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "width",
             1,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.False);
@@ -984,7 +999,7 @@ public class InventoryPolicyParameterMutationTests
         var accepted = inventory.TrySetLayoutParameter(
             "section:bag.slotCount",
             1,
-            new InventoryParameterMutationOptions { RepackLayout = true },
+            InventoryParameterMutationActions.RepackLayout,
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -1047,7 +1062,8 @@ public class InventoryPolicyParameterMutationTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        Assert.That(inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationOptions.RepackAndCompress, out _), Is.False);
+        Assert.That(inventory.TrySetStackResolverParameter("maxStack", 5, InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks, out _), Is.False);
 
         Assert.That(events, Is.EqualTo(0));
     }

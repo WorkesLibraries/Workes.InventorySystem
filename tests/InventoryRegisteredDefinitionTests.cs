@@ -168,7 +168,7 @@ public class InventoryRegisteredDefinitionTests
     }
 
     [Test]
-    public void RepackAndCompress_PreservesRegisteredDefinitionInvariant()
+    public void RepackAndSplit_PreservesRegisteredDefinitionInvariant()
     {
         var coin = new ItemDefinition<string>("coin");
         var manager = CreateManager(new SlotLayout<string>(3), maxStack: 10, definitions: coin);
@@ -178,7 +178,8 @@ public class InventoryRegisteredDefinitionTests
         var accepted = inventory.TrySetStackResolverParameter(
             "maxStack",
             5,
-            InventoryParameterMutationOptions.RepackAndCompress,
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
         Assert.That(accepted, Is.True, error);

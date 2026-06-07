@@ -14,7 +14,7 @@ public enum InventoryParameterMutationActions
     None = 0,
 
     /// <summary>
-    /// Re-place current stack entries in storage order using normal layout placement.
+    /// Re-place current stack entries in current layout order using normal layout placement.
     /// </summary>
     RepackLayout = 1,
 

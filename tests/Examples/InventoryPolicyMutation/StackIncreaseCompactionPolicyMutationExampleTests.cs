@@ -14,7 +14,7 @@ namespace Workes.InventorySystem.Tests.Examples.InventoryPolicyMutation;
 public class StackIncreaseCompactionPolicyMutationExampleTests
 {
     [Test]
-    public void StackIncreaseCanOptionallyCompactCompatibleStacks()
+    public void StackIncreaseCanOptionallyCompressCompatibleStacks()
     {
         var preserveInventory = CreateInventory(maxStack: 10, slotCount: 4, "coin");
         var compressInventory = CreateInventory(maxStack: 10, slotCount: 4, "coin");
@@ -37,17 +37,18 @@ public class StackIncreaseCompactionPolicyMutationExampleTests
         var compressUpgrade = compressInventory.TrySetStackResolverParameter(
             "maxStack",
             25,
-            new InventoryParameterMutationOptions { CompressCompatibleStacks = true },
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var compressError);
         var compressAndRepackUpgrade = compressAndRepackInventory.TrySetStackResolverParameter(
             "maxStack",
             25,
-            InventoryParameterMutationOptions.RepackAndCompact,
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.CompressCompatibleStacks,
             out var compressAndRepackError);
         var splitDowngrade = splitInventory.TrySetStackResolverParameter(
             "maxStack",
             4,
-            new InventoryParameterMutationOptions { SplitOversizedStacks = true },
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var splitError);
 
         Assert.That(preserveUpgrade, Is.True, preserveError);

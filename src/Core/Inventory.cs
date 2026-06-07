@@ -43,9 +43,18 @@ public class Inventory<TKey> : IInstanceMetadataOwner
 
     private sealed class StackMutationEntry
     {
-        public StackMutationEntry(int? originalIndex, ItemDefinition<TKey> definition, int originalAmount, int amount, InstanceMetadata? metadata)
+        public StackMutationEntry(
+            int? originalIndex,
+            int layoutOrder,
+            int splitSequence,
+            ItemDefinition<TKey> definition,
+            int originalAmount,
+            int amount,
+            InstanceMetadata? metadata)
         {
             OriginalIndex = originalIndex;
+            LayoutOrder = layoutOrder;
+            SplitSequence = splitSequence;
             Definition = definition;
             OriginalAmount = originalAmount;
             Amount = amount;
@@ -53,6 +62,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         }
 
         public int? OriginalIndex { get; }
+
+        public int LayoutOrder { get; }
+
+        public int SplitSequence { get; }
 
         public ItemDefinition<TKey> Definition { get; }
 
@@ -1120,28 +1133,25 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetStackResolverParameter(string parameterId, object? value, out string? error)
-        => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+        => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
     /// Attempts to change a stack resolver parameter after validating current stack amounts, optionally rebuilding current stacks.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling stack splitting, stack compression, and layout repack actions.</param>
+    /// <param name="actions">Actions controlling stack splitting, stack compression, and layout repack.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public bool TrySetStackResolverParameter(
         string parameterId,
         object? value,
-        InventoryParameterMutationOptions options,
+        InventoryParameterMutationActions actions,
         out string? error)
     {
-        if (options == null)
-            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
-        if (!ValidateStackResolverMutationActions(options, out error))
+        if (!ValidateStackResolverMutationActions(actions, out error))
             return false;
 
         if (_stackResolver is not IParameterizedStackResolver<TKey> parameterized)
@@ -1154,7 +1164,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return false;
 
         var previous = _stackResolver;
-        if (options.Actions == InventoryParameterMutationActions.None)
+        if (actions == InventoryParameterMutationActions.None)
         {
             if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
                 return false;
@@ -1164,10 +1174,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return true;
         }
 
-        if (!TryCreateStackMutationEntries(proposedResolver, options, out var entries, out var changedShape, out error) || entries == null)
+        if (!TryCreateStackMutationEntries(proposedResolver, actions, out var entries, out var changedShape, out error) || entries == null)
             return false;
 
-        if (options.RepackLayout)
+        if (HasAction(actions, InventoryParameterMutationActions.RepackLayout))
         {
             var proposedContents = CreateProposedContentsFromStackMutationEntries(entries);
             if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
@@ -1210,19 +1220,18 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value)
-        => SetStackResolverParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+        => SetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None);
 
     /// <summary>
     /// Changes a stack resolver parameter or throws when the parameter change is rejected.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling stack splitting, stack compression, and layout repack actions.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <param name="actions">Actions controlling stack splitting, stack compression, and layout repack.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
-    public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
+    public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetStackResolverParameter(parameterId, value, options, out var error))
+        if (!TrySetStackResolverParameter(parameterId, value, actions, out var error))
             ThrowMutationFailure(error, "Stack resolver parameter change failed.");
     }
 
@@ -1234,28 +1243,25 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out string? error)
-        => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+        => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
     /// Attempts to change a capacity policy parameter after validating current contents against the proposed policy.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Preserve-only options. Capacity parameter changes reject mutation actions.</param>
+    /// <param name="actions">Mutation actions. Capacity parameter changes reject any action other than <see cref="InventoryParameterMutationActions.None"/>.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public bool TrySetCapacityPolicyParameter(
         string parameterId,
         object? value,
-        InventoryParameterMutationOptions options,
+        InventoryParameterMutationActions actions,
         out string? error)
     {
-        if (options == null)
-            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
-        if (!ValidateCapacityMutationActions(options, out error))
+        if (!ValidateCapacityMutationActions(actions, out error))
             return false;
 
         if (_capacityPolicy is not IParameterizedCapacityPolicy<TKey> parameterized)
@@ -1283,19 +1289,18 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value)
-        => SetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+        => SetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None);
 
     /// <summary>
     /// Changes a capacity policy parameter or throws when the parameter change is rejected.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Preserve-only options. Capacity parameter changes reject mutation actions.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <param name="actions">Mutation actions. Capacity parameter changes reject any action other than <see cref="InventoryParameterMutationActions.None"/>.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
-    public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
+    public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetCapacityPolicyParameter(parameterId, value, options, out var error))
+        if (!TrySetCapacityPolicyParameter(parameterId, value, actions, out var error))
             ThrowMutationFailure(error, "Capacity policy parameter change failed.");
     }
 
@@ -1307,28 +1312,25 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetLayoutParameter(string parameterId, object? value, out string? error)
-        => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly, out error);
+        => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
     /// Attempts to change a layout parameter after validating current contents, optionally re-packing placements.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
+    /// <param name="actions">Actions controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public bool TrySetLayoutParameter(
         string parameterId,
         object? value,
-        InventoryParameterMutationOptions options,
+        InventoryParameterMutationActions actions,
         out string? error)
     {
-        if (options == null)
-            throw new ArgumentNullException(nameof(options));
         if (!ValidateParameterId(parameterId, out error))
             return false;
-        if (!ValidateLayoutMutationActions(options, out error))
+        if (!ValidateLayoutMutationActions(actions, out error))
             return false;
 
         if (_layout is not IParameterizedInventoryLayout<TKey> parameterized)
@@ -1337,21 +1339,21 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return false;
         }
 
-        if (!TryCreateLayoutWithParameter(parameterized, parameterId, value, options, out var proposedLayout, out error) || proposedLayout == null)
+        if (!TryCreateLayoutWithParameter(parameterized, parameterId, value, actions, out var proposedLayout, out error) || proposedLayout == null)
             return false;
 
-        if (!options.RepackLayout && !ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
+        if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout) && !ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
             return false;
 
         var previous = _layout;
-        if (!options.RepackLayout)
+        if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
         {
             _layout = proposedLayout;
             FireConfigurationChanged(InventoryConfigurationChangeKind.Layout, parameterId, value, previous, proposedLayout, requiresFullRefresh: true);
             return true;
         }
 
-        var proposedContents = CreateCurrentContentsSnapshot();
+        var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
         if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
             return false;
 
@@ -1375,19 +1377,18 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <param name="value">The proposed parameter value.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value)
-        => SetLayoutParameter(parameterId, value, InventoryParameterMutationOptions.PreserveOnly);
+        => SetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None);
 
     /// <summary>
     /// Changes a layout parameter or throws when the parameter change is rejected.
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="options">Options controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <param name="actions">Actions controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
-    public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationOptions options)
+    public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetLayoutParameter(parameterId, value, options, out var error))
+        if (!TrySetLayoutParameter(parameterId, value, actions, out var error))
             ThrowMutationFailure(error, "Layout parameter change failed.");
     }
 
@@ -1403,16 +1404,21 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
-    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationOptions options, out string? error)
+    private static bool HasAction(
+        InventoryParameterMutationActions actions,
+        InventoryParameterMutationActions action)
+        => (actions & action) == action;
+
+    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationActions actions, out string? error)
     {
         var supported =
             InventoryParameterMutationActions.RepackLayout |
             InventoryParameterMutationActions.SplitOversizedStacks |
             InventoryParameterMutationActions.CompressCompatibleStacks;
-        var unsupported = options.Actions & ~supported;
+        var unsupported = actions & ~supported;
         if (unsupported != InventoryParameterMutationActions.None)
         {
-            error = $"Stack resolver parameter changes do not support mutation action value '{options.Actions}'.";
+            error = $"Stack resolver parameter changes do not support mutation action value '{actions}'.";
             return false;
         }
 
@@ -1420,10 +1426,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
-    private static bool ValidateLayoutMutationActions(InventoryParameterMutationOptions options, out string? error)
+    private static bool ValidateLayoutMutationActions(InventoryParameterMutationActions actions, out string? error)
     {
         var supported = InventoryParameterMutationActions.RepackLayout;
-        var unsupported = options.Actions & ~supported;
+        var unsupported = actions & ~supported;
         if (unsupported != InventoryParameterMutationActions.None)
         {
             error = "Layout parameter changes only support the RepackLayout mutation action.";
@@ -1434,9 +1440,9 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
-    private static bool ValidateCapacityMutationActions(InventoryParameterMutationOptions options, out string? error)
+    private static bool ValidateCapacityMutationActions(InventoryParameterMutationActions actions, out string? error)
     {
-        if (options.Actions != InventoryParameterMutationActions.None)
+        if (actions != InventoryParameterMutationActions.None)
         {
             error = "Capacity policy parameter changes do not support mutation actions.";
             return false;
@@ -1534,11 +1540,12 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
-    private List<ProposedItemState> CreateCurrentContentsSnapshot()
+    private List<ProposedItemState> CreateCurrentContentsSnapshotInCurrentLayoutOrder()
     {
         var contents = new List<ProposedItemState>(_items.Count);
-        foreach (var item in _items)
+        foreach (int index in GetStorageIndicesInCurrentLayoutOrder())
         {
+            var item = _items[index];
             var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
             contents.Add(new ProposedItemState(item.Definition, item.Amount, metadata));
         }
@@ -1546,9 +1553,55 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         return contents;
     }
 
+    private List<int> GetStorageIndicesInCurrentLayoutOrder()
+    {
+        var orderedIndices = new List<int>(_items.Count);
+        var seen = new HashSet<int>();
+
+        foreach (var context in _layout.GetAddressableContexts(this))
+        {
+            var item = _layout.GetItemAt(this, context);
+            if (item == null)
+                continue;
+
+            int storageIndex = IndexOfOwnedItemReference(item);
+            if (storageIndex >= 0 && seen.Add(storageIndex))
+                orderedIndices.Add(storageIndex);
+        }
+
+        for (int index = 0; index < _items.Count; index++)
+        {
+            if (seen.Add(index))
+                orderedIndices.Add(index);
+        }
+
+        return orderedIndices;
+    }
+
+    private Dictionary<int, int> GetCurrentLayoutOrderByStorageIndex()
+    {
+        var orderedIndices = GetStorageIndicesInCurrentLayoutOrder();
+        var orderByIndex = new Dictionary<int, int>(orderedIndices.Count);
+        for (int order = 0; order < orderedIndices.Count; order++)
+            orderByIndex[orderedIndices[order]] = order;
+
+        return orderByIndex;
+    }
+
+    private int IndexOfOwnedItemReference(ItemInstance<TKey> item)
+    {
+        for (int index = 0; index < _items.Count; index++)
+        {
+            if (ReferenceEquals(_items[index], item))
+                return index;
+        }
+
+        return -1;
+    }
+
     private bool TryCreateStackMutationEntries(
         IStackResolver<TKey> resolver,
-        InventoryParameterMutationOptions options,
+        InventoryParameterMutationActions actions,
         out List<StackMutationEntry>? entries,
         out bool changedShape,
         out string? error)
@@ -1557,7 +1610,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         changedShape = false;
         error = null;
 
-        if (!TryApplySplitOversizedStacks(entries, resolver, options.SplitOversizedStacks, out var splitChanged, out error))
+        if (!TryApplySplitOversizedStacks(entries, resolver, HasAction(actions, InventoryParameterMutationActions.SplitOversizedStacks), out var splitChanged, out error))
         {
             entries = null;
             return false;
@@ -1565,7 +1618,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
 
         changedShape = splitChanged;
 
-        if (options.CompressCompatibleStacks)
+        if (HasAction(actions, InventoryParameterMutationActions.CompressCompatibleStacks))
         {
             if (!TryApplyCompressCompatibleStacks(entries, resolver, out var compressionChanged, out error))
             {
@@ -1582,11 +1635,13 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     private List<StackMutationEntry> CreateCurrentStackMutationEntries()
     {
         var entries = new List<StackMutationEntry>(_items.Count);
+        var layoutOrderByIndex = GetCurrentLayoutOrderByStorageIndex();
         for (int index = 0; index < _items.Count; index++)
         {
             var item = _items[index];
             var metadata = item.Metadata.IsEmpty ? null : CloneMetadata(item.Metadata);
-            entries.Add(new StackMutationEntry(index, item.Definition, item.Amount, item.Amount, metadata));
+            int layoutOrder = layoutOrderByIndex.TryGetValue(index, out var order) ? order : index;
+            entries.Add(new StackMutationEntry(index, layoutOrder, 0, item.Definition, item.Amount, item.Amount, metadata));
         }
 
         return entries;
@@ -1625,11 +1680,19 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             int remaining = entry.Amount - maxStack;
             entry.Amount = maxStack;
             changedShape = true;
+            int splitSequence = 1;
 
             while (remaining > 0)
             {
                 int chunk = Math.Min(remaining, maxStack);
-                entries.Add(new StackMutationEntry(null, entry.Definition, 0, chunk, CloneMetadataOrNull(entry.Metadata)));
+                entries.Add(new StackMutationEntry(
+                    null,
+                    entry.LayoutOrder,
+                    splitSequence++,
+                    entry.Definition,
+                    0,
+                    chunk,
+                    CloneMetadataOrNull(entry.Metadata)));
                 remaining -= chunk;
             }
         }
@@ -1714,7 +1777,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     private List<ProposedItemState> CreateProposedContentsFromStackMutationEntries(IReadOnlyList<StackMutationEntry> entries)
     {
         var contents = new List<ProposedItemState>();
-        foreach (var entry in entries)
+        foreach (var entry in entries.OrderBy(entry => entry.LayoutOrder).ThenBy(entry => entry.SplitSequence))
         {
             if (entry.Amount <= 0)
                 continue;
@@ -1782,11 +1845,11 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         IParameterizedInventoryLayout<TKey> parameterized,
         string parameterId,
         object? value,
-        InventoryParameterMutationOptions options,
+        InventoryParameterMutationActions actions,
         out IInventoryLayout<TKey>? layout,
         out string? error)
     {
-        if (!options.RepackLayout)
+        if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
             return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out error);
 
         return TryCreateEmptyLayoutWithParameter(parameterId, value, out layout, out error);

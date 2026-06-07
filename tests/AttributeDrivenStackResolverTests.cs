@@ -454,7 +454,7 @@ public class AttributeDrivenStackResolverTests
     }
 
     [Test]
-    public void TrySetStackResolverParameter_WithRepackAndCompress_SplitsStacksWhenMultiplierShrinks()
+    public void TrySetStackResolverParameter_WithRepackAndSplit_SplitsStacksWhenMultiplierShrinks()
     {
         var coin = new StackRatioDefinition("coin", 10);
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 1), coin);
@@ -463,7 +463,8 @@ public class AttributeDrivenStackResolverTests
         var accepted = inventory.TrySetStackResolverParameter(
             "multiplier",
             0.5,
-            InventoryParameterMutationOptions.RepackAndCompress,
+            InventoryParameterMutationActions.RepackLayout |
+            InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
         Assert.That(accepted, Is.True, error);
