@@ -7,8 +7,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
       <PackageId>Workes.InventorySystem</PackageId>
-      <Version>1.0.0</Version>
-      <PackageReleaseNotes>First full release of the Inventory System.</PackageReleaseNotes>
+      <Version>1.0.1</Version>
+      <PackageReleaseNotes>Fixed README and commit pointer.</PackageReleaseNotes>
       <PackageReadmeFile>README.md</PackageReadmeFile>
 
       <Authors>Workes</Authors>
