@@ -41,6 +41,18 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 
+# Local planning and release-prep notes
+/WORK_TRACKER.md
+/WORK_TRACKER*.md
+/DESIGN_PRINCIPLES.md
+/DESIGN_PRINCIPLES*.md
+/PLANNING.md
+/PLANNING*.md
+/PLAN.md
+/PLAN*.md
+/ROADMAP.md
+/ROADMAP*.md
+
 # MSBuild Binary and Structured Log
 *.binlog
 

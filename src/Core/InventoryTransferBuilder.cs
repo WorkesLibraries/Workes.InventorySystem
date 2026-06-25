@@ -22,7 +22,7 @@ public sealed class InventoryTransferBuilder<TKey>
     }
 
     /// <summary>
-    /// Gets the source inventory items are planned to leave.
+    /// Gets the source inventory whose items are planned to leave.
     /// </summary>
     public Inventory<TKey> Source { get; }
 

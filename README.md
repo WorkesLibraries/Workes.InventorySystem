@@ -8,7 +8,7 @@ Examples use `string` ids for readability. The system is extensible, but the fir
 
 ## Installation
 
-NuGet publishing is planned after README wording, package metadata, package readme wiring, and licensing are finalized. Until then, reference the project directly:
+Reference the project directly from a consuming solution:
 
 ```xml
 <ItemGroup>
@@ -1181,7 +1181,7 @@ Transfer builders stage outgoing-only removals from a source inventory. Target a
 | API | Meaning |
 |---|---|
 | `InventoryTransfer.From(source)` | Creates an outgoing-only builder for the source inventory. |
-| `Source` | Source inventory items are planned to leave. |
+| `Source` | Source inventory whose items are planned to leave. |
 | `Entries` | Snapshot of outgoing planned entries. |
 | `IsEmpty` | Whether there are no planned outgoing entries. |
 | `TryRemove(item, amount, out error)` | Stage removal from a source item instance. |
@@ -2623,11 +2623,3 @@ For real implementations, define constants for parameter ids and attribute ids, 
 - Footprint providers should be deterministic and return positive rectangular footprints.
 - Provider behavior should remain compatible with persisted inventories.
 - Compact multi-cell sorting is deterministic heuristic packing, not guaranteed optimal bin packing.
-
-## Suggested Next Steps
-
-1. Review README wording and examples.
-2. Add NuGet metadata to `src/Workes.InventorySystem.csproj` after README wording is stable.
-3. Discuss license before adding a `LICENSE` file.
-4. Consider PolyForm Noncommercial plus a separate commercial permission path, but do not choose it as final without an explicit licensing decision.
-5. Consider package readme wiring and SourceLink after metadata is finalized.

@@ -40,11 +40,11 @@ public class ItemRegistry<TKey>
     /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
     public void Register(ItemDefinition<TKey> definition)
     {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+
         if (_frozen)
             throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
-
-        if (definition == null)
-            throw new ArgumentNullException("Definition cannot be null");
 
         if (_definitions.ContainsKey(definition.Id))
             throw new InvalidOperationException("Duplicate item ID.");
@@ -71,14 +71,14 @@ public class ItemRegistry<TKey>
     /// <exception cref="ArgumentNullException"><paramref name="oldId"/> or <paramref name="replacementDefinition"/> is <see langword="null"/>.</exception>
     public void RegisterMigration(TKey oldId, ItemDefinition<TKey> replacementDefinition)
     {
-        if (_frozen)
-            throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
-
         if (oldId == null)
-            throw new ArgumentNullException("Old ID cannot be null");
+            throw new ArgumentNullException(nameof(oldId));
 
         if (replacementDefinition == null)
-            throw new ArgumentNullException("Migration replacement definition cannot be null");
+            throw new ArgumentNullException(nameof(replacementDefinition));
+
+        if (_frozen)
+            throw new InvalidOperationException("Item registry is frozen and cannot be modified.");
 
         if (_definitions.ContainsKey(oldId))
             throw new InvalidOperationException("Can't migrate from a registered definition.");

@@ -4,6 +4,7 @@ using NUnit.Framework;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Layout;
+using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Stacking;
 using Workes.InventorySystem.Capacity;
 namespace Workes.InventorySystem.Tests;
@@ -48,6 +49,42 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
 
         Assert.DoesNotThrow(() => manager.CreateInventory());
+    }
+
+    [Test]
+    public void PublicNullArgumentExceptions_ReportParameterNames()
+    {
+        var catalog = new ItemCatalog<string>();
+        var manager = new InventoryManager<string>(
+            new FixedSizeStackResolver<string>(10),
+            new UnlimitedCapacityPolicy<string>(),
+            new EntryLayout<string>(),
+            catalog);
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+
+        Assert.That(
+            Assert.Throws<ArgumentNullException>(() => new Inventory<string>(
+                null!,
+                new FixedSizeStackResolver<string>(10),
+                new UnlimitedCapacityPolicy<string>(),
+                new EntryLayout<string>(),
+                new RuleContainer<string>()))!.ParamName,
+            Is.EqualTo("manager"));
+        Assert.That(
+            Assert.Throws<ArgumentNullException>(() => inventory.Deserialize(null!))!.ParamName,
+            Is.EqualTo("data"));
+        Assert.That(
+            Assert.Throws<ArgumentNullException>(() => catalog.Registry.Register(null!))!.ParamName,
+            Is.EqualTo("definition"));
+        Assert.That(
+            Assert.Throws<ArgumentNullException>(() => catalog.Registry.RegisterMigration(null!, apple))!.ParamName,
+            Is.EqualTo("oldId"));
+        Assert.That(
+            Assert.Throws<ArgumentNullException>(() => catalog.Registry.RegisterMigration("old-apple", null!))!.ParamName,
+            Is.EqualTo("replacementDefinition"));
     }
 
     [Test]

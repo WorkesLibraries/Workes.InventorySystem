@@ -138,12 +138,14 @@ public class StandardLayoutPolishTests
     [Test]
     public void EquipmentSlot_OptionsRejectNullAllowedDefinitionId()
     {
-        Assert.Throws<ArgumentException>(() => new EquipmentSlot<string>(
+        var exception = Assert.Throws<ArgumentException>(() => new EquipmentSlot<string>(
             "main-hand",
             new EquipmentSlotOptions<string>
             {
                 AllowedDefinitionIds = new[] { (string)null! }
             }));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("AllowedDefinitionIds"));
     }
 
     [Test]
@@ -157,6 +159,20 @@ public class StandardLayoutPolishTests
             });
 
         Assert.That(slot.AllowedDefinitionIds, Is.Empty);
+    }
+
+    [Test]
+    public void SectionDefinition_OptionsRejectNullAllowedDefinitionIdWithParameterName()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new SectionDefinition<string>(
+            "bag",
+            1,
+            new SectionDefinitionOptions<string>
+            {
+                AllowedDefinitionIds = new[] { (string)null! }
+            }));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("AllowedDefinitionIds"));
     }
 
     [Test]

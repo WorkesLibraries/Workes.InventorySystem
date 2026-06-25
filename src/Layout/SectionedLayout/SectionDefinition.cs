@@ -87,7 +87,7 @@ public sealed class SectionDefinition<TKey>
         var ids = new List<TKey>();
         var seen = new HashSet<TKey>();
 
-        AddIds(options.AllowedDefinitionIds, ids, seen);
+        AddIds(options.AllowedDefinitionIds, ids, seen, nameof(options.AllowedDefinitionIds));
 
         if (options.AllowedDefinitions != null)
         {
@@ -96,26 +96,26 @@ public sealed class SectionDefinition<TKey>
                 if (definition == null)
                     continue;
 
-                AddId(definition.Id, ids, seen);
+                AddId(definition.Id, ids, seen, nameof(options.AllowedDefinitions));
             }
         }
 
         return ids;
     }
 
-    private static void AddIds(IEnumerable<TKey>? source, List<TKey> ids, HashSet<TKey> seen)
+    private static void AddIds(IEnumerable<TKey>? source, List<TKey> ids, HashSet<TKey> seen, string parameterName)
     {
         if (source == null)
             return;
 
         foreach (var id in source)
-            AddId(id, ids, seen);
+            AddId(id, ids, seen, parameterName);
     }
 
-    private static void AddId(TKey id, List<TKey> ids, HashSet<TKey> seen)
+    private static void AddId(TKey id, List<TKey> ids, HashSet<TKey> seen, string parameterName)
     {
         if (id == null)
-            throw new ArgumentException("Allowed definition id cannot be null.");
+            throw new ArgumentException("Allowed definition ids cannot contain null.", parameterName);
 
         if (seen.Add(id))
             ids.Add(id);

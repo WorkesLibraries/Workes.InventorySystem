@@ -114,7 +114,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         RuleContainer<TKey> rules)
     {
         if (manager == null)
-            throw new ArgumentNullException("Manager cannot be null");
+            throw new ArgumentNullException(nameof(manager));
         Manager = manager;
         _stackResolver = stackResolver;
         _capacityPolicy = capacityPolicy;
@@ -3593,7 +3593,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     public void Deserialize(SerializedInventory<TKey> data, bool strict = false)
     {
         if (data == null)
-            throw new ArgumentNullException("Data cannot be null");
+            throw new ArgumentNullException(nameof(data));
 
         Clear();
 
