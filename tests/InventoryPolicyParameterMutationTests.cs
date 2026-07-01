@@ -587,22 +587,27 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
-    public void TrySetStackResolverParameter_RepackLayout_ReflowsEntryLayout()
+    public void TrySetStackResolverParameter_RepackLayout_RejectsEntryLayoutAsNonRepackable()
     {
         var coin = new ItemDefinition<string>("coin");
         var gem = new ItemDefinition<string>("gem");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), new EntryLayout<string>(), coin, gem);
         inventory.Add(coin, amount: 3);
         inventory.Add(gem, amount: 2);
-        InventoryChangedEventArgs<string>? captured = null;
-        inventory.Changed += (_, args) => captured = args;
+        var originalResolver = inventory.StackResolver;
+        var originalLayout = inventory.Layout;
+        var originalItems = inventory.Items.ToArray();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
 
         var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
-        Assert.That(accepted, Is.True, error);
-        Assert.That(inventory.Items.Select(item => item.Definition.Id), Is.EqualTo(new[] { "coin", "gem" }));
-        Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 3, 2 }));
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("EntryLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(inventory.StackResolver, Is.SameAs(originalResolver));
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items, Is.EqualTo(originalItems));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]
@@ -680,7 +685,7 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
-    public void TrySetStackResolverParameter_RepackLayout_ReflowsEquipmentLayout()
+    public void TrySetStackResolverParameter_RepackLayout_RejectsEquipmentLayoutAsNonRepackable()
     {
         var coin = new ItemDefinition<string>("coin");
         var layout = new EquipmentLayout<string>(
@@ -688,15 +693,21 @@ public class InventoryPolicyParameterMutationTests
             new EquipmentSlot<string>("second"));
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(10), new UnlimitedCapacityPolicy<string>(), layout, coin);
         inventory.Add(coin, amount: 1, context: EquipmentLayoutContext<string>.Single("second"));
-        InventoryChangedEventArgs<string>? captured = null;
-        inventory.Changed += (_, args) => captured = args;
+        var originalResolver = inventory.StackResolver;
+        var originalLayout = inventory.Layout;
+        var originalItem = inventory.Items.Single();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
 
         var accepted = inventory.TrySetStackResolverParameter("maxStack", 12, InventoryParameterMutationActions.RepackLayout, out var error);
 
-        Assert.That(accepted, Is.True, error);
-        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("first"))!.Definition, Is.SameAs(coin));
-        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("second")), Is.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("EquipmentLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(inventory.StackResolver, Is.SameAs(originalResolver));
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("second")), Is.SameAs(originalItem));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     [Test]

@@ -10,7 +10,7 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>Slot contexts must be <see cref="SlotLayoutContext{TKey}"/> instances. Invalid or empty slots return <see langword="null"/> from lookups.</remarks>
-public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
+public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
     private readonly List<int?> _slotMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
@@ -43,6 +43,32 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
     public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayout(
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = new SlotLayout<TKey>(_slotMap.Count);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayoutWithParameter(
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out error))
+            return false;
+
+        layout = new SlotLayout<TKey>(slotCount);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
@@ -51,23 +77,8 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
         out string? error)
     {
         layout = null;
-        if (parameterId != "slotCount")
-        {
-            error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
+        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out error))
             return false;
-        }
-
-        if (value is not int slotCount)
-        {
-            error = "Parameter 'slotCount' expects value type 'Int32'.";
-            return false;
-        }
-
-        if (slotCount <= 0)
-        {
-            error = "Slot count must be greater than zero.";
-            return false;
-        }
 
         for (int slot = slotCount; slot < _slotMap.Count; slot++)
         {
@@ -83,6 +94,36 @@ public class SlotLayout<TKey> : IParameterizedInventoryLayout<TKey>
             newMap.Add(slot < _slotMap.Count ? _slotMap[slot] : null);
 
         layout = new SlotLayout<TKey>(newMap);
+        error = null;
+        return true;
+    }
+
+    private static bool TryResolveSlotCount(
+        string parameterId,
+        object? value,
+        out int slotCount,
+        out string? error)
+    {
+        slotCount = 0;
+        if (parameterId != "slotCount")
+        {
+            error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
+            return false;
+        }
+
+        if (value is not int resolvedSlotCount)
+        {
+            error = "Parameter 'slotCount' expects value type 'Int32'.";
+            return false;
+        }
+
+        if (resolvedSlotCount <= 0)
+        {
+            error = "Slot count must be greater than zero.";
+            return false;
+        }
+
+        slotCount = resolvedSlotCount;
         error = null;
         return true;
     }

@@ -11,6 +11,8 @@ namespace Workes.InventorySystem.Layout;
 /// This is an extension contract. Normal runtime layout tuning should go through
 /// <see cref="Inventory{TKey}.TrySetLayoutParameter(string, object?, out string?)"/>
 /// so the inventory can validate current contents before committing the change.
+/// This contract preserves current placement. Layouts that also support rebuilding
+/// placement after a parameter change implement <see cref="IParameterizedRepackableInventoryLayout{TKey}"/>.
 /// </remarks>
 public interface IParameterizedInventoryLayout<TKey> : IInventoryLayout<TKey>
 {

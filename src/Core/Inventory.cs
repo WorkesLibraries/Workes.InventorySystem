@@ -1319,7 +1319,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="actions">Actions controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
+    /// <param name="actions">
+    /// Actions controlling layout repack. Layout parameter changes reject stack mutation actions, and repack requires
+    /// the active layout to implement <see cref="IParameterizedRepackableInventoryLayout{TKey}"/>.
+    /// </param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetLayoutParameter(
@@ -1852,280 +1855,30 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
             return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out error);
 
-        return TryCreateEmptyLayoutWithParameter(parameterId, value, out layout, out error);
+        if (parameterized is not IParameterizedRepackableInventoryLayout<TKey> repackable)
+        {
+            layout = null;
+            error = $"Current layout type '{parameterized.GetType().Name}' does not support parameterized inventory-owned repack.";
+            return false;
+        }
+
+        return repackable.TryCreateEmptyRepackLayoutWithParameter(
+            parameterId,
+            value,
+            out layout,
+            out error);
     }
 
     private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out string? error)
     {
-        layout = null;
-        error = null;
-
-        if (source is SlotLayout<TKey>)
+        if (source is not IRepackableInventoryLayout<TKey> repackable)
         {
-            layout = new SlotLayout<TKey>(source.GetPositionCount(this));
-            return true;
-        }
-
-        if (source is GridLayout<TKey> grid)
-        {
-            layout = new GridLayout<TKey>(grid.Width, grid.Height, grid.PlacementOrder);
-            return true;
-        }
-
-        if (source is MultiCellGridLayout<TKey> multiCell)
-        {
-            layout = new MultiCellGridLayout<TKey>(
-                multiCell.Width,
-                multiCell.Height,
-                multiCell.FootprintProvider,
-                multiCell.PlacementOrder,
-                multiCell.DefaultAnchor);
-            return true;
-        }
-
-        if (source is SectionedLayout<TKey> sectioned)
-        {
-            layout = new SectionedLayout<TKey>(
-                sectioned.Sections.Select(section => new SectionDefinition<TKey>(
-                    section.Id,
-                    section.SlotCount,
-                    new SectionDefinitionOptions<TKey>
-                    {
-                        RequiredTags = section.RequiredTags,
-                        AllowedDefinitionIds = section.AllowedDefinitionIds
-                    })));
-            return true;
-        }
-
-        if (source is EntryLayout<TKey>)
-        {
-            layout = new EntryLayout<TKey>();
-            return true;
-        }
-
-        if (source is EquipmentLayout<TKey> equipment)
-        {
-            layout = new EquipmentLayout<TKey>(equipment.Slots);
-            return true;
-        }
-
-        error = $"Current layout type '{source.GetType().Name}' does not support inventory-owned repack.";
-        return false;
-    }
-
-    private bool TryCreateEmptyLayoutWithParameter(string parameterId, object? value, out IInventoryLayout<TKey>? layout, out string? error)
-    {
-        layout = null;
-        error = null;
-
-        if (_layout is SlotLayout<TKey>)
-        {
-            if (parameterId != "slotCount")
-            {
-                error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
-                return false;
-            }
-
-            if (value is not int slotCount)
-            {
-                error = "Parameter 'slotCount' expects value type 'Int32'.";
-                return false;
-            }
-
-            if (slotCount <= 0)
-            {
-                error = "Slot count must be greater than zero.";
-                return false;
-            }
-
-            layout = new SlotLayout<TKey>(slotCount);
-            return true;
-        }
-
-        if (_layout is GridLayout<TKey> grid)
-        {
-            int width = grid.Width;
-            int height = grid.Height;
-            var placementOrder = grid.PlacementOrder;
-
-            if (parameterId == "width")
-            {
-                if (value is not int widthValue)
-                {
-                    error = "Parameter 'width' expects value type 'Int32'.";
-                    return false;
-                }
-
-                width = widthValue;
-            }
-            else if (parameterId == "height")
-            {
-                if (value is not int heightValue)
-                {
-                    error = "Parameter 'height' expects value type 'Int32'.";
-                    return false;
-                }
-
-                height = heightValue;
-            }
-            else if (parameterId == "placementOrder")
-            {
-                if (value is not GridPlacementOrder placementOrderValue)
-                {
-                    error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
-                    return false;
-                }
-
-                placementOrder = placementOrderValue;
-            }
-            else
-            {
-                error = $"Parameter '{parameterId}' is not supported by GridLayout.";
-                return false;
-            }
-
-            if (width <= 0 || height <= 0)
-            {
-                error = "Grid width and height must be greater than zero.";
-                return false;
-            }
-
-            layout = new GridLayout<TKey>(width, height, placementOrder);
-            return true;
-        }
-
-        if (_layout is MultiCellGridLayout<TKey> multiCell)
-        {
-            int width = multiCell.Width;
-            int height = multiCell.Height;
-            var placementOrder = multiCell.PlacementOrder;
-            var defaultAnchor = multiCell.DefaultAnchor;
-
-            if (parameterId == "width")
-            {
-                if (value is not int widthValue)
-                {
-                    error = "Parameter 'width' expects value type 'Int32'.";
-                    return false;
-                }
-
-                width = widthValue;
-            }
-            else if (parameterId == "height")
-            {
-                if (value is not int heightValue)
-                {
-                    error = "Parameter 'height' expects value type 'Int32'.";
-                    return false;
-                }
-
-                height = heightValue;
-            }
-            else if (parameterId == "placementOrder")
-            {
-                if (value is not GridPlacementOrder placementOrderValue)
-                {
-                    error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
-                    return false;
-                }
-
-                placementOrder = placementOrderValue;
-            }
-            else if (parameterId == "defaultAnchor")
-            {
-                if (value is not GridAnchor defaultAnchorValue)
-                {
-                    error = "Parameter 'defaultAnchor' expects value type 'GridAnchor'.";
-                    return false;
-                }
-
-                defaultAnchor = defaultAnchorValue;
-            }
-            else
-            {
-                error = $"Parameter '{parameterId}' is not supported by MultiCellGridLayout.";
-                return false;
-            }
-
-            if (width <= 0 || height <= 0)
-            {
-                error = "Grid width and height must be greater than zero.";
-                return false;
-            }
-
-            layout = new MultiCellGridLayout<TKey>(width, height, multiCell.FootprintProvider, placementOrder, defaultAnchor);
-            return true;
-        }
-
-        if (_layout is SectionedLayout<TKey> sectioned)
-        {
-            if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
-            {
-                error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
-                return false;
-            }
-
-            if (value is not int slotCount)
-            {
-                error = $"Parameter '{parameterId}' expects value type 'Int32'.";
-                return false;
-            }
-
-            if (slotCount <= 0)
-            {
-                error = "Section slot count must be greater than zero.";
-                return false;
-            }
-
-            var newSections = new List<SectionDefinition<TKey>>();
-            bool found = false;
-            foreach (var section in sectioned.Sections)
-            {
-                int newSlotCount = section.SlotCount;
-                if (string.Equals(section.Id, sectionId, StringComparison.Ordinal))
-                {
-                    newSlotCount = slotCount;
-                    found = true;
-                }
-
-                newSections.Add(new SectionDefinition<TKey>(
-                    section.Id,
-                    newSlotCount,
-                    new SectionDefinitionOptions<TKey>
-                    {
-                        RequiredTags = section.RequiredTags,
-                        AllowedDefinitionIds = section.AllowedDefinitionIds
-                    }));
-            }
-
-            if (!found)
-            {
-                error = $"Section '{sectionId}' was not found.";
-                return false;
-            }
-
-            layout = new SectionedLayout<TKey>(newSections);
-            return true;
-        }
-
-        error = $"Current layout type '{_layout.GetType().Name}' does not support inventory-owned repack.";
-        return false;
-    }
-
-    private static bool TryParseSectionSlotCountParameter(string parameterId, out string sectionId)
-    {
-        sectionId = string.Empty;
-        const string prefix = "section:";
-        const string suffix = ".slotCount";
-        if (string.IsNullOrWhiteSpace(parameterId) ||
-            !parameterId.StartsWith(prefix, StringComparison.Ordinal) ||
-            !parameterId.EndsWith(suffix, StringComparison.Ordinal))
-        {
+            layout = null;
+            error = $"Current layout type '{source.GetType().Name}' does not support inventory-owned repack.";
             return false;
         }
 
-        sectionId = parameterId.Substring(prefix.Length, parameterId.Length - prefix.Length - suffix.Length);
-        return !string.IsNullOrWhiteSpace(sectionId);
+        return repackable.TryCreateEmptyRepackLayout(out layout, out error);
     }
 
     private void ApplyConfigurationRebuild(
@@ -3309,6 +3062,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <remarks>
     /// Repacking preserves inventory item instances and storage order. It changes layout placement only.
     /// Repack is not sorting and does not use item comparer ordering.
+    /// The active layout must implement <see cref="IRepackableInventoryLayout{TKey}"/>.
     /// </remarks>
     public bool TryRepackLayout(out string? error)
     {

@@ -114,6 +114,52 @@ public class InventoryLayoutRepackTests
     }
 
     [Test]
+    public void TryRepackLayout_RejectsEntryLayoutBecauseRepackIsAlwaysANoOp()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new EntryLayout<string>(), coin);
+        inventory.Add(coin);
+        var originalLayout = inventory.Layout;
+        var originalItem = inventory.Items.Single();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TryRepackLayout(out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("EntryLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TryRepackLayout_RejectsEquipmentLayoutAndPreservesNamedSlot()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(
+            new EquipmentLayout<string>(
+                new EquipmentSlot<string>("first"),
+                new EquipmentSlot<string>("second")),
+            coin);
+        inventory.Add(coin, context: EquipmentLayoutContext<string>.Single("second"));
+        var originalLayout = inventory.Layout;
+        var originalItem = inventory.Items.Single();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TryRepackLayout(out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Does.Contain("EquipmentLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("first")), Is.Null);
+        Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("second")), Is.SameAs(originalItem));
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
     public void TryRepackLayout_GridLayoutCompactsUsingPlacementOrder()
     {
         var sword = new ItemDefinition<string>("sword");
@@ -132,6 +178,136 @@ public class InventoryLayoutRepackTests
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 1))!.Definition, Is.SameAs(potion));
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(1, 0))!.Definition, Is.SameAs(sword));
         Assert.That(inventory.Items, Is.EqualTo(originalItems));
+    }
+
+    [Test]
+    public void TryRepackLayout_CustomCapabilityCompactsAndReportsMovement()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(new CustomRepackableLayout(4), sword, apple);
+        inventory.Add(sword, context: SlotLayoutContext<string>.Single(3));
+        inventory.Add(apple, context: SlotLayoutContext<string>.Single(1));
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
+
+        var accepted = inventory.TryRepackLayout(out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Layout, Is.TypeOf<CustomRepackableLayout>());
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(sword));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.Moved, Has.Count.EqualTo(2));
+        Assert.That(captured.ConfigurationChanged, Is.Empty);
+    }
+
+    [Test]
+    public void StackResolverRebuildRepack_UsesCustomCapability()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new CustomRepackableLayout(4), coin);
+        inventory.Add(coin, amount: 10);
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
+
+        var accepted = inventory.TrySetStackResolverParameter(
+            "maxStack",
+            6,
+            InventoryParameterMutationActions.SplitOversizedStacks |
+            InventoryParameterMutationActions.RepackLayout,
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(inventory.Layout, Is.TypeOf<CustomRepackableLayout>());
+        Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 6, 4 }));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.ConfigurationChanged, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_CustomLayoutPreservesPlacementWithoutRepack()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new CustomRepackableLayout(3), coin);
+        inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
+
+        var accepted = inventory.TrySetLayoutParameter("capacity", 4, out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(((CustomRepackableLayout)inventory.Layout).Capacity, Is.EqualTo(4));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2)), Is.SameAs(inventory.Items[0]));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_CustomParameterizedRepackReflowsIntoNewShape()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(new CustomRepackableLayout(4), sword, apple);
+        inventory.Add(sword, context: SlotLayoutContext<string>.Single(3));
+        inventory.Add(apple, context: SlotLayoutContext<string>.Single(2));
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "capacity",
+            2,
+            InventoryParameterMutationActions.RepackLayout,
+            out var error);
+
+        Assert.That(accepted, Is.True, error);
+        Assert.That(events, Is.EqualTo(1));
+        Assert.That(((CustomRepackableLayout)inventory.Layout).Capacity, Is.EqualTo(2));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(sword));
+    }
+
+    [Test]
+    public void TryRepackLayout_WhenCustomCapabilityRejects_IsAtomicAndSilent()
+    {
+        var coin = new ItemDefinition<string>("coin");
+        var inventory = CreateInventory(new CustomRepackableLayout(3, rejectRepack: true), coin);
+        inventory.Add(coin, context: SlotLayoutContext<string>.Single(2));
+        var originalLayout = inventory.Layout;
+        var originalItem = inventory.Items.Single();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TryRepackLayout(out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Is.EqualTo("Custom repack rejected."));
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
+        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2)), Is.SameAs(originalItem));
+        Assert.That(events, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TrySetLayoutParameter_WhenCustomRepackCannotFit_IsAtomicAndSilent()
+    {
+        var sword = new ItemDefinition<string>("sword");
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(new CustomRepackableLayout(3), sword, apple);
+        inventory.Add(sword, context: SlotLayoutContext<string>.Single(1));
+        inventory.Add(apple, context: SlotLayoutContext<string>.Single(2));
+        var originalLayout = inventory.Layout;
+        var originalItems = inventory.Items.ToArray();
+        int events = 0;
+        inventory.Changed += (_, _) => events++;
+
+        var accepted = inventory.TrySetLayoutParameter(
+            "capacity",
+            1,
+            InventoryParameterMutationActions.RepackLayout,
+            out var error);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(error, Is.Not.Null.And.Not.Empty);
+        Assert.That(inventory.Layout, Is.SameAs(originalLayout));
+        Assert.That(inventory.Items, Is.EqualTo(originalItems));
+        Assert.That(events, Is.EqualTo(0));
     }
 
     private static Inventory<string> CreateInventory(
@@ -256,5 +432,203 @@ public class InventoryLayoutRepackTests
         }
 
         public IInventoryLayout<string> Clone() => new UnsupportedLayout();
+    }
+
+    private sealed class CustomRepackableLayout : IParameterizedRepackableInventoryLayout<string>
+    {
+        private readonly SlotLayout<string> _inner;
+        private readonly bool _rejectRepack;
+        private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
+            new[]
+            {
+                new InventoryParameterDefinition("capacity", typeof(int), "Number of custom layout positions.")
+            };
+
+        public CustomRepackableLayout(int capacity, bool rejectRepack = false)
+            : this(new SlotLayout<string>(capacity), rejectRepack)
+        {
+        }
+
+        private CustomRepackableLayout(SlotLayout<string> inner, bool rejectRepack)
+        {
+            _inner = inner;
+            _rejectRepack = rejectRepack;
+        }
+
+        public int Capacity => _inner.GetPersistentData() is SlotLayoutPersistentData data
+            ? data.SlotMap.Count
+            : 0;
+
+        public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
+
+        public bool TryCreateEmptyRepackLayout(
+            out IInventoryLayout<string>? layout,
+            out string? error)
+        {
+            if (_rejectRepack)
+            {
+                layout = null;
+                error = "Custom repack rejected.";
+                return false;
+            }
+
+            layout = new CustomRepackableLayout(Capacity);
+            error = null;
+            return true;
+        }
+
+        public bool TryCreateEmptyRepackLayoutWithParameter(
+            string parameterId,
+            object? value,
+            out IInventoryLayout<string>? layout,
+            out string? error)
+        {
+            layout = null;
+            if (_rejectRepack)
+            {
+                error = "Custom repack rejected.";
+                return false;
+            }
+
+            if (!TryResolveCapacity(parameterId, value, out int capacity, out error))
+                return false;
+
+            layout = new CustomRepackableLayout(capacity);
+            error = null;
+            return true;
+        }
+
+        public bool TryCreateWithParameter(
+            Inventory<string> inventory,
+            string parameterId,
+            object? value,
+            out IInventoryLayout<string>? layout,
+            out string? error)
+        {
+            layout = null;
+            if (!TryResolveCapacity(parameterId, value, out int capacity, out error))
+                return false;
+
+            if (!_inner.TryCreateWithParameter(inventory, "slotCount", capacity, out var innerLayout, out error) ||
+                innerLayout is not SlotLayout<string> slotLayout)
+            {
+                return false;
+            }
+
+            layout = new CustomRepackableLayout(slotLayout, _rejectRepack);
+            error = null;
+            return true;
+        }
+
+        private static bool TryResolveCapacity(
+            string parameterId,
+            object? value,
+            out int capacity,
+            out string? error)
+        {
+            capacity = 0;
+            if (parameterId != "capacity")
+            {
+                error = $"Parameter '{parameterId}' is not supported by CustomRepackableLayout.";
+                return false;
+            }
+
+            if (value is not int resolvedCapacity)
+            {
+                error = "Parameter 'capacity' expects value type 'Int32'.";
+                return false;
+            }
+
+            if (resolvedCapacity <= 0)
+            {
+                error = "Capacity must be greater than zero.";
+                return false;
+            }
+
+            capacity = resolvedCapacity;
+            error = null;
+            return true;
+        }
+
+        public int GetPositionCount(Inventory<string> inventory) => _inner.GetPositionCount(inventory);
+
+        public IReadOnlyList<ILayoutContext<string>> GetAddressableContexts(Inventory<string> inventory)
+            => _inner.GetAddressableContexts(inventory);
+
+        public ItemInstance<string>? GetItemAt(Inventory<string> inventory, ILayoutContext<string> context)
+            => _inner.GetItemAt(inventory, context);
+
+        public IReadOnlyList<ILayoutContext<string>> GetContextsForStorageIndex(Inventory<string> inventory, int storageIndex)
+            => _inner.GetContextsForStorageIndex(inventory, storageIndex);
+
+        public bool TryGetContextForStorageIndex(
+            Inventory<string> inventory,
+            int storageIndex,
+            out ILayoutContext<string>? context)
+            => _inner.TryGetContextForStorageIndex(inventory, storageIndex, out context);
+
+        public IEnumerable<int> GetMergeCandidates(
+            Inventory<string> inventory,
+            ItemInstance<string> prototype,
+            ILayoutContext<string>? context)
+            => _inner.GetMergeCandidates(inventory, prototype, context);
+
+        public bool CanSatisfyPlacement(
+            Inventory<string> inventory,
+            InventoryTransaction<string> transaction,
+            out string? error)
+            => _inner.CanSatisfyPlacement(inventory, transaction, out error);
+
+        public bool TryApplyPlacementContext(
+            Inventory<string> inventory,
+            InventoryTransaction<string> transaction,
+            ILayoutContext<string>? context,
+            out InventoryTransaction<string>? mappedTransaction,
+            out string? error)
+            => _inner.TryApplyPlacementContext(inventory, transaction, context, out mappedTransaction, out error);
+
+        public bool CanAcceptNewItem(
+            Inventory<string> inventory,
+            ItemInstance<string> instance,
+            ILayoutContext<string>? context,
+            out string? error)
+            => _inner.CanAcceptNewItem(inventory, instance, context, out error);
+
+        public bool TryMove(
+            Inventory<string> inventory,
+            ILayoutContext<string> contextFrom,
+            ILayoutContext<string> contextTo,
+            out string? error)
+            => _inner.TryMove(inventory, contextFrom, contextTo, out error);
+
+        public bool TrySwap(
+            Inventory<string> inventory,
+            ILayoutContext<string> contextFrom,
+            ILayoutContext<string> contextTo,
+            out string? error)
+            => _inner.TrySwap(inventory, contextFrom, contextTo, out error);
+
+        public bool TrySort(
+            Inventory<string> inventory,
+            IInventorySortContext<string> sortContext,
+            out string? error)
+            => _inner.TrySort(inventory, sortContext, out error);
+
+        public void OnItemAdded(Inventory<string> inventory, int index, ILayoutContext<string>? context)
+            => _inner.OnItemAdded(inventory, index, context);
+
+        public void OnItemRemoved(Inventory<string> inventory, int index)
+            => _inner.OnItemRemoved(inventory, index);
+
+        public void OnInventoryCleared(Inventory<string> inventory)
+            => _inner.OnInventoryCleared(inventory);
+
+        public ILayoutPersistentData GetPersistentData() => _inner.GetPersistentData();
+
+        public void RestorePersistentData(ILayoutPersistentData? persistentData)
+            => _inner.RestorePersistentData(persistentData);
+
+        public IInventoryLayout<string> Clone()
+            => new CustomRepackableLayout((SlotLayout<string>)_inner.Clone(), _rejectRepack);
     }
 }

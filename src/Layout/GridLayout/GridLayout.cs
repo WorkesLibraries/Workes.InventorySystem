@@ -11,7 +11,7 @@ namespace Workes.InventorySystem.Layout;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>Grid contexts must be <see cref="GridLayoutContext{TKey}"/> instances.</remarks>
-public class GridLayout<TKey> : IParameterizedInventoryLayout<TKey>
+public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
     private readonly List<int?> _cellMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
@@ -66,6 +66,32 @@ public class GridLayout<TKey> : IParameterizedInventoryLayout<TKey>
     public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayout(
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = new GridLayout<TKey>(Width, Height, PlacementOrder);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayoutWithParameter(
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
+            return false;
+
+        layout = new GridLayout<TKey>(width, height, placementOrder);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
@@ -74,9 +100,54 @@ public class GridLayout<TKey> : IParameterizedInventoryLayout<TKey>
         out string? error)
     {
         layout = null;
-        int width = Width;
-        int height = Height;
-        var placementOrder = PlacementOrder;
+        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
+            return false;
+
+        var newMap = new List<int?>(width * height);
+        for (int i = 0; i < width * height; i++)
+            newMap.Add(null);
+
+        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
+        {
+            if (!_cellMap[oldCell].HasValue)
+                continue;
+
+            int x = oldCell % Width;
+            int y = oldCell / Width;
+            if (x >= width || y >= height)
+            {
+                error = "Cannot resize grid layout because an occupied cell would be outside the new bounds.";
+                return false;
+            }
+
+            newMap[y * width + x] = _cellMap[oldCell];
+        }
+
+        var replacement = new GridLayout<TKey>(width, height, placementOrder);
+        replacement.RestorePersistentData(new GridLayoutPersistentData
+        {
+            Width = width,
+            Height = height,
+            PlacementOrder = placementOrder,
+            CellMap = newMap
+        });
+
+        layout = replacement;
+        error = null;
+        return true;
+    }
+
+    private bool TryResolveConfiguration(
+        string parameterId,
+        object? value,
+        out int width,
+        out int height,
+        out GridPlacementOrder placementOrder,
+        out string? error)
+    {
+        width = Width;
+        height = Height;
+        placementOrder = PlacementOrder;
 
         if (parameterId == "width")
         {
@@ -126,36 +197,6 @@ public class GridLayout<TKey> : IParameterizedInventoryLayout<TKey>
             return false;
         }
 
-        var newMap = new List<int?>(width * height);
-        for (int i = 0; i < width * height; i++)
-            newMap.Add(null);
-
-        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
-        {
-            if (!_cellMap[oldCell].HasValue)
-                continue;
-
-            int x = oldCell % Width;
-            int y = oldCell / Width;
-            if (x >= width || y >= height)
-            {
-                error = "Cannot resize grid layout because an occupied cell would be outside the new bounds.";
-                return false;
-            }
-
-            newMap[y * width + x] = _cellMap[oldCell];
-        }
-
-        var replacement = new GridLayout<TKey>(width, height, placementOrder);
-        replacement.RestorePersistentData(new GridLayoutPersistentData
-        {
-            Width = width,
-            Height = height,
-            PlacementOrder = placementOrder,
-            CellMap = newMap
-        });
-
-        layout = replacement;
         error = null;
         return true;
     }

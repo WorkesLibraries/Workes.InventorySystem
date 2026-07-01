@@ -14,7 +14,7 @@ namespace Workes.InventorySystem.Layout;
 /// <see cref="PlacementOrder"/> controls context-less placement and sort repacking scan order.
 /// Explicit placement contexts are interpreted through <see cref="DefaultAnchor"/> unless they specify their own anchor.
 /// </remarks>
-public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TKey>
+public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
     private readonly List<int?> _cellMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
@@ -87,6 +87,41 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
     public IReadOnlyCollection<InventoryParameterDefinition> Parameters => s_parameters;
 
     /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayout(
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = new MultiCellGridLayout<TKey>(Width, Height, FootprintProvider, PlacementOrder, DefaultAnchor);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayoutWithParameter(
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (!TryResolveConfiguration(
+                parameterId,
+                value,
+                out int width,
+                out int height,
+                out var placementOrder,
+                out var defaultAnchor,
+                out error))
+        {
+            return false;
+        }
+
+        layout = new MultiCellGridLayout<TKey>(width, height, FootprintProvider, placementOrder, defaultAnchor);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
@@ -95,10 +130,66 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
         out string? error)
     {
         layout = null;
-        int width = Width;
-        int height = Height;
-        var placementOrder = PlacementOrder;
-        var defaultAnchor = DefaultAnchor;
+        if (!TryResolveConfiguration(
+                parameterId,
+                value,
+                out int width,
+                out int height,
+                out var placementOrder,
+                out var defaultAnchor,
+                out error))
+        {
+            return false;
+        }
+
+        var newMap = new List<int?>(width * height);
+        for (int i = 0; i < width * height; i++)
+            newMap.Add(null);
+
+        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
+        {
+            if (!_cellMap[oldCell].HasValue)
+                continue;
+
+            int x = oldCell % Width;
+            int y = oldCell / Width;
+            if (x >= width || y >= height)
+            {
+                error = "Cannot resize multi-cell grid layout because an occupied cell would be outside the new bounds.";
+                return false;
+            }
+
+            newMap[y * width + x] = _cellMap[oldCell];
+        }
+
+        var replacement = new MultiCellGridLayout<TKey>(width, height, FootprintProvider, placementOrder, defaultAnchor);
+        replacement.RestorePersistentData(new MultiCellGridLayoutPersistentData
+        {
+            Width = width,
+            Height = height,
+            PlacementOrder = placementOrder,
+            DefaultAnchor = defaultAnchor,
+            CellMap = newMap
+        });
+
+        layout = replacement;
+        error = null;
+        return true;
+    }
+
+    private bool TryResolveConfiguration(
+        string parameterId,
+        object? value,
+        out int width,
+        out int height,
+        out GridPlacementOrder placementOrder,
+        out GridAnchor defaultAnchor,
+        out string? error)
+    {
+        width = Width;
+        height = Height;
+        placementOrder = PlacementOrder;
+        defaultAnchor = DefaultAnchor;
 
         if (parameterId == "width")
         {
@@ -158,37 +249,6 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedInventoryLayout<TK
             return false;
         }
 
-        var newMap = new List<int?>(width * height);
-        for (int i = 0; i < width * height; i++)
-            newMap.Add(null);
-
-        for (int oldCell = 0; oldCell < _cellMap.Count; oldCell++)
-        {
-            if (!_cellMap[oldCell].HasValue)
-                continue;
-
-            int x = oldCell % Width;
-            int y = oldCell / Width;
-            if (x >= width || y >= height)
-            {
-                error = "Cannot resize multi-cell grid layout because an occupied cell would be outside the new bounds.";
-                return false;
-            }
-
-            newMap[y * width + x] = _cellMap[oldCell];
-        }
-
-        var replacement = new MultiCellGridLayout<TKey>(width, height, FootprintProvider, placementOrder, defaultAnchor);
-        replacement.RestorePersistentData(new MultiCellGridLayoutPersistentData
-        {
-            Width = width,
-            Height = height,
-            PlacementOrder = placementOrder,
-            DefaultAnchor = defaultAnchor,
-            CellMap = newMap
-        });
-
-        layout = replacement;
         error = null;
         return true;
     }

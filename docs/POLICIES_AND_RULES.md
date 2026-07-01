@@ -373,6 +373,20 @@ It is not a sort and does not use `Inventory.Items` storage order or an item com
 Repack can still fail when automatic placement cannot represent all entries. For layout compaction without a parameter
 change, use `TryRepackLayout(...)` or `RepackLayout()` instead.
 
+Slot, grid, multi-cell grid, and sectioned layouts expose the required repack capabilities. Entry layout deliberately
+does not because repack would always be a no-op. Equipment layout deliberately does not because named positions must
+not be automatically reassigned. Custom layouts use:
+
+| Capability | Purpose |
+|---|---|
+| `IRepackableInventoryLayout<TKey>` | Creates an empty equivalent target for direct repack and repack requested by another component mutation. |
+| `IParameterizedRepackableInventoryLayout<TKey>` | Creates an empty target with one layout parameter changed. |
+
+The existing `IParameterizedInventoryLayout<TKey>` contract remains responsible for parameter changes that preserve
+current placement. Implementing it alone does not opt a custom layout into parameterized repack. Layout capabilities
+create proposed empty configurations; the inventory still owns ordering, automatic-placement simulation, complete
+validation, atomic commit, and events.
+
 ### Supported Action Combinations
 
 | Mutation target | Supported actions |

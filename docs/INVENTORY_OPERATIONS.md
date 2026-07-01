@@ -421,8 +421,14 @@ Repacking:
 - preserves `Inventory.Items` storage order.
 - changes layout placement only.
 - does not apply an item comparer.
+- requires the active layout to implement `IRepackableInventoryLayout<TKey>`.
 
 Use repack to remove placement gaps. Use sorting when you want comparer-driven order.
+
+Slot, grid, multi-cell grid, and sectioned layouts support this capability. Entry layout does not because repack would
+always be a no-op. Equipment layout does not because named slots are semantically meaningful. A custom capability
+creates only an empty equivalently configured layout; the inventory performs placement, validation, atomic commit, and
+event reporting. Rejection leaves current contents and placement unchanged.
 
 ## Sort Layout Placement
 

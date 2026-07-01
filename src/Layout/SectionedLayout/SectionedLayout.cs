@@ -17,7 +17,7 @@ namespace Workes.InventorySystem.Layout;
 /// Sections without tag or definition restrictions accept any item that otherwise satisfies inventory rules. Sorting
 /// compacts placed items into compatible section slots without changing inventory storage order.
 /// </remarks>
-public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
+public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
     private readonly List<SectionDefinition<TKey>> _sections;
     private readonly List<int?> _slotMap;
@@ -80,6 +80,32 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
     }
 
     /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayout(
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = new SectionedLayout<TKey>(CloneSections());
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryCreateEmptyRepackLayoutWithParameter(
+        string parameterId,
+        object? value,
+        out IInventoryLayout<TKey>? layout,
+        out string? error)
+    {
+        layout = null;
+        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
+            return false;
+
+        layout = new SectionedLayout<TKey>(newSections);
+        error = null;
+        return true;
+    }
+
+    /// <inheritdoc />
     public bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
@@ -88,45 +114,8 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
         out string? error)
     {
         layout = null;
-        if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
-        {
-            error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
+        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
             return false;
-        }
-
-        if (value is not int slotCount)
-        {
-            error = $"Parameter '{parameterId}' expects value type 'Int32'.";
-            return false;
-        }
-
-        if (slotCount <= 0)
-        {
-            error = "Section slot count must be greater than zero.";
-            return false;
-        }
-
-        int targetSectionIndex = _sections.FindIndex(section => string.Equals(section.Id, sectionId, StringComparison.Ordinal));
-        if (targetSectionIndex < 0)
-        {
-            error = $"Section '{sectionId}' was not found.";
-            return false;
-        }
-
-        var newSections = new List<SectionDefinition<TKey>>(_sections.Count);
-        for (int i = 0; i < _sections.Count; i++)
-        {
-            var section = _sections[i];
-            int newSlotCount = i == targetSectionIndex ? slotCount : section.SlotCount;
-            newSections.Add(new SectionDefinition<TKey>(
-                section.Id,
-                newSlotCount,
-                new SectionDefinitionOptions<TKey>
-                {
-                    RequiredTags = section.RequiredTags,
-                    AllowedDefinitionIds = section.AllowedDefinitionIds
-                }));
-        }
 
         int newTotalSlots = newSections.Sum(section => section.SlotCount);
         var newMap = new List<int?>(newTotalSlots);
@@ -169,6 +158,72 @@ public sealed class SectionedLayout<TKey> : IParameterizedInventoryLayout<TKey>
         layout = replacement;
         error = null;
         return true;
+    }
+
+    private bool TryCreateSectionsWithParameter(
+        string parameterId,
+        object? value,
+        out List<SectionDefinition<TKey>>? sections,
+        out string? error)
+    {
+        sections = null;
+        if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
+        {
+            error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
+            return false;
+        }
+
+        if (value is not int slotCount)
+        {
+            error = $"Parameter '{parameterId}' expects value type 'Int32'.";
+            return false;
+        }
+
+        if (slotCount <= 0)
+        {
+            error = "Section slot count must be greater than zero.";
+            return false;
+        }
+
+        int targetSectionIndex = _sections.FindIndex(section => string.Equals(section.Id, sectionId, StringComparison.Ordinal));
+        if (targetSectionIndex < 0)
+        {
+            error = $"Section '{sectionId}' was not found.";
+            return false;
+        }
+
+        var newSections = new List<SectionDefinition<TKey>>(_sections.Count);
+        for (int i = 0; i < _sections.Count; i++)
+        {
+            var section = _sections[i];
+            int newSlotCount = i == targetSectionIndex ? slotCount : section.SlotCount;
+            newSections.Add(new SectionDefinition<TKey>(
+                section.Id,
+                newSlotCount,
+                new SectionDefinitionOptions<TKey>
+                {
+                    RequiredTags = section.RequiredTags,
+                    AllowedDefinitionIds = section.AllowedDefinitionIds
+                }));
+        }
+
+        sections = newSections;
+        error = null;
+        return true;
+    }
+
+    private List<SectionDefinition<TKey>> CloneSections()
+    {
+        return _sections
+            .Select(section => new SectionDefinition<TKey>(
+                section.Id,
+                section.SlotCount,
+                new SectionDefinitionOptions<TKey>
+                {
+                    RequiredTags = section.RequiredTags,
+                    AllowedDefinitionIds = section.AllowedDefinitionIds
+                }))
+            .ToList();
     }
 
     private static bool TryParseSectionSlotCountParameter(string parameterId, out string sectionId)

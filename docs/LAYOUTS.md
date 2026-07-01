@@ -543,7 +543,42 @@ For a slot layout with items at slots `1`, `3`, and `4`, repack moves them to `0
 
 For grid layouts, auto-placement follows `GridPlacementOrder`.
 
-Repack can fail if the contents cannot be represented through the layout’s normal auto-placement. All built-in layouts support inventory-owned repack; custom layouts require explicit support.
+Repack can fail if the contents cannot be represented through the layout's normal auto-placement.
+
+Built-in support is deliberate rather than universal:
+
+| Layout | Repack support | Reason |
+|---|---|---|
+| `EntryLayout<TKey>` | No | Entry positions have no gaps, so repack would always be a guaranteed no-op. |
+| `SlotLayout<TKey>` | Yes | Interchangeable numbered slots can be compacted safely. |
+| `GridLayout<TKey>` | Yes | Interchangeable cells can be compacted in placement order. |
+| `MultiCellGridLayout<TKey>` | Yes | Footprints can be placed again through the configured scan strategy. |
+| `SectionedLayout<TKey>` | Yes | Slots can be compacted while preserving section compatibility. |
+| `EquipmentLayout<TKey>` | No | Named equipment positions are semantically meaningful and must not be reassigned merely to remove gaps. |
+
+A custom layout opts in through `IRepackableInventoryLayout<TKey>`.
+
+### Custom Layout Repack Support
+
+`IRepackableInventoryLayout<TKey>` asks a layout to create an empty replacement with equivalent configuration. It does
+not ask the layout to move live items itself. The inventory:
+
+- reads storage indices in current visible layout order.
+- asks the capability for an empty configured target.
+- simulates normal context-less placement into that target.
+- validates layout, stack, capacity, and rule constraints.
+- commits the new layout atomically only when the complete candidate succeeds.
+- reports the committed placement change through `Inventory.Changed`.
+
+This separation keeps repack layout-agnostic while preserving inventory ownership of validation, mutation, and events.
+A capability rejection or candidate-placement failure leaves the original layout and item instances unchanged and emits
+no event.
+
+Parameterized custom layouts can additionally implement `IParameterizedRepackableInventoryLayout<TKey>`. Its
+`TryCreateEmptyRepackLayoutWithParameter(...)` method creates an empty target with the proposed configuration.
+`IParameterizedInventoryLayout<TKey>.TryCreateWithParameter(...)` remains the separate preserve-placement path. A
+custom layout may therefore support parameter changes without supporting repack, direct repack without parameterized
+repack, or both capabilities.
 
 ## Sorting
 
@@ -712,6 +747,10 @@ var changed = inventory.TrySetLayoutParameter(
 Repack preserves the item instances and `Inventory.Items` storage order; it changes only their layout placement. The
 change can still be rejected when the proposed layout cannot automatically place every entry or footprint. Both modes
 validate the complete proposed result and commit atomically, so rejection leaves the current layout unchanged.
+
+For custom layouts, the preserve-placement overload requires `IParameterizedInventoryLayout<TKey>`. The repack overload
+requires `IParameterizedRepackableInventoryLayout<TKey>` as well. Parameter parsing and creation of the empty proposed
+configuration belong to the layout rather than `Inventory<TKey>`.
 
 See [Policies And Rules](POLICIES_AND_RULES.md#mutation-actions) for supported action combinations, stack splitting,
 compression, and the deeper rebuild behavior.

@@ -331,6 +331,8 @@ cases:
 Additional details:
 
 - A direct repack that changes no placement emits no event.
+- A custom repack capability only creates a candidate layout. Capability rejection or candidate validation failure
+  preserves the active layout and emits no event; the inventory emits the normal single event only after commit.
 - Preserve-only stack-resolver and capacity-policy changes do not require full refresh.
 - Stack splitting or compression without repack uses normal added, removed, modified, and affected-context payloads.
 - Sorting uses moved payloads and does not request full refresh.

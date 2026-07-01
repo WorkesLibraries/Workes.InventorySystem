@@ -71,7 +71,6 @@ public class MultipliedAttributeStackingExampleTests
         var tuned = warehouse.TrySetStackResolverParameter(
             "multiplier",
             2.0,
-            InventoryParameterMutationActions.RepackLayout |
             InventoryParameterMutationActions.SplitOversizedStacks,
             out var tuneError);
 
