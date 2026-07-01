@@ -5,7 +5,8 @@ using System.Linq;
 namespace Workes.InventorySystem.Events.Dto;
 
 /// <summary>
-/// Describes an item that stayed in the inventory but moved between layout contexts.
+/// Describes an item that stayed in the inventory but moved between layout contexts, either directly or through
+/// layout reflow caused by another mutation.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class ItemMoved<TKey>

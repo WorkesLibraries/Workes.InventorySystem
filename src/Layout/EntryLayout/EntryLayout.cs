@@ -11,9 +11,13 @@ namespace Workes.InventorySystem.Layout;
 /// the inventory's <c>_items</c> list.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
-public class EntryLayout<TKey> : IInventoryLayout<TKey>
+public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 {
     private readonly List<int> _order = new();
+
+    /// <inheritdoc />
+    public InventoryLayoutReconciliationResult<TKey> ReconcileAfterInventoryMutation(Inventory<TKey> inventory)
+        => InventoryLayoutReconciliationResult<TKey>.None;
 
     /// <inheritdoc />
     public int GetPositionCount(Inventory<TKey> inventory)

@@ -375,6 +375,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             _layout.OnItemAdded(this, _items.Count - 1, context);
         }
 
+        ReconcileLayoutAfterMutation();
         transaction.MarkApplied();
     }
 
@@ -620,16 +621,23 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         if (!TryPrepareTransaction(transaction, null, out _, out error))
             return false;
 
-        var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+        var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
         metadata.ReplaceDirect(proposedMetadata.AsReadOnly());
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
         var metadataChanged = new ItemMetadataChanged<TKey>(
             item,
             index,
             beforeMetadata,
             metadata.ToDictionary(),
             layoutContexts);
+        var moved = BuildReflowMovements(layoutContextsBefore);
 
-        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(metadataChanged: new[] { metadataChanged }));
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+            moved: moved,
+            metadataChanged: new[] { metadataChanged },
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+            requiresFullRefresh: reconciliation.RequiresFullRefresh));
         error = null;
         return true;
     }
@@ -1351,8 +1359,19 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         var previous = _layout;
         if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
         {
+            var layoutContextsBefore = CaptureLayoutContextsByInstance();
             _layout = proposedLayout;
-            FireConfigurationChanged(InventoryConfigurationChangeKind.Layout, parameterId, value, previous, proposedLayout, requiresFullRefresh: true);
+            var reconciliation = ReconcileLayoutAfterMutation();
+            var moved = BuildReflowMovements(layoutContextsBefore);
+            FireConfigurationChanged(
+                InventoryConfigurationChangeKind.Layout,
+                parameterId,
+                value,
+                previous,
+                proposedLayout,
+                requiresFullRefresh: true,
+                moved: moved,
+                affectedLayoutContexts: reconciliation.AffectedLayoutContexts);
             return true;
         }
 
@@ -1903,14 +1922,24 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             item.DetachOwner(this);
         _items.Clear();
 
-        var addedEvents = new List<ItemAdded<TKey>>(proposedContents.Count);
+        var addedInstances = new List<ItemInstance<TKey>>(proposedContents.Count);
         foreach (var state in proposedContents)
         {
             var metadata = state.Metadata != null && !state.Metadata.IsEmpty ? CloneMetadata(state.Metadata) : null;
             var instance = new ItemInstance<TKey>(state.Definition, state.Amount, metadata);
             AddItem(instance, null);
-            int index = _items.Count - 1;
-            addedEvents.Add(new ItemAdded<TKey>(instance, index, _layout.GetContextsForStorageIndex(this, index)));
+            addedInstances.Add(instance);
+        }
+
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var addedEvents = new List<ItemAdded<TKey>>(addedInstances.Count);
+        foreach (var instance in addedInstances)
+        {
+            int index = _items.IndexOf(instance);
+            addedEvents.Add(new ItemAdded<TKey>(
+                instance,
+                index,
+                _layout.GetContextsForStorageIndex(this, index)));
         }
 
         var change = new InventoryConfigurationChanged<TKey>(
@@ -1925,28 +1954,29 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             added: addedEvents,
             removed: removedEvents,
             configurationChanged: new[] { change },
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
             requiresFullRefresh: true));
     }
 
     private void ApplyLayoutRepack(
         IInventoryLayout<TKey> proposedLayout,
         IReadOnlyList<int> orderedStorageIndices,
-        IReadOnlyList<IReadOnlyList<ILayoutContext<TKey>>> before)
+        IReadOnlyDictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>> before)
     {
         _layout = proposedLayout;
         foreach (var storageIndex in orderedStorageIndices)
             _layout.OnItemAdded(this, storageIndex, null);
 
-        var after = CaptureLayoutContextsByStorageIndex();
-        var moved = new List<ItemMoved<TKey>>();
-        for (int index = 0; index < _items.Count; index++)
-        {
-            if (!ContextListsEqual(before[index], after[index]))
-                moved.Add(new ItemMoved<TKey>(_items[index], before[index], after[index]));
-        }
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var moved = BuildReflowMovements(before);
 
-        if (moved.Count > 0)
-            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(moved: moved, requiresFullRefresh: true));
+        if (moved.Count > 0 || reconciliation.AffectedLayoutContexts.Count > 0 || reconciliation.RequiresFullRefresh)
+        {
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+                moved: moved,
+                affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+                requiresFullRefresh: true));
+        }
     }
 
     private void FireConfigurationChanged(
@@ -1955,7 +1985,9 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         object? value,
         object previousComponent,
         object currentComponent,
-        bool requiresFullRefresh)
+        bool requiresFullRefresh,
+        IEnumerable<ItemMoved<TKey>>? moved = null,
+        IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null)
     {
         var change = new InventoryConfigurationChanged<TKey>(
             kind,
@@ -1965,7 +1997,10 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             currentComponent,
             requiresFullRefresh);
 
-        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(configurationChanged: new[] { change }));
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+            moved: moved,
+            configurationChanged: new[] { change },
+            affectedLayoutContexts: affectedLayoutContexts));
     }
 
     private void ApplyStackParameterMutationTransaction(
@@ -2645,12 +2680,13 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         var addedEvents = new List<ItemAdded<TKey>>();
         var removedEvents = new List<ItemRemoved<TKey>>();
         var modifiedCaptures = new List<ModifiedEventCapture>();
+        var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
 
         foreach (var (index, delta) in transaction.AmountDeltas)
         {
             var instance = _items[index];
             int beforeAmount = instance.Amount;
-            var beforeContexts = _layout.GetContextsForStorageIndex(this, index);
+            var beforeContexts = GetCapturedOrCurrentLayoutContexts(layoutContextsBefore, instance, index);
             _items[index].AddAmount(delta);
             modifiedCaptures.Add(new ModifiedEventCapture(instance, index, beforeAmount, instance.Amount, beforeContexts));
         }
@@ -2659,7 +2695,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         removed.Sort((a, b) => b.index.CompareTo(a.index));
         foreach (var (index, instance) in removed)
         {
-            var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+            var layoutContexts = GetCapturedOrCurrentLayoutContexts(layoutContextsBefore, instance, index);
             removedEvents.Add(new ItemRemoved<TKey>(instance, index, layoutContexts));
             RemoveAt(index);
         }
@@ -2667,8 +2703,15 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         foreach (var (instance, context) in transaction.Added)
         {
             AddItem(instance, context);
-            int index = _items.Count - 1;
-            var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
+        }
+
+        var reconciliation = ReconcileLayoutAfterMutation();
+        foreach (var (instance, _) in transaction.Added)
+        {
+            int index = _items.IndexOf(instance);
+            var layoutContexts = index >= 0
+                ? _layout.GetContextsForStorageIndex(this, index)
+                : Array.Empty<ILayoutContext<TKey>>();
             addedEvents.Add(new ItemAdded<TKey>(instance, index, layoutContexts));
         }
 
@@ -2689,6 +2732,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                 afterContexts));
         }
 
+        var movedEvents = BuildReflowMovements(layoutContextsBefore);
         transaction.MarkApplied();
 
         bool hasChanges = transaction.AmountDeltas.Count > 0 || transaction.Removed.Count > 0 || transaction.Added.Count > 0;
@@ -2700,9 +2744,11 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             addedEvents,
             removedEvents,
             modifiedEvents,
+            moved: movedEvents,
             cleared: cleared,
             configurationChanged: configurationChanged,
-            requiresFullRefresh: requiresFullRefresh);
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+            requiresFullRefresh: requiresFullRefresh || reconciliation.RequiresFullRefresh);
     }
 
     private readonly struct ModifiedEventCapture
@@ -2867,25 +2913,40 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         var beforeContexts = itemIndex >= 0
             ? _layout.GetContextsForStorageIndex(this, itemIndex)
             : new List<ILayoutContext<TKey>> { contextFrom };
+        var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
 
         if (!_layout.TryMove(this, contextFrom, contextTo, out error))
             return false;
 
+        var reconciliation = ReconcileLayoutAfterMutation();
         var afterContexts = itemIndex >= 0
             ? _layout.GetContextsForStorageIndex(this, itemIndex)
             : new List<ILayoutContext<TKey>> { contextTo };
 
-        var changedEventArgs = new InventoryChangedEventArgs<TKey>(
-            moved: new List<ItemMoved<TKey>>
-            {
-                new ItemMoved<TKey>(
-                    item,
-                    beforeContexts.Count == 1 ? new[] { contextFrom } : beforeContexts,
-                    afterContexts.Count == 1 ? new[] { contextTo } : afterContexts)
-            }
-        );
+        var moved = new List<ItemMoved<TKey>>();
+        if (!ContextListsEqual(beforeContexts, afterContexts))
+        {
+            var reportedBeforeContexts =
+                beforeContexts.Count == 1 && LayoutContextEquals(beforeContexts[0], contextFrom)
+                    ? new[] { contextFrom }
+                    : beforeContexts;
+            var reportedAfterContexts =
+                afterContexts.Count == 1 && LayoutContextEquals(afterContexts[0], contextTo)
+                    ? new[] { contextTo }
+                    : afterContexts;
+            moved.Add(new ItemMoved<TKey>(item, reportedBeforeContexts, reportedAfterContexts));
+        }
+        moved.AddRange(BuildReflowMovements(
+            layoutContextsBefore,
+            new HashSet<ItemInstance<TKey>>(ItemInstanceReferenceComparer.Instance) { item }));
 
-        Changed?.Invoke(this, changedEventArgs);
+        if (moved.Count > 0 || reconciliation.AffectedLayoutContexts.Count > 0 || reconciliation.RequiresFullRefresh)
+        {
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+                moved: moved,
+                affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+                requiresFullRefresh: reconciliation.RequiresFullRefresh));
+        }
 
         return true;
     }
@@ -2930,13 +2991,19 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         var secondBeforeContexts = toIndex >= 0
             ? _layout.GetContextsForStorageIndex(this, toIndex)
             : new List<ILayoutContext<TKey>> { contextTo };
+        var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
 
         if (!_layout.TrySwap(this, contextFrom, contextTo, out error))
         {
             return false;
         }
 
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var moved = BuildReflowMovements(
+            layoutContextsBefore,
+            new HashSet<ItemInstance<TKey>>(ItemInstanceReferenceComparer.Instance) { itemFrom, itemTo });
         var changedEventArgs = new InventoryChangedEventArgs<TKey>(
+            moved: moved,
             swapped: new List<ItemSwapped<TKey>>
             {
                 new ItemSwapped<TKey>(
@@ -2944,8 +3011,9 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                     secondBeforeContexts.Count == 1 ? new[] { contextTo } : secondBeforeContexts,
                     itemTo,
                     itemFrom)
-            }
-        );
+            },
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+            requiresFullRefresh: reconciliation.RequiresFullRefresh);
 
         Changed?.Invoke(this, changedEventArgs);
 
@@ -3066,7 +3134,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// </remarks>
     public bool TryRepackLayout(out string? error)
     {
-        var before = CaptureLayoutContextsByStorageIndex();
+        var before = CaptureLayoutContextsByInstance();
         var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
         var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
 
@@ -3164,20 +3232,20 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return false;
         }
 
-        var before = CaptureLayoutContextsByStorageIndex();
+        var before = CaptureLayoutContextsByInstance();
         if (!_layout.TrySort(this, sortContext, out error))
             return false;
 
-        var after = CaptureLayoutContextsByStorageIndex();
-        var moved = new List<ItemMoved<TKey>>();
-        for (int i = 0; i < _items.Count; i++)
-        {
-            if (!ContextListsEqual(before[i], after[i]))
-                moved.Add(new ItemMoved<TKey>(_items[i], before[i], after[i], isSortResult: true));
-        }
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var moved = BuildReflowMovements(before, isSortResult: true);
 
-        if (moved.Count > 0)
-            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(moved: moved));
+        if (moved.Count > 0 || reconciliation.AffectedLayoutContexts.Count > 0 || reconciliation.RequiresFullRefresh)
+        {
+            Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+                moved: moved,
+                affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+                requiresFullRefresh: reconciliation.RequiresFullRefresh));
+        }
 
         error = null;
         return true;
@@ -3199,12 +3267,77 @@ public class Inventory<TKey> : IInstanceMetadataOwner
         throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? fallbackMessage : error);
     }
 
-    private List<IReadOnlyList<ILayoutContext<TKey>>> CaptureLayoutContextsByStorageIndex()
+    private Dictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? CaptureLayoutContextsForReconciliation()
     {
-        var contexts = new List<IReadOnlyList<ILayoutContext<TKey>>>(_items.Count);
+        return _layout is IInventoryLayoutReconciler<TKey>
+            ? CaptureLayoutContextsByInstance()
+            : null;
+    }
+
+    private Dictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>> CaptureLayoutContextsByInstance()
+    {
+        var contexts = new Dictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>(
+            _items.Count,
+            ItemInstanceReferenceComparer.Instance);
         for (int i = 0; i < _items.Count; i++)
-            contexts.Add(_layout.GetContextsForStorageIndex(this, i));
+            contexts[_items[i]] = _layout.GetContextsForStorageIndex(this, i).ToList();
         return contexts;
+    }
+
+    private IReadOnlyList<ILayoutContext<TKey>> GetCapturedOrCurrentLayoutContexts(
+        IReadOnlyDictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? captured,
+        ItemInstance<TKey> instance,
+        int currentIndex)
+    {
+        if (captured != null && captured.TryGetValue(instance, out var contexts))
+            return contexts;
+
+        return _layout.GetContextsForStorageIndex(this, currentIndex);
+    }
+
+    private InventoryLayoutReconciliationResult<TKey> ReconcileLayoutAfterMutation()
+    {
+        if (_layout is not IInventoryLayoutReconciler<TKey> reconciler)
+            return InventoryLayoutReconciliationResult<TKey>.None;
+
+        return reconciler.ReconcileAfterInventoryMutation(this)
+            ?? InventoryLayoutReconciliationResult<TKey>.None;
+    }
+
+    private List<ItemMoved<TKey>> BuildReflowMovements(
+        IReadOnlyDictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? before,
+        ISet<ItemInstance<TKey>>? excludedInstances = null,
+        bool isSortResult = false)
+    {
+        var moved = new List<ItemMoved<TKey>>();
+        if (before == null)
+            return moved;
+
+        for (int index = 0; index < _items.Count; index++)
+        {
+            var instance = _items[index];
+            if ((excludedInstances != null && excludedInstances.Contains(instance)) ||
+                !before.TryGetValue(instance, out var beforeContexts))
+            {
+                continue;
+            }
+
+            var afterContexts = _layout.GetContextsForStorageIndex(this, index);
+            if (!ContextListsEqual(beforeContexts, afterContexts))
+                moved.Add(new ItemMoved<TKey>(instance, beforeContexts, afterContexts, isSortResult));
+        }
+
+        return moved;
+    }
+
+    private sealed class ItemInstanceReferenceComparer : IEqualityComparer<ItemInstance<TKey>>
+    {
+        public static ItemInstanceReferenceComparer Instance { get; } = new();
+
+        public bool Equals(ItemInstance<TKey>? x, ItemInstance<TKey>? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ItemInstance<TKey> obj) =>
+            System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     private static bool ContextListsEqual(IReadOnlyList<ILayoutContext<TKey>> first, IReadOnlyList<ILayoutContext<TKey>> second)

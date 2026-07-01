@@ -53,12 +53,12 @@ One `InventoryChangedEventArgs<TKey>` can contain several categories from the sa
 | `Added` | New item instances were added. |
 | `Removed` | Existing item instances were removed. |
 | `Modified` | Existing item amounts changed. |
-| `Moved` | Layout placement changed, including sorting and repacking. |
+| `Moved` | A surviving item changed placement directly, through sorting/repacking, or as collateral layout reflow. |
 | `Swapped` | Two layout placements were exchanged. |
 | `MetadataChanged` | Metadata changed directly on an existing item instance. |
 | `ConfigurationChanged` | A runtime stack resolver, capacity policy, or layout parameter changed. |
 | `Cleared` | Existing contents were cleared as part of the operation. |
-| `AffectedLayoutContexts` | Distinct positions gathered from all relevant payloads. |
+| `AffectedLayoutContexts` | Positions gathered from relevant payloads and layout reconciliation. |
 | `RequiresFullRefresh` | The whole inventory view should be rebuilt. |
 
 Do not assume an event belongs to exactly one category. A transaction can add, remove, and modify stacks together.
@@ -205,6 +205,14 @@ foreach (var moved in args.Moved)
 }
 ```
 
+Structural mutations can also move otherwise unchanged items. For example, inserting at Entry index `1` shifts the
+previous entry at `1` to `2`; removing Entry index `0` shifts every later entry down. Those surviving instances appear
+in `Moved` in the same event as the triggering `Added` or `Removed` payload.
+
+`IsSortResult == false` therefore means only that sorting did not produce the movement. Until movement causes receive
+their dedicated classification, it does not prove that the item was the direct target of a drag/drop operation.
+Consumers should use every `Moved` payload for state synchronization and apply animations conservatively.
+
 This lets a UI animate deliberate drag-and-drop movement differently from automatic sorting.
 
 Sorting does not request a full refresh by itself. It emits moved payloads only for instances whose contexts actually
@@ -255,6 +263,9 @@ foreach (var metadata in args.MetadataChanged)
 ```
 
 The dictionaries are copied snapshots, but their stored object values are not recursively deep-cloned.
+
+A layout that orders items from metadata can reconcile after this mutation. The same event then contains
+`MetadataChanged` for the edited item and `Moved` for every surviving item whose context changed.
 
 ### Partial-stack metadata
 
@@ -343,7 +354,7 @@ operations can request a rebuild without consumer changes.
 
 ## Affected Layout Contexts
 
-`AffectedLayoutContexts` combines and de-duplicates:
+`AffectedLayoutContexts` combines:
 
 - added and removed contexts.
 - modified before and after contexts.
@@ -351,6 +362,8 @@ operations can request a rebuild without consumer changes.
 - swap contexts.
 - metadata-change contexts.
 - any explicit contexts supplied by the operation.
+
+It also includes supplemental contexts returned by an `IInventoryLayoutReconciler<TKey>`.
 
 The collection may contain several context types only when a custom integration creates such payloads. Normal inventory
 events use contexts from the inventory's active layout.
@@ -367,13 +380,16 @@ foreach (var cell in cells)
     RefreshGridCell(cell.X, cell.Y);
 ```
 
-Context equality is used for de-duplication. Built-in contexts provide stable value behavior. Custom layout contexts
-should do the same so `AffectedLayoutContexts` remains precise.
+The collection avoids duplicate object references. Equivalent positions represented by separate context objects can
+still appear more than once when the context type uses reference equality. Treat the collection as positions to refresh;
+refreshing the same position twice is safe, and consumers that require uniqueness can de-duplicate by their context's
+value members.
 
 ## Transactions And Transfers
 
 A successful non-empty transaction emits one grouped event from its inventory, even when several staging operations
-contributed to it.
+contributed to it. Reflow compares the state before the complete transaction with the final state, so temporary
+intermediate shifts are not reported. Surviving instances report only their final before/after movement.
 
 A successful planned transfer normally emits:
 

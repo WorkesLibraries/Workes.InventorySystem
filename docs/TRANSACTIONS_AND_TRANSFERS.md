@@ -247,8 +247,10 @@ A transaction commit is one inventory-local operation:
 - success applies the complete transaction.
 - a non-empty success emits one `Inventory<TKey>.Changed` event.
 
-The event groups additions, removals, and modified amounts from the committed transaction. Empty transactions produce no
-structural change event.
+The event groups additions, removals, modified amounts, and any final layout reflow from the committed transaction.
+Layouts that support reconciliation compare surviving instances before the complete transaction with the final state,
+so one event reports final movement without exposing temporary shifts between staged operations. Empty transactions
+produce no structural change event.
 
 ## Cross-Inventory Transfers
 
@@ -362,6 +364,9 @@ Build source-removal transaction
 
 If target capacity, rules, stacking, or placement reject the plan, neither inventory changes. Successful planned
 transfers normally emit one `Changed` event from the source and one from the target.
+
+Either event can also contain `Moved` survivors when its layout reflows around the transferred entries. Entry-layout
+source removals, for example, report every later entry that shifted.
 
 `CanTransferTo(...)` and `CanCommitTransfer(...)` run the planning and validation path without committing or emitting
 events.

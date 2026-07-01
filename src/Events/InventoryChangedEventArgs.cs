@@ -57,8 +57,12 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     public IReadOnlyList<InventoryConfigurationChanged<TKey>> ConfigurationChanged { get; }
 
     /// <summary>
-    /// Gets the distinct layout contexts affected by this change notification.
+    /// Gets layout contexts affected by this change notification.
     /// </summary>
+    /// <remarks>
+    /// Contexts are gathered from semantic payloads and layout reconciliation. Equivalent positions can appear more
+    /// than once when their context type uses reference equality.
+    /// </remarks>
     public IReadOnlyList<ILayoutContext<TKey>> AffectedLayoutContexts { get; }
 
     /// <summary>

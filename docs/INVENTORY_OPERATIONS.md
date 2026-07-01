@@ -539,7 +539,9 @@ Once metadata belongs to an inventory-owned item instance, changes route through
 - rules.
 - layout constraints.
 
-Rejected changes leave metadata and inventory state unchanged. Accepted direct metadata changes notify through `Inventory.Changed`.
+Rejected changes leave metadata and inventory state unchanged. Accepted direct metadata changes notify through
+`Inventory.Changed`. Layouts that order from mutable item state can reconcile in the same operation, so the event may
+also contain `Moved` survivors and additional affected contexts.
 
 ### Replace and transform
 

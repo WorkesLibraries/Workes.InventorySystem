@@ -672,6 +672,33 @@ Sort-generated moves are marked as sort results so UIs can distinguish automatic
 
 A visible direct repack requests a full refresh because placement is rebuilt as a whole. Repacking an already compact layout produces no change event.
 
+Entry layout also reports collateral reflow after ordinary structural mutations. Indexed insertion, removal, merging
+away a stack, transfer, or a multi-operation transaction can shift surviving entries. Every survivor whose final entry
+context differs appears in `Moved`, and its source and destination are included in `AffectedLayoutContexts`.
+
+### Custom Layout Reconciliation
+
+A custom layout whose observable state can reflow after inventory mutations implements
+`IInventoryLayoutReconciler<TKey>`.
+
+After an accepted mutation, the inventory:
+
+1. lets the layout reconcile its layout-owned state from the final inventory state.
+2. compares every surviving item context with the context captured before the complete operation.
+3. adds all changed survivors to the same event's `Moved` collection.
+4. merges the layout's supplemental affected contexts and full-refresh request.
+
+`ReconcileAfterInventoryMutation(...)` is a post-validation reconciliation callback, not another acceptance phase. It
+must not mutate inventory contents or reject an operation that already passed layout, capacity, stack, and rule
+validation. Use normal layout validation methods to reject invalid proposals.
+
+Implement the capability when additions/removals can shift survivors or when ordering depends on mutable state such as
+amount or metadata. Fixed-position layouts do not need it and avoid the surviving-item diff cost. The built-in
+`EntryLayout<TKey>` implements it for shifting entry contexts.
+
+`InventoryLayoutReconciliationResult<TKey>` can add layout-owned affected contexts or request
+`RequiresFullRefresh` when contexts and moved items cannot completely describe a presentation change.
+
 The [events and UI guide](EVENTS_AND_UI.md) covers these payloads in detail.
 
 ## Layout Persistence
