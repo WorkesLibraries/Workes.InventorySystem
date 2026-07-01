@@ -41,18 +41,6 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 
-# Local planning and release-prep notes
-/WORK_TRACKER.md
-/WORK_TRACKER*.md
-/DESIGN_PRINCIPLES.md
-/DESIGN_PRINCIPLES*.md
-/PLANNING.md
-/PLANNING*.md
-/PLAN.md
-/PLAN*.md
-/ROADMAP.md
-/ROADMAP*.md
-
 # MSBuild Binary and Structured Log
 *.binlog
 
@@ -64,3 +52,10 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Custom Project Management Exclusions
+[Dd]ocs/PROJECT/PROJECT_CONTEXT.md
+[Dd]ocs/PROJECT/DOCUMENTATION_RULES.md
+[Dd]ocs/PROJECT/TRELLO_WORKFLOW.md
+[Dd]ocs/PROJECT/AI_CONTEXT.md
+[Dd]ocs/DESIGN/

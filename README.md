@@ -247,10 +247,10 @@ var resolved = catalog.Registry.Resolve("health_potion");
 
 Rejected migration cases:
 
-- obsolete id is already registered;
-- obsolete id already has a migration;
-- replacement definition is not registered;
-- replacement definition has the same id as a registered definition but is a detached same-id object;
+- obsolete id is already registered.
+- obsolete id already has a migration.
+- replacement definition is not registered.
+- replacement definition has the same id as a registered definition but is a detached same-id object.
 - registry is frozen.
 
 During deserialization, serialized `DefinitionId` values resolve through registry migrations, so multiple obsolete ids
@@ -607,10 +607,10 @@ should not construct them directly or mutate item amounts directly.
 
 Item instances are created by:
 
-- inventory add operations;
-- committed inventory transactions;
-- committed transfers;
-- deserialization;
+- inventory add operations.
+- committed inventory transactions.
+- committed transfers.
+- deserialization.
 - split, repack, compression, and internal rebuild flows.
 
 Normal instance workflows are routed through inventory-owned APIs:
@@ -669,7 +669,7 @@ The resolver computes max stack size as `floor(baseStack * multiplier)` with a m
 resolver state, so inventories that share the same catalog can still choose different stack sizes. Missing base-stack
 attributes do not fail catalog freeze by themselves:
 
-- with `missingAttributeBaseStack`, the fallback is used as the base stack;
+- with `missingAttributeBaseStack`, the fallback is used as the base stack.
 - with `missingAttributeBaseStack: null`, strict mode fails at runtime when a missing attribute is resolved.
 
 ```csharp
