@@ -59,7 +59,7 @@ public class StackIncreaseCompactionPolicyMutationExampleTests
         Assert.That(compressInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 25, 15 }));
         Assert.That(compressAndRepackInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 25, 15 }));
         Assert.That(compressAndRepackEvent, Is.Not.Null);
-        Assert.That(compressAndRepackEvent!.RequiresFullRefresh, Is.True);
+        Assert.That(compressAndRepackEvent!.RequiresFullRefresh, Is.False);
         Assert.That(splitInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 4, 4, 2 }));
 
         var output =
@@ -74,7 +74,7 @@ public class StackIncreaseCompactionPolicyMutationExampleTests
             "Inventory becomes: 25, 15\n\n" +
             "Increase maxStack to 25 with compression and repack: committed\n" +
             "Inventory becomes: 25, 15\n" +
-            "Full refresh required: yes\n\n" +
+            "Full refresh required: no\n\n" +
             "Split Oversized Stack Example\n" +
             "-----------------------------\n" +
             "Lower maxStack 10 -> 4 with split only: 4, 4, 2";

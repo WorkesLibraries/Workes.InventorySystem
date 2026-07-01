@@ -671,7 +671,8 @@ Event data can identify:
 Each moved instance carries an `ItemMovementCause`. Direct movement uses `ExplicitMove`, sorting uses `Sort`, repacking
 uses `Repack`, and surviving instances displaced as a consequence of another mutation use `LayoutReflow`.
 
-A visible direct repack requests a full refresh because placement is rebuilt as a whole. Repacking an already compact layout produces no change event.
+A visible direct repack emits complete before/after `Moved` payloads and affected contexts, so it does not request a
+full refresh. Repacking an already compact layout produces no change event.
 
 Entry layout also reports collateral reflow after ordinary structural mutations. Indexed insertion, removal, merging
 away a stack, transfer, or a multi-operation transaction can shift surviving entries. Every survivor whose final entry
@@ -700,7 +701,9 @@ amount or metadata. Fixed-position layouts do not need it and avoid the survivin
 `EntryLayout<TKey>` implements it for shifting entry contexts.
 
 `InventoryLayoutReconciliationResult<TKey>` can add layout-owned affected contexts or request
-`RequiresFullRefresh` when contexts and moved items cannot completely describe a presentation change.
+`RequiresFullRefresh` when contexts and moved items cannot completely describe a presentation change, such as
+addressable-context topology or other layout-owned presentation state. Do not request it merely because reconciliation
+moves many items.
 
 The [events and UI guide](EVENTS_AND_UI.md) covers these payloads in detail.
 

@@ -34,7 +34,8 @@ public sealed class InventoryConfigurationChanged<TKey>
     public object CurrentComponent { get; }
 
     /// <summary>
-    /// Gets whether UI listeners should refresh the full inventory view.
+    /// Gets whether this configuration change includes observable state that the containing event does not completely
+    /// describe through semantic payloads and affected contexts.
     /// </summary>
     public bool RequiresFullRefresh { get; }
 
@@ -46,7 +47,9 @@ public sealed class InventoryConfigurationChanged<TKey>
     /// <param name="value">The committed parameter value.</param>
     /// <param name="previousComponent">The component instance before the change.</param>
     /// <param name="currentComponent">The component instance after the change.</param>
-    /// <param name="requiresFullRefresh">Whether UI listeners should refresh the full inventory view.</param>
+    /// <param name="requiresFullRefresh">
+    /// Whether the containing event cannot completely describe the observable configuration change.
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="parameterId"/> is null, empty, or whitespace.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="previousComponent"/> or <paramref name="currentComponent"/> is <see langword="null"/>.</exception>
     public InventoryConfigurationChanged(

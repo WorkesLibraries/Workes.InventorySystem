@@ -66,8 +66,14 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     public IReadOnlyList<ILayoutContext<TKey>> AffectedLayoutContexts { get; }
 
     /// <summary>
-    /// Gets whether consumers should refresh the whole inventory view instead of only <see cref="AffectedLayoutContexts"/>.
+    /// Gets whether this event does not completely describe the observable change through its semantic payloads and
+    /// <see cref="AffectedLayoutContexts"/>.
     /// </summary>
+    /// <remarks>
+    /// When <see langword="false"/>, consumers can synchronize item presentation at existing addressable contexts from
+    /// this event. When <see langword="true"/>, consumers should rebuild the complete inventory view because topology,
+    /// layout-owned presentation state, or another intentionally unrepresented change may also have changed.
+    /// </remarks>
     public bool RequiresFullRefresh { get; }
 
     /// <summary>
@@ -99,7 +105,9 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// <param name="cleared">Whether the inventory was fully cleared.</param>
     /// <param name="configurationChanged">Runtime inventory configuration changes.</param>
     /// <param name="affectedLayoutContexts">Optional explicit affected layout contexts.</param>
-    /// <param name="requiresFullRefresh">Whether consumers should refresh the whole inventory view.</param>
+    /// <param name="requiresFullRefresh">
+    /// Whether the supplied payloads and affected contexts do not completely describe the observable change.
+    /// </param>
     public InventoryChangedEventArgs(
         IEnumerable<ItemAdded<TKey>>? added = null,
         IEnumerable<ItemRemoved<TKey>>? removed = null,

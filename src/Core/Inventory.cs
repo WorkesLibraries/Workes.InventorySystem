@@ -1942,20 +1942,23 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                 _layout.GetContextsForStorageIndex(this, index)));
         }
 
+        bool requiresFullRefresh =
+            kind == InventoryConfigurationChangeKind.Layout ||
+            reconciliation.RequiresFullRefresh;
         var change = new InventoryConfigurationChanged<TKey>(
             kind,
             parameterId,
             value,
             previousComponent,
             currentComponent,
-            requiresFullRefresh: true);
+            requiresFullRefresh);
 
         Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
             added: addedEvents,
             removed: removedEvents,
             configurationChanged: new[] { change },
             affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
-            requiresFullRefresh: true));
+            requiresFullRefresh: requiresFullRefresh));
     }
 
     private void ApplyLayoutRepack(
@@ -1975,7 +1978,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
                 moved: moved,
                 affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
-                requiresFullRefresh: true));
+                requiresFullRefresh: reconciliation.RequiresFullRefresh));
         }
     }
 

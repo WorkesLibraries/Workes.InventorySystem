@@ -475,7 +475,7 @@ Every successful component-parameter mutation emits one `Inventory<TKey>.Changed
 | Preserve-only capacity policy change | No |
 | Any successful layout parameter change | Yes |
 | Stack split or compression without repack | No; normal item and affected-context payloads describe shape changes |
-| Any parameter mutation containing `RepackLayout` | Yes |
+| Stack-resolver mutation containing `RepackLayout` | No for complete built-in layout deltas; custom reconciliation may request one |
 
 Each configuration entry reports its `Kind`, `ParameterId`, proposed value, previous component, replacement component,
 and `RequiresFullRefresh`.
@@ -494,7 +494,8 @@ inventory.Changed += (_, args) =>
 ```
 
 Rejected parameter changes emit no event. Direct `TryRepackLayout(...)` is not a parameter change, so it does not add a
-configuration entry; a visible direct repack instead reports moved placements and requests a full refresh.
+configuration entry; a visible direct repack reports complete moved placements and affected contexts without requesting
+a full refresh.
 
 ## Common Mistakes
 

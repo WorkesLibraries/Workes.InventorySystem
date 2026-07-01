@@ -33,7 +33,9 @@ public sealed class InventoryLayoutReconciliationResult<TKey>
     /// Creates a layout reconciliation result.
     /// </summary>
     /// <param name="affectedLayoutContexts">Additional affected contexts not already represented by item changes.</param>
-    /// <param name="requiresFullRefresh">Whether consumers must refresh the complete layout view.</param>
+    /// <param name="requiresFullRefresh">
+    /// Whether layout-owned observable state changed beyond what item movements and affected contexts can describe.
+    /// </param>
     public InventoryLayoutReconciliationResult(
         IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null,
         bool requiresFullRefresh = false)

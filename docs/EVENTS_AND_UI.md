@@ -59,7 +59,7 @@ One `InventoryChangedEventArgs<TKey>` can contain several categories from the sa
 | `ConfigurationChanged` | A runtime stack resolver, capacity policy, or layout parameter changed. |
 | `Cleared` | Existing contents were cleared as part of the operation. |
 | `AffectedLayoutContexts` | Positions gathered from relevant payloads and layout reconciliation. |
-| `RequiresFullRefresh` | The whole inventory view should be rebuilt. |
+| `RequiresFullRefresh` | The event does not completely describe the observable change at context level. |
 
 Do not assume an event belongs to exactly one category. A transaction can add, remove, and modify stacks together.
 A stack-shape parameter change can include configuration, additions, removals, and amount modifications in one event.
@@ -329,7 +329,7 @@ foreach (var change in args.ConfigurationChanged)
 }
 ```
 
-`InventoryChangedEventArgs<TKey>.RequiresFullRefresh` is true when the event was explicitly marked for full refresh,
+`InventoryChangedEventArgs<TKey>.RequiresFullRefresh` is true when the event was explicitly marked as incomplete,
 when `Cleared` is true, or when any configuration entry requires it.
 
 Inventory-owned rule changes are different: `TrySetRule(...)`, `TryRemoveRule(...)`, enable changes, and priority changes
@@ -338,29 +338,43 @@ mutation result.
 
 ## Full-Refresh Cases
 
-Use a complete view rebuild when `args.RequiresFullRefresh` is true. Current built-in operations request it in these
-cases:
+When `RequiresFullRefresh` is false, the event's semantic payloads and `AffectedLayoutContexts` are a complete delta
+for synchronizing item presentation at the layout's existing addressable contexts. Consumers can update those contexts
+without rediscovering the whole view.
+
+When it is true, topology, layout-owned presentation state, or another intentionally unrepresented change may also
+have changed. Rebuild the complete view instead of assuming that the listed contexts are exhaustive. This is an escape
+hatch, not an indication that an operation was merely large or structurally complex.
+
+Current built-in operations request a full refresh in these cases:
 
 | Operation | Why |
 |---|---|
 | `Clear()` on a non-empty inventory | Every previous position is invalidated. |
 | `ReplaceContents(...)` when replacing existing contents | `Cleared` is true and the view is replaced as a whole. |
 | Successful layout parameter mutation | Addressable positions or placement behavior may have changed. |
-| Stack-resolver parameter mutation containing `RepackLayout` | Stack shape and placement can be rebuilt together. |
-| Direct `TryRepackLayout(...)` when placement changes | Placement is rebuilt through normal automatic placement. |
 
 Additional details:
 
 - A direct repack that changes no placement emits no event.
+- A direct repack that changes placement reports complete `Moved` and affected-context payloads and does not request a
+  full refresh, matching sorting.
 - A custom repack capability only creates a candidate layout. Capability rejection or candidate validation failure
   preserves the active layout and emits no event; the inventory emits the normal single event only after commit.
+- A custom layout can still request a full refresh from reconciliation when movement and affected contexts cannot
+  completely represent its layout-owned presentation change.
 - Preserve-only stack-resolver and capacity-policy changes do not require full refresh.
 - Stack splitting or compression without repack uses normal added, removed, modified, and affected-context payloads.
+- Stack-resolver rebuilding with repack reports complete removed, added, and affected-context payloads for built-in
+  layouts. A custom reconciler can still mark its layout-owned delta incomplete.
 - Sorting uses moved payloads and does not request full refresh.
 - Direct metadata mutation is incremental.
 
+`Cleared` continues to imply a full refresh for compatibility, even though removed payloads retain their former
+contexts. `ReplaceContents(...)` uses the same established clear-and-replace event contract.
+
 Do not recreate this matrix in UI code. Treat the event's `RequiresFullRefresh` value as authoritative so future
-operations can request a rebuild without consumer changes.
+operations and custom layouts can request a rebuild without consumer changes.
 
 ## Affected Layout Contexts
 

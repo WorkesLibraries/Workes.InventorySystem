@@ -254,7 +254,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 5, 4 }));
         Assert.That(events, Has.Count.EqualTo(1));
-        Assert.That(events.Single().RequiresFullRefresh, Is.True);
+        Assert.That(events.Single().RequiresFullRefresh, Is.False);
         Assert.That(events.Single().ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.StackResolver));
     }
 
@@ -398,7 +398,7 @@ public class InventoryPolicyParameterMutationTests
     }
 
     [Test]
-    public void StackCompactionParameterChange_FiresSingleFullRefreshConfigurationEvent()
+    public void StackCompactionParameterChange_FiresSingleCompleteConfigurationEvent()
     {
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(3), new UnlimitedCapacityPolicy<string>(), new SlotLayout<string>(4), apple);
@@ -410,9 +410,10 @@ public class InventoryPolicyParameterMutationTests
             InventoryParameterMutationActions.CompressCompatibleStacks, out var error), Is.True, error);
 
         Assert.That(events, Has.Count.EqualTo(1));
-        Assert.That(events.Single().RequiresFullRefresh, Is.True);
+        Assert.That(events.Single().RequiresFullRefresh, Is.False);
         Assert.That(events.Single().ConfigurationChanged, Has.Count.EqualTo(1));
         Assert.That(events.Single().ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.StackResolver));
+        Assert.That(events.Single().ConfigurationChanged.Single().RequiresFullRefresh, Is.False);
     }
 
     [Test]
@@ -475,7 +476,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(inventory.Items.All(item => item.Metadata.TryGet<string>("quality", out var quality) && quality == "mint"), Is.True);
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.StackResolver));
-        Assert.That(captured.RequiresFullRefresh, Is.True);
+        Assert.That(captured.RequiresFullRefresh, Is.False);
     }
 
     [Test]
@@ -624,7 +625,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(coin));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2)), Is.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(captured!.RequiresFullRefresh, Is.False);
     }
 
     [Test]
@@ -641,7 +642,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(coin));
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(2, 0)), Is.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(captured!.RequiresFullRefresh, Is.False);
     }
 
     [Test]
@@ -663,7 +664,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(table));
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(1, 0))!.Definition, Is.SameAs(table));
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(2, 0)), Is.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(captured!.RequiresFullRefresh, Is.False);
     }
 
     [Test]
@@ -681,7 +682,7 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(accepted, Is.True, error);
         Assert.That(inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single("bag", 0))!.Definition, Is.SameAs(coin));
         Assert.That(inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single("bag", 2)), Is.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(captured!.RequiresFullRefresh, Is.False);
     }
 
     [Test]

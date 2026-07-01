@@ -39,7 +39,7 @@ public class InventoryLayoutRepackTests
     }
 
     [Test]
-    public void TryRepackLayout_FiresFullRefreshMovedEventWithoutConfigurationChange()
+    public void TryRepackLayout_FiresCompleteMovedEventWithoutFullRefreshOrConfigurationChange()
     {
         var sword = new ItemDefinition<string>("sword");
         var apple = new ItemDefinition<string>("apple");
@@ -55,7 +55,7 @@ public class InventoryLayoutRepackTests
 
         Assert.That(accepted, Is.True, error);
         Assert.That(captured, Is.Not.Null);
-        Assert.That(captured!.RequiresFullRefresh, Is.True);
+        Assert.That(captured!.RequiresFullRefresh, Is.False);
         Assert.That(captured.ConfigurationChanged, Is.Empty);
         Assert.That(captured.Added, Is.Empty);
         Assert.That(captured.Removed, Is.Empty);
@@ -201,6 +201,7 @@ public class InventoryLayoutRepackTests
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(sword));
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.Moved, Has.Count.EqualTo(2));
+        Assert.That(captured.RequiresFullRefresh, Is.False);
         Assert.That(captured.ConfigurationChanged, Is.Empty);
     }
 
@@ -208,7 +209,7 @@ public class InventoryLayoutRepackTests
     public void StackResolverRebuildRepack_UsesCustomCapability()
     {
         var coin = new ItemDefinition<string>("coin");
-        var inventory = CreateInventory(new CustomRepackableLayout(4), coin);
+        var inventory = CreateInventory(new CustomRepackableLayout(4, requestFullRefresh: true), coin);
         inventory.Add(coin, amount: 10);
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
@@ -225,6 +226,7 @@ public class InventoryLayoutRepackTests
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 6, 4 }));
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.ConfigurationChanged, Has.Count.EqualTo(1));
+        Assert.That(captured.RequiresFullRefresh, Is.True);
     }
 
     [Test]
@@ -436,25 +438,35 @@ public class InventoryLayoutRepackTests
         public IInventoryLayout<string> Clone() => new UnsupportedLayout();
     }
 
-    private sealed class CustomRepackableLayout : IParameterizedRepackableInventoryLayout<string>
+    private sealed class CustomRepackableLayout :
+        IParameterizedRepackableInventoryLayout<string>,
+        IInventoryLayoutReconciler<string>
     {
         private readonly SlotLayout<string> _inner;
         private readonly bool _rejectRepack;
+        private readonly bool _requestFullRefresh;
         private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
             new[]
             {
                 new InventoryParameterDefinition("capacity", typeof(int), "Number of custom layout positions.")
             };
 
-        public CustomRepackableLayout(int capacity, bool rejectRepack = false)
-            : this(new SlotLayout<string>(capacity), rejectRepack)
+        public CustomRepackableLayout(
+            int capacity,
+            bool rejectRepack = false,
+            bool requestFullRefresh = false)
+            : this(new SlotLayout<string>(capacity), rejectRepack, requestFullRefresh)
         {
         }
 
-        private CustomRepackableLayout(SlotLayout<string> inner, bool rejectRepack)
+        private CustomRepackableLayout(
+            SlotLayout<string> inner,
+            bool rejectRepack,
+            bool requestFullRefresh)
         {
             _inner = inner;
             _rejectRepack = rejectRepack;
+            _requestFullRefresh = requestFullRefresh;
         }
 
         public int Capacity => _inner.GetPersistentData() is SlotLayoutPersistentData data
@@ -474,7 +486,9 @@ public class InventoryLayoutRepackTests
                 return false;
             }
 
-            layout = new CustomRepackableLayout(Capacity);
+            layout = new CustomRepackableLayout(
+                Capacity,
+                requestFullRefresh: _requestFullRefresh);
             error = null;
             return true;
         }
@@ -495,7 +509,9 @@ public class InventoryLayoutRepackTests
             if (!TryResolveCapacity(parameterId, value, out int capacity, out error))
                 return false;
 
-            layout = new CustomRepackableLayout(capacity);
+            layout = new CustomRepackableLayout(
+                capacity,
+                requestFullRefresh: _requestFullRefresh);
             error = null;
             return true;
         }
@@ -517,7 +533,10 @@ public class InventoryLayoutRepackTests
                 return false;
             }
 
-            layout = new CustomRepackableLayout(slotLayout, _rejectRepack);
+            layout = new CustomRepackableLayout(
+                slotLayout,
+                _rejectRepack,
+                _requestFullRefresh);
             error = null;
             return true;
         }
@@ -625,12 +644,19 @@ public class InventoryLayoutRepackTests
         public void OnInventoryCleared(Inventory<string> inventory)
             => _inner.OnInventoryCleared(inventory);
 
+        public InventoryLayoutReconciliationResult<string> ReconcileAfterInventoryMutation(
+            Inventory<string> inventory)
+            => new(requiresFullRefresh: _requestFullRefresh);
+
         public ILayoutPersistentData GetPersistentData() => _inner.GetPersistentData();
 
         public void RestorePersistentData(ILayoutPersistentData? persistentData)
             => _inner.RestorePersistentData(persistentData);
 
         public IInventoryLayout<string> Clone()
-            => new CustomRepackableLayout((SlotLayout<string>)_inner.Clone(), _rejectRepack);
+            => new CustomRepackableLayout(
+                (SlotLayout<string>)_inner.Clone(),
+                _rejectRepack,
+                _requestFullRefresh);
     }
 }

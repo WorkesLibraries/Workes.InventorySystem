@@ -28,6 +28,7 @@ public class InventoryChangedEventTests
         Assert.That(args.MetadataChanged, Is.Empty);
         Assert.That(args.ConfigurationChanged, Is.Empty);
         Assert.That(args.Cleared, Is.True);
+        Assert.That(args.RequiresFullRefresh, Is.True);
     }
 
     [Test]
@@ -319,6 +320,7 @@ public class InventoryChangedEventTests
 
         Assert.That(changed, Is.EqualTo(1));
         Assert.That(captured!.Cleared, Is.True);
+        Assert.That(captured.RequiresFullRefresh, Is.True);
         Assert.That(captured.Removed.Single().Instance.Definition.Id, Is.EqualTo("apple"));
         Assert.That(captured.Added.Single().Instance.Definition.Id, Is.EqualTo("berry"));
     }
