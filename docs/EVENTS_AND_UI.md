@@ -185,14 +185,26 @@ foreach (var modified in args.Modified)
 | `FromLayoutContexts` | Positions before movement. |
 | `ToLayoutContexts` | Positions after movement. |
 | `FromPosition` / `ToPosition` | Single-position conveniences. |
-| `IsSortResult` | Whether inventory sorting produced the move. |
+| `Cause` | Why this particular instance moved. |
+| `IsAutomatic` | Whether movement was automatic rather than directly targeted. |
+| `IsSortResult` | Obsolete compatibility convenience for `Cause == ItemMovementCause.Sort`. |
 
-Direct `TryMove(...)` operations set `IsSortResult` to `false`. Sort-generated moves set it to `true`:
+`ItemMovementCause` distinguishes:
+
+| Cause | Meaning |
+|---|---|
+| `ExplicitMove` | The instance was the direct target of `Move(...)` or `TryMove(...)`. |
+| `Sort` | Sorting repositioned the instance. |
+| `Repack` | Repacking repositioned the instance. |
+| `LayoutReflow` | The layout repositioned a surviving instance as a consequence of another mutation. |
+
+Use the cause when different automatic operations need different presentation. Use `IsAutomatic` when the UI only
+needs to distinguish deliberate movement from automatic repositioning:
 
 ```csharp
 foreach (var moved in args.Moved)
 {
-    if (moved.IsSortResult)
+    if (moved.IsAutomatic)
     {
         RefreshMovedPositions(moved);
         continue;
@@ -209,11 +221,9 @@ Structural mutations can also move otherwise unchanged items. For example, inser
 previous entry at `1` to `2`; removing Entry index `0` shifts every later entry down. Those surviving instances appear
 in `Moved` in the same event as the triggering `Added` or `Removed` payload.
 
-`IsSortResult == false` therefore means only that sorting did not produce the movement. Until movement causes receive
-their dedicated classification, it does not prove that the item was the direct target of a drag/drop operation.
-Consumers should use every `Moved` payload for state synchronization and apply animations conservatively.
-
-This lets a UI animate deliberate drag-and-drop movement differently from automatic sorting.
+A single event can contain different causes. Moving one Entry directly marks that instance as `ExplicitMove`, while
+neighbors displaced by the same operation are marked as `LayoutReflow`. Swaps remain represented by `Swapped`, and
+cross-inventory ownership changes remain represented by `Added` and `Removed`.
 
 Sorting does not request a full refresh by itself. It emits moved payloads only for instances whose contexts actually
 changed. Sorting an already sorted layout emits no event.
@@ -470,7 +480,7 @@ inventory.Changed += (_, args) =>
 
     foreach (var move in args.Moved)
     {
-        if (!move.IsSortResult)
+        if (!move.IsAutomatic)
             QueueMoveAnimation(move);
     }
 };

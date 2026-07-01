@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Events;
+using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Stacking;
@@ -84,7 +85,7 @@ public class InventoryLayoutReflowTests
 
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.Moved, Has.Count.EqualTo(3));
-        AssertMovement(captured, appleInstance, 0, 2);
+        AssertMovement(captured, appleInstance, 0, 2, ItemMovementCause.ExplicitMove);
         AssertMovement(captured, berryInstance, 1, 0);
         AssertMovement(captured, carrotInstance, 2, 1);
         AssertAffectedEntryIndices(captured, 0, 1, 2);
@@ -374,12 +375,14 @@ public class InventoryLayoutReflowTests
         InventoryChangedEventArgs<string> args,
         ItemInstance<string> instance,
         int from,
-        int to)
+        int to,
+        ItemMovementCause expectedCause = ItemMovementCause.LayoutReflow)
     {
         var movement = args.Moved.Single(move => ReferenceEquals(move.Instance, instance));
         Assert.That(((EntryLayoutContext<string>)movement.FromPosition!).TargetIndex, Is.EqualTo(from));
         Assert.That(((EntryLayoutContext<string>)movement.ToPosition!).TargetIndex, Is.EqualTo(to));
-        Assert.That(movement.IsSortResult, Is.False);
+        Assert.That(movement.Cause, Is.EqualTo(expectedCause));
+        Assert.That(movement.IsAutomatic, Is.EqualTo(expectedCause != ItemMovementCause.ExplicitMove));
     }
 
     private static void AssertAffectedEntryIndices(

@@ -326,6 +326,10 @@ Moving changes layout placement. It does not change the item’s amount or reord
 
 The current layout decides whether the destination is valid.
 
+The changed event marks the directly targeted instance with `ItemMovementCause.ExplicitMove`. If the layout shifts
+other surviving instances as a consequence, those movements use `ItemMovementCause.LayoutReflow` in the same event.
+See [Events and UI integration](EVENTS_AND_UI.md#movement) for the complete cause model.
+
 ## Swap Layout Positions
 
 Swap two occupied contexts:

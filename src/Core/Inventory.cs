@@ -1968,7 +1968,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             _layout.OnItemAdded(this, storageIndex, null);
 
         var reconciliation = ReconcileLayoutAfterMutation();
-        var moved = BuildReflowMovements(before);
+        var moved = BuildReflowMovements(before, cause: ItemMovementCause.Repack);
 
         if (moved.Count > 0 || reconciliation.AffectedLayoutContexts.Count > 0 || reconciliation.RequiresFullRefresh)
         {
@@ -2934,7 +2934,11 @@ public class Inventory<TKey> : IInstanceMetadataOwner
                 afterContexts.Count == 1 && LayoutContextEquals(afterContexts[0], contextTo)
                     ? new[] { contextTo }
                     : afterContexts;
-            moved.Add(new ItemMoved<TKey>(item, reportedBeforeContexts, reportedAfterContexts));
+            moved.Add(new ItemMoved<TKey>(
+                item,
+                reportedBeforeContexts,
+                reportedAfterContexts,
+                ItemMovementCause.ExplicitMove));
         }
         moved.AddRange(BuildReflowMovements(
             layoutContextsBefore,
@@ -3237,7 +3241,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
             return false;
 
         var reconciliation = ReconcileLayoutAfterMutation();
-        var moved = BuildReflowMovements(before, isSortResult: true);
+        var moved = BuildReflowMovements(before, cause: ItemMovementCause.Sort);
 
         if (moved.Count > 0 || reconciliation.AffectedLayoutContexts.Count > 0 || reconciliation.RequiresFullRefresh)
         {
@@ -3307,7 +3311,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     private List<ItemMoved<TKey>> BuildReflowMovements(
         IReadOnlyDictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? before,
         ISet<ItemInstance<TKey>>? excludedInstances = null,
-        bool isSortResult = false)
+        ItemMovementCause cause = ItemMovementCause.LayoutReflow)
     {
         var moved = new List<ItemMoved<TKey>>();
         if (before == null)
@@ -3324,7 +3328,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
 
             var afterContexts = _layout.GetContextsForStorageIndex(this, index);
             if (!ContextListsEqual(beforeContexts, afterContexts))
-                moved.Add(new ItemMoved<TKey>(instance, beforeContexts, afterContexts, isSortResult));
+                moved.Add(new ItemMoved<TKey>(instance, beforeContexts, afterContexts, cause));
         }
 
         return moved;

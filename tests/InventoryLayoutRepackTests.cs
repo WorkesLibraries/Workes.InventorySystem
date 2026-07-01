@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Events;
+using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Stacking;
@@ -61,7 +62,8 @@ public class InventoryLayoutRepackTests
         Assert.That(captured.Modified, Is.Empty);
         Assert.That(captured.MetadataChanged, Is.Empty);
         Assert.That(captured.Moved, Is.Not.Empty);
-        Assert.That(captured.Moved.All(move => !move.IsSortResult), Is.True);
+        Assert.That(captured.Moved.All(move => move.Cause == ItemMovementCause.Repack), Is.True);
+        Assert.That(captured.Moved.All(move => move.IsAutomatic), Is.True);
 
         var movedContexts = captured.Moved
             .SelectMany(move => move.FromLayoutContexts.Concat(move.ToLayoutContexts))

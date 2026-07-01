@@ -31,9 +31,9 @@ public class UiMoveAnimationEventExampleTests
 
             foreach (var move in args.Moved)
             {
-                if (move.IsSortResult)
+                if (move.IsAutomatic)
                 {
-                    animations.Add($"skip sort animation for {move.Instance.Definition.Id}");
+                    animations.Add($"skip {move.Cause} animation for {move.Instance.Definition.Id}");
                     continue;
                 }
 

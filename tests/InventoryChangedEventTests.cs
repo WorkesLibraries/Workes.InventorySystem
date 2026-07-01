@@ -138,7 +138,7 @@ public class InventoryChangedEventTests
     }
 
     [Test]
-    public void TryMove_FiresMovedEventWithIsSortResultFalse()
+    public void TryMove_FiresMovedEventWithExplicitMoveCause()
     {
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new SlotLayout<string>(3), new UnlimitedCapacityPolicy<string>(), apple);
@@ -149,11 +149,12 @@ public class InventoryChangedEventTests
         var result = inventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error);
 
         Assert.That(result, Is.True, error);
-        Assert.That(captured!.Moved.Single().IsSortResult, Is.False);
+        Assert.That(captured!.Moved.Single().Cause, Is.EqualTo(ItemMovementCause.ExplicitMove));
+        Assert.That(captured.Moved.Single().IsAutomatic, Is.False);
     }
 
     [Test]
-    public void TrySortLayout_FiresMovedEventsWithIsSortResultTrue()
+    public void TrySortLayout_FiresMovedEventsWithSortCause()
     {
         var apple = new ItemDefinition<string>("apple");
         var berry = new ItemDefinition<string>("berry");
@@ -167,7 +168,55 @@ public class InventoryChangedEventTests
 
         Assert.That(result, Is.True, error);
         Assert.That(captured!.Moved, Is.Not.Empty);
-        Assert.That(captured.Moved.All(move => move.IsSortResult), Is.True);
+        Assert.That(captured.Moved.All(move => move.Cause == ItemMovementCause.Sort), Is.True);
+        Assert.That(captured.Moved.All(move => move.IsAutomatic), Is.True);
+    }
+
+    [Test]
+    public void ItemMoved_BooleanConstructorsRemainCompatibilityShims()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(new SlotLayout<string>(2), new UnlimitedCapacityPolicy<string>(), apple);
+        inventory.Add(apple);
+        var instance = inventory.Items.Single();
+        var from = SlotLayoutContext<string>.Single(0);
+        var to = SlotLayoutContext<string>.Single(1);
+
+#pragma warning disable CS0618
+        var explicitMove = new ItemMoved<string>(instance, from, to, isSortResult: false);
+        var sortMove = new ItemMoved<string>(instance, from, to, isSortResult: true);
+
+        Assert.That(explicitMove.Cause, Is.EqualTo(ItemMovementCause.ExplicitMove));
+        Assert.That(explicitMove.IsSortResult, Is.False);
+        Assert.That(sortMove.Cause, Is.EqualTo(ItemMovementCause.Sort));
+        Assert.That(sortMove.IsSortResult, Is.True);
+#pragma warning restore CS0618
+    }
+
+    [Test]
+    public void ItemMoved_CauseConstructorsPreserveMultiCellContexts()
+    {
+        var table = new ItemDefinition<string>("table");
+        var inventory = CreateInventory(new SlotLayout<string>(2), new UnlimitedCapacityPolicy<string>(), table);
+        inventory.Add(table);
+        var instance = inventory.Items.Single();
+        var before = new ILayoutContext<string>[]
+        {
+            MultiCellGridLayoutContext<string>.Single(0, 0),
+            MultiCellGridLayoutContext<string>.Single(1, 0)
+        };
+        var after = new ILayoutContext<string>[]
+        {
+            MultiCellGridLayoutContext<string>.Single(0, 1),
+            MultiCellGridLayoutContext<string>.Single(1, 1)
+        };
+
+        var movement = new ItemMoved<string>(instance, before, after, ItemMovementCause.Repack);
+
+        Assert.That(movement.Cause, Is.EqualTo(ItemMovementCause.Repack));
+        Assert.That(movement.IsAutomatic, Is.True);
+        Assert.That(movement.FromLayoutContexts, Has.Count.EqualTo(2));
+        Assert.That(movement.ToLayoutContexts, Has.Count.EqualTo(2));
     }
 
     [Test]

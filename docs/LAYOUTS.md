@@ -668,13 +668,16 @@ Event data can identify:
 - source and destination layout contexts.
 - all affected layout contexts.
 
-Sort-generated moves are marked as sort results so UIs can distinguish automatic sorting from deliberate drag-and-drop movement.
+Each moved instance carries an `ItemMovementCause`. Direct movement uses `ExplicitMove`, sorting uses `Sort`, repacking
+uses `Repack`, and surviving instances displaced as a consequence of another mutation use `LayoutReflow`.
 
 A visible direct repack requests a full refresh because placement is rebuilt as a whole. Repacking an already compact layout produces no change event.
 
 Entry layout also reports collateral reflow after ordinary structural mutations. Indexed insertion, removal, merging
 away a stack, transfer, or a multi-operation transaction can shift surviving entries. Every survivor whose final entry
-context differs appears in `Moved`, and its source and destination are included in `AffectedLayoutContexts`.
+context differs appears in `Moved` with the `LayoutReflow` cause, and its source and destination are included in
+`AffectedLayoutContexts`. When a direct Entry move also displaces neighbors, the targeted instance uses `ExplicitMove`
+while its displaced neighbors use `LayoutReflow`.
 
 ### Custom Layout Reconciliation
 
