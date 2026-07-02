@@ -297,7 +297,7 @@ Continue with the detailed guides for each subsystem:
 - [Layouts](LAYOUTS.md)
 - [Policies and rules](POLICIES_AND_RULES.md)
 - [Transactions and transfers](TRANSACTIONS_AND_TRANSFERS.md)
-- [Metadata](../README.md#metadata)
+- [Metadata](INVENTORY_OPERATIONS.md#instance-metadata)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
 - [Extending the system](EXTENDING.md)

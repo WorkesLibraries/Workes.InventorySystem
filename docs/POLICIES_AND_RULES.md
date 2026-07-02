@@ -523,7 +523,7 @@ a full refresh.
 - [Inventory Operations](INVENTORY_OPERATIONS.md)
 - [Layouts](LAYOUTS.md)
 - [Transactions and transfers](TRANSACTIONS_AND_TRANSFERS.md)
-- [Metadata](../README.md#metadata)
+- [Metadata](INVENTORY_OPERATIONS.md#instance-metadata)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
 - [Extending the system](EXTENDING.md)

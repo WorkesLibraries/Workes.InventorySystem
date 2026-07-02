@@ -552,6 +552,6 @@ per-stack transfers.
 - [Inventory Operations](INVENTORY_OPERATIONS.md)
 - [Layouts](LAYOUTS.md)
 - [Policies And Rules](POLICIES_AND_RULES.md)
-- [Metadata](../README.md#metadata)
+- [Metadata](INVENTORY_OPERATIONS.md#instance-metadata)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
