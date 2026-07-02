@@ -1376,20 +1376,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
             return true;
         }
 
+        var repackContextsBefore = CaptureLayoutContextsByInstance();
+        var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
         var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
         if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
             return false;
 
-        ApplyConfigurationRebuild(
-            proposedContents,
-            _stackResolver,
-            _capacityPolicy,
+        ApplyLayoutParameterRepack(
             proposedLayout,
-            InventoryConfigurationChangeKind.Layout,
+            orderedStorageIndices,
+            repackContextsBefore,
             parameterId,
             value,
-            previous,
-            proposedLayout);
+            previous);
         return true;
     }
 
@@ -1981,6 +1980,32 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
                 affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
                 requiresFullRefresh: reconciliation.RequiresFullRefresh));
         }
+    }
+
+    private void ApplyLayoutParameterRepack(
+        IInventoryLayout<TKey> proposedLayout,
+        IReadOnlyList<int> orderedStorageIndices,
+        IReadOnlyDictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>> before,
+        string parameterId,
+        object? value,
+        IInventoryLayout<TKey> previousLayout)
+    {
+        _layout = proposedLayout;
+        foreach (var storageIndex in orderedStorageIndices)
+            _layout.OnItemAdded(this, storageIndex, null);
+
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var moved = BuildReflowMovements(before, cause: ItemMovementCause.Repack);
+
+        FireConfigurationChanged(
+            InventoryConfigurationChangeKind.Layout,
+            parameterId,
+            value,
+            previousLayout,
+            proposedLayout,
+            requiresFullRefresh: true,
+            moved: moved,
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts);
     }
 
     private void FireConfigurationChanged(

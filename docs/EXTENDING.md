@@ -623,11 +623,10 @@ new rules. Merely implementing the repackable contract does not cause ordinary p
 `TrySetLayoutParameter(...)` uses the placement-preserving method by default. The empty-map method is called only when
 the caller explicitly includes `InventoryParameterMutationActions.RepackLayout`.
 
-The successful commit behavior differs from direct `TryRepackLayout(...)`. Direct repack preserves the existing item
-instances and reports placement movements. A parameter mutation using rebuild actions currently reconstructs equivalent
-item instances from definition, amount, and metadata, reports removals and additions, and requests a full refresh. It
-does not lose item quantities, but consumers holding references to the former instances must treat those references as
-replaced.
+Both direct and parameterized layout repack preserve the existing item instances and `Inventory.Items` storage order.
+They rebuild only layout-owned placement and report changed positions as `ItemMoved<TKey>` with the `Repack` cause. A
+parameterized repack additionally reports the layout configuration change and requests a full refresh because the
+addressable layout topology may have changed.
 
 A reconciler runs after an accepted mutation. It may update layout-owned presentation state but cannot reject the
 operation or mutate inventory contents:

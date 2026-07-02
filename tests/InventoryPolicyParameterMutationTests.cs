@@ -830,6 +830,10 @@ public class InventoryPolicyParameterMutationTests
         inventory.Add(sword, context: SlotLayoutContext<string>.Single(4));
         inventory.Add(apple, context: SlotLayoutContext<string>.Single(1));
         inventory.Add(potion, context: SlotLayoutContext<string>.Single(3));
+        var originalItems = inventory.Items.ToArray();
+        var originalInstanceIds = originalItems.Select(item => item.InstanceId).ToArray();
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
 
         var accepted = inventory.TrySetLayoutParameter(
             "slotCount",
@@ -841,6 +845,15 @@ public class InventoryPolicyParameterMutationTests
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(potion));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2))!.Definition, Is.SameAs(sword));
+        Assert.That(inventory.Items, Is.EqualTo(originalItems));
+        Assert.That(inventory.Items.Select(item => item.InstanceId), Is.EqualTo(originalInstanceIds));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.Added, Is.Empty);
+        Assert.That(captured.Removed, Is.Empty);
+        Assert.That(captured.Moved, Has.Count.EqualTo(3));
+        Assert.That(captured.Moved.All(move => move.Cause == ItemMovementCause.Repack), Is.True);
+        Assert.That(captured.ConfigurationChanged.Single().Kind, Is.EqualTo(InventoryConfigurationChangeKind.Layout));
+        Assert.That(captured.RequiresFullRefresh, Is.True);
     }
 
     [Test]

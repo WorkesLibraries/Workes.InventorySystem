@@ -373,9 +373,9 @@ It is not a sort and does not use `Inventory.Items` storage order or an item com
 Repack can still fail when automatic placement cannot represent all entries. For layout compaction without a parameter
 change, use `TryRepackLayout(...)` or `RepackLayout()` instead.
 
-Direct layout compaction preserves existing item instances. Parameter changes using rebuild actions currently recreate
-equivalent instances from their definitions, amounts, and metadata and report removals and additions with a full
-refresh. This preserves item contents, but application code must not retain the old instance references.
+Direct and parameterized layout repack both preserve existing item instances and `Inventory.Items` storage order. They
+report placement changes as movements. Parameterized repack additionally reports the configuration change and requests
+a full refresh because the addressable layout topology may have changed.
 
 Slot, grid, multi-cell grid, and sectioned layouts expose the required repack capabilities. Entry layout deliberately
 does not because repack would always be a no-op. Equipment layout deliberately does not because named positions must

@@ -252,8 +252,9 @@ public class InventoryLayoutRepackTests
         var inventory = CreateInventory(new CustomRepackableLayout(4), sword, apple);
         inventory.Add(sword, context: SlotLayoutContext<string>.Single(3));
         inventory.Add(apple, context: SlotLayoutContext<string>.Single(2));
-        int events = 0;
-        inventory.Changed += (_, _) => events++;
+        var originalItems = inventory.Items.ToArray();
+        InventoryChangedEventArgs<string>? captured = null;
+        inventory.Changed += (_, args) => captured = args;
 
         var accepted = inventory.TrySetLayoutParameter(
             "capacity",
@@ -262,10 +263,16 @@ public class InventoryLayoutRepackTests
             out var error);
 
         Assert.That(accepted, Is.True, error);
-        Assert.That(events, Is.EqualTo(1));
+        Assert.That(inventory.Items, Is.EqualTo(originalItems));
         Assert.That(((CustomRepackableLayout)inventory.Layout).Capacity, Is.EqualTo(2));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(sword));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.Added, Is.Empty);
+        Assert.That(captured.Removed, Is.Empty);
+        Assert.That(captured.Moved, Has.Count.EqualTo(2));
+        Assert.That(captured.Moved.All(move => move.Cause == ItemMovementCause.Repack), Is.True);
+        Assert.That(captured.ConfigurationChanged, Has.Count.EqualTo(1));
     }
 
     [Test]
