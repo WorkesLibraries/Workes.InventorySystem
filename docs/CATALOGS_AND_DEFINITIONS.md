@@ -585,3 +585,4 @@ At runtime:
 - [Layouts](LAYOUTS.md)
 - [Policies and rules](POLICIES_AND_RULES.md)
 - [Persistence](PERSISTENCE.md)
+- [Extending the system](EXTENDING.md)

@@ -388,3 +388,4 @@ explicit migration path.
 - [Inventory Operations](INVENTORY_OPERATIONS.md)
 - [Layouts](LAYOUTS.md)
 - [Events And UI Integration](EVENTS_AND_UI.md)
+- [Extending The System](EXTENDING.md)

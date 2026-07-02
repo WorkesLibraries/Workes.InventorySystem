@@ -548,4 +548,4 @@ inventory.Changed += (_, args) =>
 - [Policies And Rules](POLICIES_AND_RULES.md)
 - [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md)
 - [Persistence](PERSISTENCE.md)
-- [Extending the system](../README.md#extending-the-system)
+- [Extending the system](EXTENDING.md)

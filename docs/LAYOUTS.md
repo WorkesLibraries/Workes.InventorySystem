@@ -777,9 +777,12 @@ var changed = inventory.TrySetLayoutParameter(
     out var error);
 ```
 
-Repack preserves the item instances and `Inventory.Items` storage order; it changes only their layout placement. The
-change can still be rejected when the proposed layout cannot automatically place every entry or footprint. Both modes
-validate the complete proposed result and commit atomically, so rejection leaves the current layout unchanged.
+Direct `TryRepackLayout(...)` preserves item instances and `Inventory.Items` storage order; it changes only their layout
+placement. A layout-parameter change using `RepackLayout` currently uses the shared configuration-rebuild path instead:
+it reconstructs equivalent instances and reports removals and additions as part of a full refresh. Neither path loses
+item quantities. The change can still be rejected when the proposed layout cannot automatically place every entry or
+footprint. Both modes validate the complete proposed result and commit atomically, so rejection leaves the current
+layout unchanged.
 
 For custom layouts, the preserve-placement overload requires `IParameterizedInventoryLayout<TKey>`. The repack overload
 requires `IParameterizedRepackableInventoryLayout<TKey>` as well. Parameter parsing and creation of the empty proposed
@@ -822,3 +825,4 @@ compression, and the deeper rebuild behavior.
 - [Transactions and transfers](TRANSACTIONS_AND_TRANSFERS.md)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
+- [Extending the system](EXTENDING.md)

@@ -300,4 +300,4 @@ Continue with the detailed guides for each subsystem:
 - [Metadata](../README.md#metadata)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
-- [Extending the system](../README.md#extending-the-system)
+- [Extending the system](EXTENDING.md)
