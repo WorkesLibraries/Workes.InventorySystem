@@ -6,6 +6,7 @@ namespace Workes.InventorySystem.Core;
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 [System.Serializable]
+[System.Obsolete("Use the non-generic InventorySnapshot returned by Inventory.CaptureSnapshot().")]
 public class SerializedInventory<TKey>
 {
     /// <summary>

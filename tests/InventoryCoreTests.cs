@@ -7,6 +7,9 @@ using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Stacking;
 using Workes.InventorySystem.Capacity;
+
+#pragma warning disable CS0618 // Legacy persistence compatibility coverage.
+
 namespace Workes.InventorySystem.Tests;
 
 [TestFixture]

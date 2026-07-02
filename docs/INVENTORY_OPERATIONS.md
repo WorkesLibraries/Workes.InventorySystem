@@ -484,6 +484,11 @@ Use definition attributes instead when the value belongs to the item type and is
 
 There is no metadata catalog or metadata schema.
 
+Metadata values must remain portable snapshot values: null, supported scalar values, one-dimensional arrays, and
+`List<T>`, recursively. Dictionaries, enums, multidimensional arrays, arbitrary enumerable types, literal `object`
+values, and custom domain objects are rejected. `Add`, `Set`, `Change`, `Replace`, and `Transform` validate the complete
+proposed state before commit; their `Try` forms return `false` and leave existing metadata unchanged.
+
 ## Read Metadata
 
 ```csharp

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
@@ -19,6 +20,8 @@ namespace Workes.InventorySystem.Layout;
 /// </remarks>
 public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
+    /// <inheritdoc />
+    public IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => SectionedLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<SectionDefinition<TKey>> _sections;
     private readonly List<int?> _slotMap;
     private readonly Dictionary<string, int> _sectionIndices;

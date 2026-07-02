@@ -5,6 +5,7 @@ namespace Workes.InventorySystem.Core;
 /// Serialized representation of a single item instance.
 /// </summary>
 [System.Serializable]
+[System.Obsolete("Use InventorySnapshotEntry in the portable InventorySnapshot model.")]
 public class SerializedItem<TKey>
 {
     /// <summary>

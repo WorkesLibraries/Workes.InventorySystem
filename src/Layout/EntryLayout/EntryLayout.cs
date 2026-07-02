@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 namespace Workes.InventorySystem.Layout;
 
@@ -13,6 +14,8 @@ namespace Workes.InventorySystem.Layout;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 {
+    /// <inheritdoc />
+    public virtual IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => EntryLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<int> _order = new();
 
     /// <inheritdoc />

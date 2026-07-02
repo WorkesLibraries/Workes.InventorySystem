@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 namespace Workes.InventorySystem.Layout;
 
 /// <summary>
@@ -20,6 +21,11 @@ namespace Workes.InventorySystem.Layout;
 /// </remarks>
 public interface IInventoryLayout<TKey>
 {
+    /// <summary>
+    /// Gets the stateless codec that owns this layout's complete portable snapshot contract.
+    /// </summary>
+    IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec { get; }
+
     /// <summary>
     /// Gets the number of addressable positions exposed by the layout.
     /// </summary>

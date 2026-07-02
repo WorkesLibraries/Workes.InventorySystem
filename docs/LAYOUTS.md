@@ -709,33 +709,28 @@ The [events and UI guide](EVENTS_AND_UI.md) covers these payloads in detail.
 
 ## Layout Persistence
 
-`Inventory.Serialize()` stores:
+`Inventory.CaptureSnapshot()` stores layout shape and placement as a concrete `InventoryLayoutSnapshot`. Built-in
+layouts use stable package-owned kind IDs and data version `1`.
 
-- serialized item instances in storage order.
-- layout-specific data in `SerializedInventory<TKey>.LayoutData`.
+Saved placement references deterministic snapshot-local entry IDs such as `e0`, not `Inventory.Items` storage indexes.
+The item DTO list and layout map can therefore be transported or reordered without changing which saved entry a
+position references.
 
-Each built-in layout has a corresponding persistent-data type:
+Grid-style snapshots include dimensions and placement settings. Equipment and sectioned snapshots include stable slot
+or section identities and sizes. Runtime configuration objects such as multi-cell footprint providers, equipment
+restrictions, and section restrictions remain application configuration.
 
-| Layout | Persistent data |
-|---|---|
-| Entry | `EntryLayoutPersistentData` |
-| Slot | `SlotLayoutPersistentData` |
-| Grid | `GridLayoutPersistentData` |
-| Multi-cell grid | `MultiCellGridLayoutPersistentData` |
-| Equipment | `EquipmentLayoutPersistentData` |
-| Sectioned | `SectionedLayoutPersistentData` |
+Every layout exposes a separate, stateless `IInventoryLayoutSnapshotCodec<TKey>` singleton through its
+`SnapshotCodec` property. There is no public registration or built-in switch: package and custom layouts use the same
+capture/decode contract. Capture resolves item instances directly to snapshot-local entry IDs and never exposes storage
+indexes. Decode performs version-aware structural validation and returns an inert candidate; it must not mutate a live
+layout.
 
-Persistent layout data records the mapping from presentation positions to inventory storage indices. Grid-style data also records dimensions and placement settings where needed; equipment and sectioned data record their stable slot or section identities.
+A derived layout may inherit the built-in codec only when its complete persistent shape is unchanged. Override
+`SnapshotCodec` when the derived type owns additional state. Layout kind IDs are global across all `TKey` types.
 
-`Inventory.Deserialize(...)` restores item contents and then asks the current layout to restore the saved layout data.
-
-The target inventory must use a compatible layout configuration. Restoration rejects mismatched:
-
-- persistent-data types.
-- grid dimensions or placement settings.
-- equipment slot identities.
-- section identities or sizes.
-- other layout-specific structural data.
+The older `GetPersistentData()`/`RestorePersistentData(...)` contract remains layout infrastructure and supports the
+obsolete `Serialize()`/`Deserialize(...)` compatibility path. It is not the portable snapshot wire contract.
 
 The persistence guide covers serialization boundaries and compatibility in more detail.
 

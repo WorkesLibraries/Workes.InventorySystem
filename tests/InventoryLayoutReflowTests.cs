@@ -7,6 +7,7 @@ using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Layout;
+using Workes.InventorySystem.Persistence;
 using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Stacking;
 
@@ -404,6 +405,8 @@ public class InventoryLayoutReflowTests
         private readonly IComparer<ItemInstance<string>> _comparer;
         private readonly bool _requestFullRefresh;
         private readonly int? _additionalAffectedIndex;
+
+        public IInventoryLayoutSnapshotCodec<string> SnapshotCodec => _inner.SnapshotCodec;
 
         public StateOrderedEntryLayout(
             IComparer<ItemInstance<string>> comparer,

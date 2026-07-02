@@ -64,4 +64,13 @@ public sealed class AttributeContainer : IAttributeView
     {
         return _values.Keys;
     }
+
+    internal IEnumerable<(string id, Type valueType, object? value)> GetSnapshotEntries()
+    {
+        foreach (var pair in _values)
+        {
+            if (pair.Key is IAttributeKey key)
+                yield return (key.Id, key.ValueType, pair.Value);
+        }
+    }
 }

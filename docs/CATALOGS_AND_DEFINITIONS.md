@@ -520,7 +520,11 @@ A migration is rejected when:
 
 Migrations map IDs; they do not copy definitions, create aliases in `Definitions`, or bypass canonical-object validation.
 
-Deserialization resolves saved definition IDs through `ItemRegistry<TKey>.Resolve(...)`, so restored item instances reference current canonical definitions.
+Portable snapshots encode built-in key types directly. A custom `TKey` declares its one separate, stateless
+`IInventorySnapshotKeyCodec<TKey>` through `InventorySnapshotKeyCodecAttribute`; there is no public registration or
+per-inventory codec option.
+Snapshot restoration first decodes that value and then resolves it through `ItemRegistry<TKey>.Resolve(...)`, so
+restored instances use current canonical definitions and existing migration mappings.
 
 ## Complete Setup Example
 

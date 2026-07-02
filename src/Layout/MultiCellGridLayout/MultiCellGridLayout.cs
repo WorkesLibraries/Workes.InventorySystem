@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
@@ -16,6 +17,8 @@ namespace Workes.InventorySystem.Layout;
 /// </remarks>
 public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
+    /// <inheritdoc />
+    public IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => MultiCellGridLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<int?> _cellMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
         new[]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Workes.InventorySystem.Persistence;
 namespace Workes.InventorySystem.Core;
 
 internal interface IInstanceMetadataOwner
@@ -283,14 +284,22 @@ public class InstanceMetadata
         if (transform == null)
             throw new ArgumentNullException(nameof(transform));
 
-        return TryMutate(
-            clone =>
-            {
-                transform(clone);
-                return true;
-            },
-            null,
-            out error);
+        try
+        {
+            return TryMutate(
+                clone =>
+                {
+                    transform(clone);
+                    return true;
+                },
+                null,
+                out error);
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
     }
 
     /// <summary>
@@ -412,6 +421,7 @@ public class InstanceMetadata
         if (_owner != null)
         {
             var rejectedByMutation = false;
+            string? portableValueError = null;
             bool accepted = _owner.TryApplyMetadataMutation(
                 this,
                 clone =>
@@ -419,12 +429,21 @@ public class InstanceMetadata
                     bool mutated = mutate(clone);
                     if (!mutated)
                         rejectedByMutation = true;
-                    return mutated;
+                    if (!mutated)
+                        return false;
+                    if (!clone.TryValidatePortableValues(out var portabilityError))
+                    {
+                        portableValueError = portabilityError;
+                        return false;
+                    }
+                    return true;
                 },
                 out error);
 
             if (!accepted && rejectedByMutation && !string.IsNullOrWhiteSpace(falseError))
                 error = falseError;
+            else if (!accepted && portableValueError != null)
+                error = portableValueError;
 
             return accepted;
         }
@@ -435,8 +454,36 @@ public class InstanceMetadata
             error = falseError ?? "Metadata mutation was rejected.";
             return false;
         }
+        if (!clone.TryValidatePortableValues(out error))
+            return false;
 
         ReplaceDirect(clone.AsReadOnly());
+        error = null;
+        return true;
+    }
+
+    private bool TryValidatePortableValues(out string? error)
+    {
+        if (_data == null)
+        {
+            error = null;
+            return true;
+        }
+
+        foreach (var pair in _data)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key))
+            {
+                error = "Metadata keys cannot be null or empty.";
+                return false;
+            }
+            if (!InventorySnapshotCodecs.TryEncodeObject(pair.Value, out _, out var valueError))
+            {
+                error = $"Metadata value '{pair.Key}' is not portable: {valueError}";
+                return false;
+            }
+        }
+
         error = null;
         return true;
     }

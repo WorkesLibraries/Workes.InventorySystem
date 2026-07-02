@@ -4,6 +4,7 @@ using Workes.InventorySystem.Stacking;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Events.Dto;
+using Workes.InventorySystem.Persistence;
 using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Tags;
@@ -3453,9 +3454,35 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     }
 
     /// <summary>
-    /// Serializes item instances and layout data for persistence.
+    /// Captures a portable, deeply detached inventory snapshot.
     /// </summary>
-    /// <returns>A serialized inventory snapshot.</returns>
+    /// <returns>The captured non-generic snapshot.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// A key, value, or custom layout cannot be represented by the registered snapshot codecs.
+    /// </exception>
+    public InventorySnapshot CaptureSnapshot()
+    {
+        if (!TryCaptureSnapshot(out var snapshot, out var error) || snapshot == null)
+            throw new InvalidOperationException(error);
+        return snapshot;
+    }
+
+    /// <summary>
+    /// Attempts to capture a portable, deeply detached inventory snapshot.
+    /// </summary>
+    /// <param name="snapshot">The complete snapshot when capture succeeds; otherwise, <see langword="null"/>.</param>
+    /// <param name="error">A consumer-facing reason when capture fails; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when every persisted value and layout state was captured.</returns>
+    public bool TryCaptureSnapshot(out InventorySnapshot? snapshot, out string? error)
+    {
+        return InventorySnapshotCapture.TryCapture(this, out snapshot, out error);
+    }
+
+    /// <summary>
+    /// Serializes item instances and layout data through the legacy object-valued compatibility model.
+    /// </summary>
+    /// <returns>A legacy serialized inventory object graph.</returns>
+    [Obsolete("Use CaptureSnapshot() for portable persistence. This legacy compatibility API is not round-trip safe with ordinary serializers.")]
     public SerializedInventory<TKey> Serialize()
     {
         var serialized = new SerializedInventory<TKey>();
@@ -3484,6 +3511,7 @@ public class Inventory<TKey> : IInstanceMetadataOwner
     /// <exception cref="InvalidOperationException">
     /// <paramref name="strict"/> is <see langword="true"/> and an item cannot be restored, or layout data is invalid for this layout.
     /// </exception>
+    [Obsolete("This legacy compatibility API is retained until the portable snapshot restoration APIs replace it.")]
     public void Deserialize(SerializedInventory<TKey> data, bool strict = false)
     {
         if (data == null)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 namespace Workes.InventorySystem.Layout;
 
@@ -12,6 +13,8 @@ namespace Workes.InventorySystem.Layout;
 /// <remarks>Slot contexts must be <see cref="SlotLayoutContext{TKey}"/> instances. Invalid or empty slots return <see langword="null"/> from lookups.</remarks>
 public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
+    /// <inheritdoc />
+    public virtual IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => SlotLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<int?> _slotMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
         new[]

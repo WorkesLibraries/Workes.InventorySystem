@@ -1,16 +1,24 @@
 using System;
 namespace Workes.InventorySystem.Attributes;
 
+internal interface IAttributeKey
+{
+    string Id { get; }
+    Type ValueType { get; }
+}
+
 /// <summary>
 /// Identifies a typed attribute value.
 /// </summary>
 /// <typeparam name="T">The value type associated with the attribute.</typeparam>
-internal sealed class AttributeKey<T> : IEquatable<AttributeKey<T>>
+internal sealed class AttributeKey<T> : IAttributeKey, IEquatable<AttributeKey<T>>
 {
     /// <summary>
     /// Gets the stable string identifier for this attribute key.
     /// </summary>
     public string Id { get; }
+
+    public Type ValueType => typeof(T);
 
     internal AttributeKey(string id)
     {

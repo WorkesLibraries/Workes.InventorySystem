@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
@@ -13,6 +14,8 @@ namespace Workes.InventorySystem.Layout;
 /// <remarks>Grid contexts must be <see cref="GridLayoutContext{TKey}"/> instances.</remarks>
 public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 {
+    /// <inheritdoc />
+    public virtual IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => GridLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<int?> _cellMap;
     private static readonly IReadOnlyCollection<InventoryParameterDefinition> s_parameters =
         new[]

@@ -7,6 +7,7 @@ using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Events;
 using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Layout;
+using Workes.InventorySystem.Persistence;
 using Workes.InventorySystem.Sorting;
 using Workes.InventorySystem.Stacking;
 
@@ -336,6 +337,9 @@ public class InventoryLayoutRepackTests
     {
         private readonly List<int> _indices = new();
 
+        public IInventoryLayoutSnapshotCodec<string> SnapshotCodec =>
+            new EntryLayout<string>().SnapshotCodec;
+
         public int GetPositionCount(Inventory<string> inventory) => _indices.Count;
 
         public IReadOnlyList<ILayoutContext<string>> GetAddressableContexts(Inventory<string> inventory)
@@ -450,6 +454,8 @@ public class InventoryLayoutRepackTests
             {
                 new InventoryParameterDefinition("capacity", typeof(int), "Number of custom layout positions.")
             };
+
+        public IInventoryLayoutSnapshotCodec<string> SnapshotCodec => _inner.SnapshotCodec;
 
         public CustomRepackableLayout(
             int capacity,

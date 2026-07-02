@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Sorting;
+using Workes.InventorySystem.Persistence;
 using System.ComponentModel;
 
 namespace Workes.InventorySystem.Layout;
@@ -18,6 +19,8 @@ namespace Workes.InventorySystem.Layout;
 /// </remarks>
 public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 {
+    /// <inheritdoc />
+    public IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec => EquipmentLayoutSnapshotCodec<TKey>.Instance;
     private readonly List<EquipmentSlot<TKey>> _slots;
     private readonly List<int?> _slotMap;
     private readonly Dictionary<string, int> _slotIndices;
