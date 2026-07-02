@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 namespace Workes.InventorySystem.Attributes;
 
 /// <summary>
@@ -71,6 +72,22 @@ public sealed class AttributeContainer : IAttributeView
         {
             if (pair.Key is IAttributeKey key)
                 yield return (key.Id, key.ValueType, pair.Value);
+        }
+    }
+
+    internal void ReplaceSnapshotEntries(IEnumerable<(string id, Type valueType, object? value)> entries)
+    {
+        _values.Clear();
+        foreach (var entry in entries)
+        {
+            var keyType = typeof(AttributeKey<>).MakeGenericType(entry.valueType);
+            var key = Activator.CreateInstance(
+                keyType,
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { entry.id },
+                culture: null)!;
+            _values.Add(key, entry.value);
         }
     }
 }

@@ -16,6 +16,9 @@ namespace Workes.InventorySystem.Events;
 /// </remarks>
 public class InventoryChangedEventArgs<TKey> : EventArgs
 {
+    /// <summary>Gets the high-level workflow that produced this change.</summary>
+    public InventoryChangeOrigin Origin { get; }
+
     /// <summary>
     /// Gets the item instances added by the operation.
     /// </summary>
@@ -81,6 +84,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// </summary>
     public InventoryChangedEventArgs()
     {
+        Origin = InventoryChangeOrigin.Operation;
         Added = new List<ItemAdded<TKey>>();
         Removed = new List<ItemRemoved<TKey>>();
         Modified = new List<ItemModified<TKey>>();
@@ -108,6 +112,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// <param name="requiresFullRefresh">
     /// Whether the supplied payloads and affected contexts do not completely describe the observable change.
     /// </param>
+    /// <param name="origin">The high-level workflow that produced the change.</param>
     public InventoryChangedEventArgs(
         IEnumerable<ItemAdded<TKey>>? added = null,
         IEnumerable<ItemRemoved<TKey>>? removed = null,
@@ -118,8 +123,10 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         bool cleared = false,
         IEnumerable<InventoryConfigurationChanged<TKey>>? configurationChanged = null,
         IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null,
-        bool requiresFullRefresh = false)
+        bool requiresFullRefresh = false,
+        InventoryChangeOrigin origin = InventoryChangeOrigin.Operation)
     {
+        Origin = origin;
         Added = added != null ? added.ToList() : new List<ItemAdded<TKey>>();
         Removed = removed != null ? removed.ToList() : new List<ItemRemoved<TKey>>();
         Modified = modified != null ? modified.ToList() : new List<ItemModified<TKey>>();

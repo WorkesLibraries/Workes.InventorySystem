@@ -50,6 +50,7 @@ One `InventoryChangedEventArgs<TKey>` can contain several categories from the sa
 
 | Member | Meaning |
 |---|---|
+| `Origin` | High-level workflow such as a normal operation, exact restore, reconciliation, or salvage. |
 | `Added` | New item instances were added. |
 | `Removed` | Existing item instances were removed. |
 | `Modified` | Existing item amounts changed. |
@@ -443,16 +444,12 @@ layout.
 
 ## Persistence And View Rebuilds
 
-`Deserialize(...)` is a restore boundary rather than one ordinary incremental UI mutation. It clears current contents,
-commits restored items, and then restores layout-specific persistent data.
+Portable snapshot application is one atomic replacement event. The handler observes final contents and layout state;
+old instances appear in `Removed` and replacements in `Added`. `Origin` distinguishes exact restoration, lossless
+reconciliation, and salvage. Failed application emits no event.
 
-Layout-data restoration occurs after the content events. Rebuild the inventory view after `Deserialize(...)` returns
-instead of relying only on the intermediate events:
-
-```csharp
-inventory.Deserialize(savedInventory);
-RebuildInventoryView();
-```
+The obsolete `Deserialize(...)` API retains its legacy multi-step behavior and should not be used for new UI
+integration.
 
 The persistence guide covers restore validation and compatibility in detail.
 

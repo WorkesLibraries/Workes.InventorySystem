@@ -24,6 +24,7 @@ public interface IInventoryLayout<TKey>
     /// <summary>
     /// Gets the stateless codec that owns this layout's complete portable snapshot contract.
     /// </summary>
+    /// <remarks>The codec must support capture, decode, and exact reconstruction.</remarks>
     IInventoryLayoutSnapshotCodec<TKey> SnapshotCodec { get; }
 
     /// <summary>

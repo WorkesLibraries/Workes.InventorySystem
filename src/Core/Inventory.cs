@@ -17,7 +17,7 @@ namespace Workes.InventorySystem.Core;
 /// Mutable inventory that owns item instances, layout state, capacity validation, stacking behavior, rules, and change events.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
-public class Inventory<TKey> : IInstanceMetadataOwner
+public partial class Inventory<TKey> : IInstanceMetadataOwner
 {
     private readonly List<ItemInstance<TKey>> _items = new();
 

@@ -659,6 +659,10 @@ Successful compound operations commit as one inventory change rather than exposi
 | Count amounts | `Count(...)`, `CountByTag(...)`, `Contains(...)` |
 | Mutate one stack’s runtime data | `ItemInstance.Metadata` |
 | Mutate metadata on part of a stack | `TrySplitAndSetMetadata(...)` / `SplitAndSetMetadata(...)` |
+| Assess a portable save | `AssessSnapshot(...)` |
+| Restore a save exactly | `TryRestoreSnapshot(...)` / `RestoreSnapshot(...)` |
+| Adapt a save without loss | `TryReconcileSnapshot(...)` / `ReconcileSnapshot(...)` |
+| Salvage a best-effort subset | `TrySalvageSnapshot(...)` / `SalvageSnapshot(...)` |
 
 ## Continue Reading
 

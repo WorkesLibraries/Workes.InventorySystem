@@ -176,6 +176,37 @@ internal static class InventorySnapshotCapture
                     (error ?? "The codec returned an incompatible candidate.");
                 return false;
             }
+            var storageIndices = new Dictionary<string, int>(StringComparer.Ordinal);
+            var instances = new Dictionary<string, ItemInstance<TKey>>(StringComparer.Ordinal);
+            for (int index = 0; index < inventory.Items.Count; index++)
+            {
+                var current = inventory.Items[index];
+                string entryId = entryIds[current];
+                storageIndices.Add(entryId, index);
+                instances.Add(
+                    entryId,
+                    new ItemInstance<TKey>(
+                        current.Definition,
+                        current.Amount,
+                        current.Metadata.IsEmpty ? null : current.Metadata.Clone()));
+            }
+            if (!codec.TryCreateExactLayout(
+                    new InventoryLayoutSnapshotRestoreContext<TKey>(
+                        inventory.Layout,
+                        candidate,
+                        storageIndices,
+                        instances),
+                    out var exactLayout,
+                    out error) ||
+                exactLayout == null ||
+                ReferenceEquals(exactLayout, inventory.Layout))
+            {
+                snapshot = null;
+                error =
+                    $"Layout snapshot codec '{codec.LayoutKind}' could not exactly restore its captured data: " +
+                    (error ?? "The codec did not return an isolated layout.");
+                return false;
+            }
             return true;
         }
         catch (Exception ex)

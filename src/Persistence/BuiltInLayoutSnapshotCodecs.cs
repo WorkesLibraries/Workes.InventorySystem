@@ -129,6 +129,67 @@ internal static class BuiltInLayoutSnapshot
                InventorySnapshotCodecs.TryDecode(encoded, out value, out _) &&
                value > 0;
     }
+
+    internal static bool TryProperty<T>(
+        InventoryLayoutSnapshotCandidate<T> candidate,
+        string name,
+        out SnapshotEncodedValue? value)
+    {
+        value = candidate.Data.Properties
+            .FirstOrDefault(property => string.Equals(property.Name, name, StringComparison.Ordinal))
+            ?.Value;
+        return value != null;
+    }
+
+    internal static bool TryStorageIndices<TKey>(
+        InventoryLayoutSnapshotRestoreContext<TKey> context,
+        string propertyName,
+        out List<int?> indices,
+        out string? error)
+    {
+        indices = new List<int?>();
+        error = null;
+        if (!TryProperty(context.Candidate, propertyName, out var encoded) ||
+            !InventorySnapshotCodecs.TryDecode(encoded!, out List<object?> references, out error))
+        {
+            error = $"Layout snapshot property '{propertyName}' is invalid: {error}";
+            return false;
+        }
+        foreach (var reference in references)
+        {
+            if (reference == null)
+            {
+                indices.Add(null);
+                continue;
+            }
+            if (reference is not string entryId ||
+                !context.StorageIndices.TryGetValue(entryId, out int storageIndex))
+            {
+                error = $"Layout snapshot property '{propertyName}' references an unknown entry.";
+                return false;
+            }
+            indices.Add(storageIndex);
+        }
+        error = null;
+        return true;
+    }
+
+    internal static bool TryDecodedProperty<TKey, TValue>(
+        InventoryLayoutSnapshotRestoreContext<TKey> context,
+        string name,
+        out TValue value,
+        out string? error)
+    {
+        value = default!;
+        error = null;
+        if (!TryProperty(context.Candidate, name, out var encoded) ||
+            !InventorySnapshotCodecs.TryDecode(encoded!, out value, out error))
+        {
+            error = $"Layout snapshot property '{name}' is invalid: {error}";
+            return false;
+        }
+        return true;
+    }
 }
 
 internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCodec<TKey>
@@ -158,6 +219,35 @@ internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotC
             index => new EntryLayoutContext<TKey>(index),
             (_, count) => count == context.EntryCount,
             out candidate, out error);
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not EntryLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "order", out var indices, out error) ||
+            indices.Any(index => !index.HasValue))
+        {
+            error ??= "Exact entry-layout restoration requires compatible entry layout data.";
+            return false;
+        }
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new EntryLayoutPersistentData
+            {
+                Order = indices.Select(index => index!.Value).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact entry-layout restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
+    }
 }
 
 internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCodec<TKey>
@@ -184,6 +274,31 @@ internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
     public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error) =>
         BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "slots", false,
             index => new SlotLayoutContext<TKey>(index), (_, _) => true, out candidate, out error);
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not SlotLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error))
+        {
+            error ??= "Exact slot-layout restoration requires compatible slot data.";
+            return false;
+        }
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new SlotLayoutPersistentData { SlotMap = slots });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact slot-layout restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
+    }
 }
 
 internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCodec<TKey>
@@ -228,6 +343,41 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
                     return false;
                 return Enum.TryParse<GridPlacementOrder>(orderName, false, out _);
             }, out candidate, out error);
+    }
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not GridLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out error) ||
+            !Enum.TryParse(orderName, false, out GridPlacementOrder order))
+        {
+            error ??= "Exact grid-layout restoration requires compatible grid data.";
+            return false;
+        }
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new GridLayoutPersistentData
+            {
+                Width = width,
+                Height = height,
+                PlacementOrder = order,
+                CellMap = cells
+            });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact grid-layout restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
     }
 }
 
@@ -278,6 +428,72 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
                        Enum.TryParse<GridAnchor>(anchorName, false, out _);
             }, out candidate, out error);
     }
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not MultiCellGridLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "defaultAnchor", out string anchorName, out error) ||
+            !Enum.TryParse(orderName, false, out GridPlacementOrder order) ||
+            !Enum.TryParse(anchorName, false, out GridAnchor anchor))
+        {
+            error ??= "Exact multi-cell grid restoration requires compatible grid data.";
+            return false;
+        }
+
+        foreach (var pair in context.StorageIndices)
+        {
+            var occupied = new List<int>();
+            for (int cell = 0; cell < cells.Count; cell++)
+            {
+                if (cells[cell] == pair.Value)
+                    occupied.Add(cell);
+            }
+            var footprint = target.FootprintProvider.GetFootprint(context.Instances[pair.Key].Definition);
+            if (occupied.Count != footprint.Width * footprint.Height ||
+                occupied.Count == 0)
+            {
+                error = $"Saved cells for entry '{pair.Key}' do not match its current footprint.";
+                return false;
+            }
+            int minX = occupied.Min(cell => cell % width);
+            int maxX = occupied.Max(cell => cell % width);
+            int minY = occupied.Min(cell => cell / width);
+            int maxY = occupied.Max(cell => cell / width);
+            if (maxX - minX + 1 != footprint.Width ||
+                maxY - minY + 1 != footprint.Height)
+            {
+                error = $"Saved cells for entry '{pair.Key}' are not a valid current footprint.";
+                return false;
+            }
+        }
+
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new MultiCellGridLayoutPersistentData
+            {
+                Width = width,
+                Height = height,
+                PlacementOrder = order,
+                DefaultAnchor = anchor,
+                CellMap = cells
+            });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact multi-cell grid restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
+    }
 }
 
 internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCodec<TKey>
@@ -320,6 +536,36 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
                        slotIds.All(id => !string.IsNullOrWhiteSpace(id)) &&
                        slotIds.Distinct(StringComparer.Ordinal).Count() == slotIds.Count;
             }, out candidate, out error);
+    }
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not EquipmentLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "slotIds", out List<string> slotIds, out error))
+        {
+            error ??= "Exact equipment-layout restoration requires compatible slot data.";
+            return false;
+        }
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new EquipmentLayoutPersistentData
+            {
+                SlotIds = slotIds,
+                SlotMap = slots
+            });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact equipment-layout restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
     }
 }
 
@@ -388,5 +634,37 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
                 }
                 return total == count;
             }, out candidate, out error);
+    }
+
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    {
+        layout = null;
+        error = null;
+        if (context.TargetLayout is not SectionedLayout<TKey> target ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionIds", out List<string> sectionIds, out error) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionSlotCounts", out List<int> counts, out error))
+        {
+            error ??= "Exact sectioned-layout restoration requires compatible section data.";
+            return false;
+        }
+        var restored = target.Clone();
+        try
+        {
+            restored.RestorePersistentData(new SectionedLayoutPersistentData
+            {
+                SectionIds = sectionIds,
+                SectionSlotCounts = counts,
+                SlotMap = slots
+            });
+        }
+        catch (Exception ex)
+        {
+            error = $"Exact sectioned-layout restoration failed: {ex.Message}";
+            return false;
+        }
+        layout = restored;
+        error = null;
+        return true;
     }
 }

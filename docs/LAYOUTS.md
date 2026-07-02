@@ -726,6 +726,11 @@ capture/decode contract. Capture resolves item instances directly to snapshot-lo
 indexes. Decode performs version-aware structural validation and returns an inert candidate; it must not mutate a live
 layout.
 
+`TryCreateExactLayout(...)` is the required final part of the codec contract. It reconstructs exact saved placement in
+an isolated layout while treating current runtime configuration as authoritative. Therefore, any layout snapshot that
+can be captured must be exactly restorable into an equivalently configured inventory. Changed shape, restrictions,
+footprints, or other configuration may still reject exact restoration and lead callers to reconciliation or salvage.
+
 A derived layout may inherit the built-in codec only when its complete persistent shape is unchanged. Override
 `SnapshotCodec` when the derived type owns additional state. Layout kind IDs are global across all `TKey` types.
 

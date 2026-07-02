@@ -9,6 +9,10 @@ namespace Workes.InventorySystem.Persistence;
 /// Converts all persistent state owned by one layout contract to and from portable snapshot data.
 /// Implementations must be stateless and safe for concurrent use.
 /// </summary>
+/// <remarks>
+/// Successful capture promises that the produced data can be decoded and exactly reconstructed against equivalent
+/// runtime configuration. Capture validates this round trip before returning a snapshot.
+/// </remarks>
 public interface IInventoryLayoutSnapshotCodec<TKey>
 {
     /// <summary>Gets the globally unique, stable persisted layout kind.</summary>
@@ -29,6 +33,15 @@ public interface IInventoryLayoutSnapshotCodec<TKey>
     bool TryDecode(
         InventoryLayoutSnapshotDecodeContext<TKey> context,
         out InventoryLayoutSnapshotCandidate<TKey>? candidate,
+        out string? error);
+
+    /// <summary>
+    /// Creates an isolated layout containing the exact decoded placement, or rejects incompatible current
+    /// configuration without mutating the target inventory.
+    /// </summary>
+    bool TryCreateExactLayout(
+        InventoryLayoutSnapshotRestoreContext<TKey> context,
+        out IInventoryLayout<TKey>? layout,
         out string? error);
 }
 
@@ -95,6 +108,34 @@ public sealed class InventoryLayoutSnapshotDecodeContext<TKey>
         entry = null;
         return false;
     }
+}
+
+/// <summary>Provides decoded placement identities and resolved item instances for exact layout reconstruction.</summary>
+public sealed class InventoryLayoutSnapshotRestoreContext<TKey>
+{
+    internal InventoryLayoutSnapshotRestoreContext(
+        IInventoryLayout<TKey> targetLayout,
+        InventoryLayoutSnapshotCandidate<TKey> candidate,
+        IReadOnlyDictionary<string, int> storageIndices,
+        IReadOnlyDictionary<string, ItemInstance<TKey>> instances)
+    {
+        TargetLayout = targetLayout;
+        Candidate = candidate;
+        StorageIndices = storageIndices;
+        Instances = instances;
+    }
+
+    /// <summary>Gets the current target layout whose runtime configuration must remain authoritative.</summary>
+    public IInventoryLayout<TKey> TargetLayout { get; }
+
+    /// <summary>Gets the structurally validated snapshot candidate.</summary>
+    public InventoryLayoutSnapshotCandidate<TKey> Candidate { get; }
+
+    /// <summary>Gets snapshot entry identities mapped to their reconstructed storage indices.</summary>
+    public IReadOnlyDictionary<string, int> StorageIndices { get; }
+
+    /// <summary>Gets resolved, detached item instances by snapshot entry identity.</summary>
+    public IReadOnlyDictionary<string, ItemInstance<TKey>> Instances { get; }
 }
 
 /// <summary>

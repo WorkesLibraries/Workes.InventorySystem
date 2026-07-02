@@ -13,7 +13,7 @@ Inventory.CaptureSnapshot()
 The package deliberately does not provide JSON, MessagePack, file or database I/O, save slots, compression,
 encryption, cloud synchronization, or an application save envelope.
 
-Snapshot restoration is a separate API evolution. This guide describes the capture and representation contract.
+Snapshot application is atomic and supports exact restoration, lossless reconciliation, and explicitly lossy salvage.
 
 ## Capture
 
@@ -155,7 +155,7 @@ Codecs must be stateless and safe for concurrent calls. When evolving a codec, k
 
 `InventorySnapshotCodecs.TryEncode(...)` and `TryDecode(...)` are also available for testing codec contracts.
 They cover package-supported portable values; custom key association is resolved by inventory snapshot capture and
-future snapshot application.
+application.
 
 ## Deep Detachment
 
@@ -197,7 +197,11 @@ There is no public layout registration. Package and custom layouts use the same 
 `InventoryLayoutSnapshotCaptureContext<TKey>` that resolves an `ItemInstance<TKey>` directly to a stable entry ID; it
 never exposes storage indexes. `TryDecode(...)` validates every supported data version and returns an inert
 `InventoryLayoutSnapshotCandidate<TKey>` without mutating a live layout. The candidate includes detached data and
-decoded entry contexts for the later snapshot-application workflow.
+decoded entry contexts for snapshot application.
+
+`TryCreateExactLayout(...)` completes the codec contract by reconstructing an isolated, exactly placed layout using
+current runtime configuration. A successful capture must be exactly restorable into an equivalently configured
+inventory. Restoration may reject changed layout shape, restrictions, footprints, or other runtime configuration.
 
 Layout kinds are global rather than scoped to `TKey`: one kind identifies one layout type across all closed key types.
 Derived layouts inherit a built-in codec only when its complete persistent shape truly remains identical. A derived
@@ -205,14 +209,96 @@ layout with extra state must override `SnapshotCodec`.
 
 ## Definition IDs And Migrations
 
-Definition IDs use the built-in codec or type-level codec assigned to the exact `TKey` type. During future restoration,
-the target inventory will:
+Definition IDs use the built-in codec or type-level codec assigned to the exact `TKey` type. During application, the
+target inventory:
 
-1. decode the ID through that registered codec.
+1. decode the ID through the built-in or type-assigned codec.
 2. pass the decoded ID to `ItemRegistry<TKey>.Resolve(...)`.
 3. receive the target catalog's canonical definition or registered migration replacement.
 
 The snapshot does not serialize definition objects.
+
+## Assess Before Applying
+
+`AssessSnapshot(...)` runs the same candidate planning and validation used by application without mutating the
+inventory:
+
+```csharp
+SnapshotAssessmentResult assessment =
+    inventory.AssessSnapshot(snapshot);
+
+if (assessment.CanRestoreExactly)
+{
+    inventory.RestoreSnapshot(snapshot);
+}
+else if (assessment.CanReconcileWithoutLoss)
+{
+    inventory.ReconcileSnapshot(snapshot);
+}
+```
+
+The result distinguishes exact restoration, lossless reconciliation, and salvage. `Issues` explains why stronger
+outcomes failed, while `ProjectedLosses` describes salvage loss. Assessment is advisory: application always plans and
+validates again because inventory policies, rules, layout configuration, catalog migrations, or the snapshot DTO may
+change afterward.
+
+## Exact Restoration
+
+`RestoreSnapshot(...)` and `TryRestoreSnapshot(...)` preserve:
+
+- snapshot entry storage order.
+- one stack per snapshot entry with the exact saved amount and metadata.
+- every saved layout position.
+- all item quantities.
+
+Exact restoration resolves definitions through the current key codec, registry, and migrations. Every layout codec is
+required to reconstruct exact saved placement. Restoration rejects changed
+stack limits, capacity, rules, layout shape, slot restrictions, footprints, or other current configuration that makes
+the saved state invalid. It never implements restoration as repeated ordinary adds, so compatible saved stacks are not
+merged or split.
+
+The operation builds and validates an isolated candidate. Failure leaves contents, placement, attributes, and events
+untouched.
+
+## Lossless Reconciliation
+
+`ReconcileSnapshot(...)` and `TryReconcileSnapshot(...)` ignore saved placement and instance boundaries while retaining
+every resolved definition/metadata quantity. Current stack limits may split stacks; compatible entries may merge; the
+current layout chooses automatic placement. Current capacity and rules validate the complete final replacement.
+
+Use reconciliation for saves whose logical items remain valid but whose presentation shape has changed.
+
+## Salvage
+
+`SalvageSnapshot(...)` and `TrySalvageSnapshot(...)` retain a deterministic best-effort subset. Successful loss is
+reported through `SnapshotApplicationResult.Losses`; it is never hidden as a failed or partially committed mutation.
+
+`SnapshotSalvageOptions<TKey>` controls:
+
+- priority through `PriorityComparer` (greater values are attempted first).
+- partial quantities versus `WholeEntryOnly`.
+- whether unknown definitions fail or may be discarded.
+- the placement strategy, currently `GreedyAutomatic`.
+
+Greedy salvage is deterministic but not globally optimal. A different order can produce a different retained subset,
+especially for multi-cell layouts, capacity interactions, or rules. Partial-quantity search assumes ordinary monotonic
+capacity behavior; use whole-entry retention or application-level preprocessing when rules have unusual
+non-monotonic quantity constraints.
+
+Malformed snapshots, unsupported codecs, invalid options, and unrecoverable configuration remain operation failures
+even in salvage mode.
+
+All application modes return `SnapshotApplicationResult`. Exact and reconciliation never report loss. Runtime
+`InstanceId` values are newly created because they are deliberately not persistent identity.
+
+## Application Events
+
+Successful non-empty application emits one coherent `Inventory.Changed` event after final state is visible. Previous
+instances are `Removed`, replacements are `Added`, and they are not represented as `Moved`.
+
+`InventoryChangedEventArgs.Origin` identifies `SnapshotExactRestore`, `SnapshotReconciliation`, or `SnapshotSalvage`.
+Failure emits no event. `RequiresFullRefresh` remains reserved for observable state not fully represented by semantic
+payloads and contexts.
 
 ## External Serializers
 
@@ -279,7 +365,7 @@ The following APIs remain behaviorally unchanged but are obsolete:
 
 Their generic IDs, `Dictionary<string,object>` metadata, polymorphic `LayoutData`, shallow value copying, storage-index
 placement maps, and non-atomic restoration make them unsuitable as a portable contract. They remain only as an
-explicit migration path until the new snapshot-application APIs are available.
+explicit migration path.
 
 ## Common Mistakes
 
@@ -291,6 +377,9 @@ explicit migration path until the new snapshot-application APIs are available.
 - Persisting a cyclic metadata graph.
 - Using a derived layout whose inherited codec omits derived persistent state.
 - Treating snapshot-local entry IDs as runtime item-instance identity.
+- Trusting a previous assessment instead of handling application failure.
+- Assuming greedy salvage finds the globally optimal retained subset.
+- Expecting exact restoration to adapt changed stack limits or layout shape.
 - Calling the obsolete `Serialize()` API for new persistence work.
 
 ## Continue Reading

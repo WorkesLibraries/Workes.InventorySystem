@@ -282,7 +282,9 @@ public class InventorySnapshotTests
 
         Assert.That(snapshot.Layout.Kind, Is.EqualTo("tests.layout.custom-slot"));
         Assert.That(snapshot.Layout.DataVersion, Is.EqualTo(2));
-        Assert.That(snapshot.Layout.Data.Properties.Single().Name, Is.EqualTo("slotCount"));
+        Assert.That(
+            snapshot.Layout.Data.Properties.Select(property => property.Name),
+            Is.EqualTo(new[] { "slotCount", "slots" }));
     }
 
     [Test]
@@ -325,6 +327,16 @@ public class InventorySnapshotTests
 
         Assert.That(malformedInventory.TryCaptureSnapshot(out _, out var malformedError), Is.False);
         Assert.That(malformedError, Does.Contain("produced invalid data"));
+    }
+
+    [Test]
+    public void CaptureSnapshot_RejectsLayoutCodecThatCannotExactlyRoundTripItsOwnData()
+    {
+        var inventory = CreateInventoryDirect(new RejectingRestoreLayout());
+
+        Assert.That(inventory.TryCaptureSnapshot(out var snapshot, out var error), Is.False);
+        Assert.That(snapshot, Is.Null);
+        Assert.That(error, Does.Contain("could not exactly restore"));
     }
 
     [Test]
@@ -597,7 +609,7 @@ public class InventorySnapshotTests
         }
     }
 
-    private sealed class CustomSlotLayout : SlotLayout<string>
+    private sealed class CustomSlotLayout : SlotLayout<string>, IInventoryLayout<string>
     {
         public CustomSlotLayout(int slotCount)
             : base(slotCount)
@@ -606,6 +618,17 @@ public class InventorySnapshotTests
 
         public override IInventoryLayoutSnapshotCodec<string> SnapshotCodec =>
             CustomSlotLayoutCodec.Instance;
+
+        IInventoryLayout<string> IInventoryLayout<string>.Clone()
+        {
+            var state = (SlotLayoutPersistentData)GetPersistentData();
+            var clone = new CustomSlotLayout(state.SlotMap.Count);
+            clone.RestorePersistentData(new SlotLayoutPersistentData
+            {
+                SlotMap = new List<int?>(state.SlotMap)
+            });
+            return clone;
+        }
     }
 
     private sealed class CustomSlotLayoutCodec : IInventoryLayoutSnapshotCodec<string>
@@ -621,12 +644,24 @@ public class InventorySnapshotTests
         {
             var layout = (CustomSlotLayout)context.Layout;
             var persistent = (SlotLayoutPersistentData)layout.GetPersistentData();
+            var references = persistent.SlotMap
+                .Select(index => index.HasValue &&
+                                 context.TryGetEntryId(context.Inventory.Items[index.Value], out var entryId)
+                    ? entryId
+                    : null)
+                .Cast<object?>()
+                .ToList();
             data = SnapshotValue.Object(new[]
             {
                 new SnapshotNamedValue
                 {
                     Name = "slotCount",
                     Value = InventorySnapshotCodecs.Encode(persistent.SlotMap.Count)
+                },
+                new SnapshotNamedValue
+                {
+                    Name = "slots",
+                    Value = InventorySnapshotCodecs.Encode(references)
                 }
             });
             error = null;
@@ -643,7 +678,7 @@ public class InventorySnapshotTests
             if (context.Snapshot.Kind != LayoutKind ||
                 context.Snapshot.DataVersion != 2 ||
                 context.Snapshot.Data.Kind != SnapshotValueKind.Object ||
-                context.Snapshot.Data.Properties.Count != 1 ||
+                context.Snapshot.Data.Properties.Count != 2 ||
                 context.Snapshot.Data.Properties[0].Name != "slotCount" ||
                 !InventorySnapshotCodecs.TryDecode(
                     context.Snapshot.Data.Properties[0].Value,
@@ -654,17 +689,120 @@ public class InventorySnapshotTests
                 error ??= "Invalid custom slot layout data.";
                 return false;
             }
+            if (!InventorySnapshotCodecs.TryDecode(
+                    context.Snapshot.Data.Properties[1].Value,
+                    out List<object?> references,
+                    out error) ||
+                references.Count != count)
+                return false;
+            var contexts = new Dictionary<string, IReadOnlyList<ILayoutContext<string>>>(StringComparer.Ordinal);
+            for (int index = 0; index < references.Count; index++)
+            {
+                if (references[index] is not string entryId)
+                    continue;
+                if (!context.TryGetEntry(entryId, out _) || contexts.ContainsKey(entryId))
+                {
+                    error = "Invalid custom slot entry reference.";
+                    return false;
+                }
+                contexts.Add(entryId, new[] { SlotLayoutContext<string>.Single(index) });
+            }
+            if (contexts.Count != context.EntryCount)
+            {
+                error = "Every snapshot entry must be placed.";
+                return false;
+            }
             candidate = new InventoryLayoutSnapshotCandidate<string>(
                 LayoutKind,
                 2,
                 context.Snapshot.Data,
-                new Dictionary<string, IReadOnlyList<ILayoutContext<string>>>());
+                contexts);
+            return true;
+        }
+
+        public bool TryCreateExactLayout(
+            InventoryLayoutSnapshotRestoreContext<string> context,
+            out IInventoryLayout<string>? layout,
+            out string? error)
+        {
+            layout = null;
+            error = null;
+            if (context.TargetLayout is not CustomSlotLayout target ||
+                !InventorySnapshotCodecs.TryDecode(
+                    context.Candidate.Data.Properties[1].Value,
+                    out List<object?> references,
+                    out error))
+                return false;
+            var slots = new List<int?>();
+            foreach (var reference in references)
+            {
+                if (reference == null)
+                    slots.Add(null);
+                else if (reference is string entryId &&
+                         context.StorageIndices.TryGetValue(entryId, out int storageIndex))
+                    slots.Add(storageIndex);
+                else
+                    return false;
+            }
+            var restored = new CustomSlotLayout(slots.Count);
+            restored.RestorePersistentData(new SlotLayoutPersistentData { SlotMap = slots });
+            layout = restored;
             return true;
         }
     }
 
     private sealed class UnsupportedKey
     {
+    }
+
+    private sealed class RejectingRestoreLayout : EntryLayout<string>, IInventoryLayout<string>
+    {
+        public override IInventoryLayoutSnapshotCodec<string> SnapshotCodec =>
+            RejectingRestoreLayoutCodec.Instance;
+
+        IInventoryLayout<string> IInventoryLayout<string>.Clone() =>
+            new RejectingRestoreLayout();
+    }
+
+    private sealed class RejectingRestoreLayoutCodec : IInventoryLayoutSnapshotCodec<string>
+    {
+        public static RejectingRestoreLayoutCodec Instance { get; } = new();
+        public string LayoutKind => "tests.layout.rejecting-restore";
+        public int CurrentVersion => 1;
+
+        public bool TryCapture(
+            InventoryLayoutSnapshotCaptureContext<string> context,
+            out SnapshotValue? data,
+            out string? error)
+        {
+            data = SnapshotValue.Object();
+            error = null;
+            return true;
+        }
+
+        public bool TryDecode(
+            InventoryLayoutSnapshotDecodeContext<string> context,
+            out InventoryLayoutSnapshotCandidate<string>? candidate,
+            out string? error)
+        {
+            candidate = new InventoryLayoutSnapshotCandidate<string>(
+                LayoutKind,
+                1,
+                context.Snapshot.Data,
+                new Dictionary<string, IReadOnlyList<ILayoutContext<string>>>());
+            error = null;
+            return true;
+        }
+
+        public bool TryCreateExactLayout(
+            InventoryLayoutSnapshotRestoreContext<string> context,
+            out IInventoryLayout<string>? layout,
+            out string? error)
+        {
+            layout = null;
+            error = "Exact restoration is intentionally unsupported.";
+            return false;
+        }
     }
 
     private enum UnsupportedEnum

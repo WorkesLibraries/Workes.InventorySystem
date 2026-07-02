@@ -79,7 +79,7 @@ public static class InventorySnapshotCodecs
         if (!string.Equals(adapter.FormatId, detached.CodecId, StringComparison.Ordinal))
         {
             error =
-                $"Snapshot codec '{detached.CodecId}' does not match the registered codec " +
+                $"Snapshot codec '{detached.CodecId}' does not match the assigned codec " +
                 $"'{adapter.FormatId}' for type '{typeof(T).FullName}'.";
             return false;
         }
@@ -123,7 +123,17 @@ public static class InventorySnapshotCodecs
         out object? value,
         out string? error)
     {
+        return TryDecodeRuntime(encoded, out value, out _, out error);
+    }
+
+    internal static bool TryDecodeRuntime(
+        SnapshotEncodedValue encoded,
+        out object? value,
+        out Type? valueType,
+        out string? error)
+    {
         value = null;
+        valueType = null;
         if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out error) || detached == null)
             return false;
         if (detached.CodecId == NullCodecId)
@@ -134,6 +144,7 @@ public static class InventorySnapshotCodecs
 
         if (!TryGetAdapterById(detached.CodecId, out var adapter, out error) || adapter == null)
             return false;
+        valueType = adapter.ValueType;
         if (detached.Data.Kind == SnapshotValueKind.Null)
         {
             if (adapter.ValueType.IsValueType && Nullable.GetUnderlyingType(adapter.ValueType) == null)
@@ -158,8 +169,8 @@ public static class InventorySnapshotCodecs
         catch (Exception ex)
         {
             value = null;
-            error = $"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}";
-            return false;
+                error = $"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}";
+                return false;
         }
     }
 
