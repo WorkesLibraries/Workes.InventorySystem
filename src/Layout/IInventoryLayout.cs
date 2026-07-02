@@ -112,7 +112,9 @@ public interface IInventoryLayout<TKey>
     /// <remarks>
     /// Mapping is layout-owned. Transaction-level mapping should target
     /// <see cref="InventoryTransaction{TKey}.Added"/> entry indices and must
-    /// preserve amount deltas and removals exactly.
+    /// preserve amount deltas and removals exactly. Use
+    /// <see cref="InventoryTransaction{TKey}.WithAddedEntryContexts(IReadOnlyList{ILayoutContext{TKey}})"/>
+    /// to create the mapped copy without replacing structural transaction data.
     /// </remarks>
     bool TryApplyPlacementContext(
         Inventory<TKey> inventory,

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
@@ -60,6 +61,51 @@ public class LayoutContextTransactionTests
         Assert.That(built.Added.Count, Is.EqualTo(1));
         Assert.That(built.Added.Single().instance.Definition, Is.SameAs(apple));
         Assert.That(built.Added.Single().instance.Amount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void InventoryTransaction_WithAddedEntryContexts_PreservesStructureAndReplacesOnlyContexts()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var inventory = CreateManager(
+            new EntryLayout<string>(),
+            definitions: new[] { apple, sword }).CreateInventory();
+        inventory.Add(apple, amount: 2);
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryRemove(inventory.Items[0], out var error), Is.True, error);
+        Assert.That(builder.TryAdd(sword, out error), Is.True, error);
+        var transaction = builder.Build();
+        var mappedContext = SlotLayoutContext<string>.Single(3);
+
+        var mapped = transaction.WithAddedEntryContexts(
+            new ILayoutContext<string>?[] { mappedContext });
+
+        Assert.That(mapped, Is.Not.SameAs(transaction));
+        Assert.That(mapped.Inventory, Is.SameAs(transaction.Inventory));
+        Assert.That(mapped.AmountDeltas, Is.EqualTo(transaction.AmountDeltas));
+        Assert.That(mapped.Removed, Is.EqualTo(transaction.Removed));
+        Assert.That(mapped.Added.Single().instance, Is.SameAs(transaction.Added.Single().instance));
+        Assert.That(mapped.Added.Single().context, Is.SameAs(mappedContext));
+        Assert.That(transaction.Added.Single().context, Is.Null);
+        Assert.That(mapped.IsApplied, Is.False);
+    }
+
+    [Test]
+    public void InventoryTransaction_WithAddedEntryContexts_ValidatesCountAndAppliedState()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
+        var builder = InventoryTransaction<string>.From(inventory);
+        Assert.That(builder.TryAdd(apple, out var error), Is.True, error);
+        var transaction = builder.Build();
+
+        Assert.Throws<ArgumentException>(() =>
+            transaction.WithAddedEntryContexts(Array.Empty<ILayoutContext<string>?>()));
+
+        Assert.That(inventory.TryCommitTransaction(transaction, out error), Is.True, error);
+        Assert.Throws<InvalidOperationException>(() =>
+            transaction.WithAddedEntryContexts(new ILayoutContext<string>?[] { null }));
     }
 
     [Test]

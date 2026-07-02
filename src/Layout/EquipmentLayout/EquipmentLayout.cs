@@ -319,11 +319,8 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
             }
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 
@@ -646,11 +643,8 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
             }
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 }

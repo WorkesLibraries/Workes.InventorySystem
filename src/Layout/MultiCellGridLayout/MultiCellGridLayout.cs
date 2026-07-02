@@ -441,11 +441,8 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
             }
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 
@@ -924,11 +921,8 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
             }
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 }

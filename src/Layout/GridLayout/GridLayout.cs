@@ -524,11 +524,8 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             added[i] = (added[i].instance, GridLayoutContext<TKey>.Single(ToX(cell), ToY(cell)));
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 
@@ -568,11 +565,8 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             }
         }
 
-        mappedTransaction = new InventoryTransaction<TKey>(
-            transaction.Inventory,
-            new List<(int index, int delta)>(transaction.AmountDeltas),
-            new List<(int index, ItemInstance<TKey> instance)>(transaction.Removed),
-            added);
+        mappedTransaction = transaction.WithAddedEntryContexts(
+            added.ConvertAll(entry => entry.context));
         return true;
     }
 

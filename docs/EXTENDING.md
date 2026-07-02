@@ -464,11 +464,26 @@ public sealed class ShelfLayoutContext<TKey>
 Mapped dictionary keys refer to `InventoryTransaction<TKey>.Added` indices, not inventory storage indices. Validate
 negative positions, out-of-range added-entry indices, duplicate targets, and context types.
 
-Direct contexts and contexts already attached to individual transaction additions work for external layouts. The
-current public `InventoryTransaction<TKey>` constructor is internal, so an external layout cannot construct a copied
-transaction with rewritten `Added` contexts. Consequently, an external custom layout should pass through
-`context == null` and reject a new transaction-level mapped context in `TryApplyPlacementContext(...)` rather than
-claiming it applied one. Per-add builder contexts remain the ergonomic placement route.
+After validation, copy the current added-entry contexts, apply the mapped positions, and create a structurally
+equivalent transaction through the public placement-copy API:
+
+```csharp
+var contexts = transaction.Added
+    .Select(entry => entry.context)
+    .ToArray();
+
+foreach (var (addedIndex, shelfIndex) in shelfContext.AddedEntryShelves)
+    contexts[addedIndex] = ShelfLayoutContext<TKey>.Single(shelfIndex);
+
+mappedTransaction = transaction.WithAddedEntryContexts(contexts);
+error = null;
+return true;
+```
+
+`WithAddedEntryContexts(...)` requires exactly one context per `Added` entry. It preserves the target inventory, amount
+deltas, removals, and added item instances, so a layout can express placement without gaining authority to rewrite the
+transaction's structural changes. It also rejects already-applied transactions. Per-add builder contexts remain the
+ergonomic placement route; transaction-level mapped contexts remain useful for deferred multi-entry placement.
 
 ### Layout method lifecycle
 
@@ -959,8 +974,7 @@ stable sort tie-breakers are essential.
 - Capturing layout data that cannot be exactly reconstructed.
 - Changing codec IDs instead of versioning their data.
 - Assuming custom metadata objects can register snapshot codecs.
-- Pretending an external layout can rewrite a transaction-level mapped context with the current public constructor
-  surface.
+- Replacing transaction structure when a layout should only call `WithAddedEntryContexts(...)`.
 
 ## Continue Reading
 

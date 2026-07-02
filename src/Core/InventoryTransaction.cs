@@ -75,6 +75,52 @@ public class InventoryTransaction<TKey>
     internal void MarkApplied() => IsApplied = true;
 
     /// <summary>
+    /// Creates an unapplied copy with replacement contexts for the existing added entries.
+    /// </summary>
+    /// <param name="contexts">
+    /// Replacement contexts in the same order as <see cref="Added"/>. The count must match <see cref="Added"/> exactly.
+    /// </param>
+    /// <returns>
+    /// A transaction that preserves the target inventory, amount deltas, removals, and added item instances while
+    /// replacing only the added-entry contexts.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contexts"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// The number of supplied contexts does not match the number of added entries.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">This transaction has already been applied.</exception>
+    /// <remarks>
+    /// Custom layouts can use this method from
+    /// <see cref="IInventoryLayout{TKey}.TryApplyPlacementContext(Inventory{TKey}, InventoryTransaction{TKey}, ILayoutContext{TKey}?, out InventoryTransaction{TKey}?, out string?)"/>
+    /// after validating a transaction-level placement context. It intentionally does not allow layouts to replace the
+    /// transaction's structural item changes.
+    /// </remarks>
+    public InventoryTransaction<TKey> WithAddedEntryContexts(
+        IReadOnlyList<ILayoutContext<TKey>?> contexts)
+    {
+        if (contexts == null)
+            throw new ArgumentNullException(nameof(contexts));
+        if (IsApplied)
+            throw new InvalidOperationException("Applied transactions cannot be copied with replacement added-entry contexts.");
+        if (contexts.Count != Added.Count)
+        {
+            throw new ArgumentException(
+                $"Expected {Added.Count} added-entry contexts, but received {contexts.Count}.",
+                nameof(contexts));
+        }
+
+        var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>(Added.Count);
+        for (int i = 0; i < Added.Count; i++)
+            added.Add((Added[i].instance, contexts[i]));
+
+        return new InventoryTransaction<TKey>(
+            Inventory,
+            new List<(int index, int delta)>(AmountDeltas),
+            new List<(int index, ItemInstance<TKey> instance)>(Removed),
+            added);
+    }
+
+    /// <summary>
     /// Creates a new transaction with the same structural data but targeting a different inventory.
     /// Used when committing a transaction built against a simulation to the real inventory.
     /// </summary>
