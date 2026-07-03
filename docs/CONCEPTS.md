@@ -93,7 +93,9 @@ An `ItemInstance<TKey>` is a runtime stack owned by an inventory. It contains:
 - a unique runtime `InstanceId`.
 - per-instance metadata.
 
-Application code may inspect item instances, but it does not construct them or change their amounts directly. Inventories, committed transactions, transfers, deserialization, splits, and rebuild operations create and update them.
+Application code may inspect item instances, but it does not construct them or change their amounts directly.
+Inventories, committed transactions, transfers, portable snapshot application, splits, and rebuild operations create
+and update them.
 
 ## Stable IDs And Canonical Definitions
 
@@ -213,7 +215,7 @@ Normal operations include:
 - transferring items between inventories.
 - changing inventory-owned rules or component parameters.
 - mutating metadata on owned instances.
-- restoring serialized state.
+- applying portable snapshots.
 
 The inventory exposes both conditional and expected-success styles:
 

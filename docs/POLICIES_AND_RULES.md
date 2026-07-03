@@ -434,7 +434,7 @@ Treat parameter IDs as part of application configuration. Centralize them when p
 | `MultipliedAttributeStackResolver<TKey>` | `multiplier` | `double` | Multiplier for the base-stack attribute |
 | `MultipliedAttributeStackResolver<TKey>` | `missingAttributeBaseStack` | `int` or `null` | Missing base fallback; `null` enables strict mode |
 
-### Capacity policies
+### Capacity policy parameters
 
 | Component | Parameter ID | Value type | Meaning |
 |---|---|---|---|

@@ -101,7 +101,7 @@ Instances are created by:
 
 - inventory add operations.
 - committed transactions and transfers.
-- deserialization.
+- portable snapshot application.
 - splits and rebuild operations.
 
 Use the instance references returned through `Inventory.Items` or query methods when an operation targets a particular stack.
@@ -512,6 +512,8 @@ Other read APIs include:
 `AsReadOnly()` may reflect later mutations. `ToDictionary()` copies the dictionary container.
 
 Stored values are not deep-cloned.
+Treat stored arrays and lists as immutable after assignment. Mutating one through the original reference or a value
+returned by `TryGet(...)`, `AsReadOnly()`, or `ToDictionary()` bypasses inventory-owned validation and change events.
 
 ## Mutate Metadata
 

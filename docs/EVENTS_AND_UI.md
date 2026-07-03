@@ -354,6 +354,7 @@ Current built-in operations request a full refresh in these cases:
 | `Clear()` on a non-empty inventory | Every previous position is invalidated. |
 | `ReplaceContents(...)` when replacing existing contents | `Cleared` is true and the view is replaced as a whole. |
 | Successful layout parameter mutation | Addressable positions or placement behavior may have changed. |
+| Snapshot application involving inventory attributes | Attribute replacement has no dedicated semantic payload. |
 
 Additional details:
 
@@ -444,9 +445,10 @@ layout.
 
 ## Persistence And View Rebuilds
 
-Portable snapshot application is one atomic replacement event. The handler observes final contents and layout state;
-old instances appear in `Removed` and replacements in `Added`. `Origin` distinguishes exact restoration, lossless
-reconciliation, and salvage. Failed application emits no event.
+A portable snapshot application that replaces contents or inventory attributes emits one atomic replacement event. The
+handler observes final contents and layout state; old instances appear in `Removed` and replacements in `Added`.
+`Origin` distinguishes exact restoration, lossless reconciliation, and salvage. Inventory attributes have no dedicated
+semantic payload, so their replacement requests a full refresh. Failed application emits no event.
 
 The obsolete `Deserialize(...)` API retains its legacy multi-step behavior and should not be used for new UI
 integration.

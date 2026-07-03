@@ -58,6 +58,10 @@ Each entry contains:
 Snapshots do not contain catalog definitions, schemas, tags, definition attributes, policies, rules, stack-resolver
 configuration, runtime `InstanceId` values, or application save versions. Recreate that configuration independently.
 
+Every application mode replaces the target inventory's attributes with the snapshot attributes as part of the same
+atomic commit. An unsupported runtime attribute makes capture fail; an encoded attribute that cannot be decoded makes
+assessment and application fail. Salvage does not silently discard malformed attributes.
+
 ## Portable Values
 
 `SnapshotEncodedValue` stores:
@@ -99,12 +103,9 @@ stateless class and associate it directly with the custom key type:
 ```csharp
 [InventorySnapshotKeyCodec(
     typeof(ItemKeyCodec))]
-sealed class ItemKey
-{
-    public string Value { get; }
-}
+public sealed record ItemKey(string Value);
 
-sealed class ItemKeyCodec :
+public sealed class ItemKeyCodec :
     IInventorySnapshotKeyCodec<ItemKey>
 {
     public string FormatId =>
@@ -212,9 +213,9 @@ layout with extra state must override `SnapshotCodec`.
 Definition IDs use the built-in codec or type-level codec assigned to the exact `TKey` type. During application, the
 target inventory:
 
-1. decode the ID through the built-in or type-assigned codec.
-2. pass the decoded ID to `ItemRegistry<TKey>.Resolve(...)`.
-3. receive the target catalog's canonical definition or registered migration replacement.
+1. decodes the ID through the built-in or type-assigned codec.
+2. passes the decoded ID to `ItemRegistry<TKey>.Resolve(...)`.
+3. receives the target catalog's canonical definition or registered migration replacement.
 
 The snapshot does not serialize definition objects.
 
@@ -249,6 +250,7 @@ change afterward.
 - snapshot entry storage order.
 - one stack per snapshot entry with the exact saved amount and metadata.
 - every saved layout position.
+- the captured inventory attributes.
 - all item quantities.
 
 Exact restoration resolves definitions through the current key codec, registry, and migrations. Every layout codec is
@@ -293,8 +295,10 @@ All application modes return `SnapshotApplicationResult`. Exact and reconciliati
 
 ## Application Events
 
-Successful non-empty application emits one coherent `Inventory.Changed` event after final state is visible. Previous
-instances are `Removed`, replacements are `Added`, and they are not represented as `Moved`.
+Successful application emits one coherent `Inventory.Changed` event after final state is visible when it replaces any
+contents or inventory attributes. Previous instances are `Removed`, replacements are `Added`, and they are not
+represented as `Moved`. Inventory-attribute replacement has no dedicated semantic payload, so an application involving
+attributes requests a full refresh.
 
 `InventoryChangedEventArgs.Origin` identifies `SnapshotExactRestore`, `SnapshotReconciliation`, or `SnapshotSalvage`.
 Failure emits no event. `RequiresFullRefresh` remains reserved for observable state not fully represented by semantic

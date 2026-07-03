@@ -923,7 +923,7 @@ stable sort tie-breakers are essential.
 - Runtime changes flow through inventory-owned APIs.
 - Registered definitions remain canonical.
 
-### Parameterized components
+### Parameterized component checklist
 
 - Parameter IDs and value types are stable.
 - `TryCreateWithParameter(...)` returns a replacement object.
