@@ -547,17 +547,26 @@ public class ItemUniverseFoundationTests
     }
 
     [Test]
-    public void AttributeCatalog_DefineString_ReturnsCanonicalDefinition()
+    public void AttributeCatalog_DefineString_ReturnsDefinition()
     {
         var catalog = new ItemCatalog<string>();
 
         var defined = catalog.Attributes.Define<int>("weight");
-        var definedAgain = catalog.Attributes.Define<int>("weight");
 
         Assert.That(defined.Id, Is.EqualTo("weight"));
         Assert.That(defined.ValueType, Is.EqualTo(typeof(int)));
-        Assert.That(definedAgain, Is.SameAs(defined));
         Assert.That(catalog.Attributes.Contains<int>("weight"), Is.True);
+    }
+
+    [Test]
+    public void AttributeCatalog_DefineRejectsSameIdWithSameType()
+    {
+        var catalog = new ItemCatalog<string>();
+        var defined = catalog.Attributes.Define<int>("weight");
+
+        Assert.Throws<InvalidOperationException>(() => catalog.Attributes.Define<int>("weight"));
+        Assert.That(catalog.Attributes.Get<int>("weight"), Is.SameAs(defined));
+        Assert.That(catalog.Attributes.All.Count(), Is.EqualTo(1));
     }
 
     [Test]
@@ -1021,6 +1030,44 @@ public class ItemUniverseFoundationTests
         var catalog = new TagCatalog();
 
         Assert.That(catalog.Mode, Is.EqualTo(TagCatalogMode.Namespaced));
+    }
+
+    [TestCase(true, TagCatalogMode.Namespaced)]
+    [TestCase(false, TagCatalogMode.NonNamespaced)]
+    public void TagCatalog_Constructor_SelectsMode(bool areTagsNamespaced, TagCatalogMode expected)
+    {
+        var catalog = new TagCatalog(areTagsNamespaced);
+
+        Assert.That(catalog.Mode, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void TagCatalog_ExplicitConstructorMode_CannotBeSwitched()
+    {
+        var namespaced = new TagCatalog(areTagsNamespaced: true);
+        var nonNamespaced = new TagCatalog(areTagsNamespaced: false);
+
+        Assert.Throws<InvalidOperationException>(() => namespaced.UseNonNamespacedTagsOnly());
+        Assert.Throws<InvalidOperationException>(() => nonNamespaced.UseNamespacedTagsOnly());
+    }
+
+    [TestCase(true, TagCatalogMode.Namespaced)]
+    [TestCase(false, TagCatalogMode.NonNamespaced)]
+    public void ItemCatalog_Constructor_ConfiguresOwnedTagCatalog(bool areTagsNamespaced, TagCatalogMode expected)
+    {
+        var catalog = new ItemCatalog<string>(areTagsNamespaced);
+
+        Assert.That(catalog.Tags.Mode, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ItemCatalog_DefaultConstructor_PreservesCompatibilityModeSelection()
+    {
+        var catalog = new ItemCatalog<string>();
+
+        catalog.Tags.UseNonNamespacedTagsOnly();
+
+        Assert.That(catalog.Tags.Mode, Is.EqualTo(TagCatalogMode.NonNamespaced));
     }
 
     [Test]

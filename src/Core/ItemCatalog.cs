@@ -26,7 +26,7 @@ public sealed class ItemCatalog<TKey>
     /// <summary>
     /// Gets the catalog of declared tags.
     /// </summary>
-    public TagCatalog Tags { get; } = new();
+    public TagCatalog Tags { get; }
 
     /// <summary>
     /// Gets the catalog of declared definition attributes.
@@ -39,10 +39,30 @@ public sealed class ItemCatalog<TKey>
     public bool Frozen => Registry.Frozen;
 
     /// <summary>
-    /// Creates an item catalog.
+    /// Creates an item catalog whose tags default to namespaced IDs.
     /// </summary>
-    public ItemCatalog()
+    /// <remarks>
+    /// This constructor preserves the compatibility workflow where tag mode may be changed through
+    /// <see cref="TagCatalog.UseNamespacedTagsOnly"/> or <see cref="TagCatalog.UseNonNamespacedTagsOnly"/> before tags
+    /// are defined. Prefer <see cref="ItemCatalog{TKey}(bool)"/> when selecting mode for a new catalog.
+    /// </remarks>
+    public ItemCatalog() : this(new TagCatalog())
     {
+    }
+
+    /// <summary>
+    /// Creates an item catalog with an explicitly selected tag mode.
+    /// </summary>
+    /// <param name="areTagsNamespaced">
+    /// <see langword="true"/> to require namespaced tag IDs; <see langword="false"/> to require non-namespaced IDs.
+    /// </param>
+    public ItemCatalog(bool areTagsNamespaced) : this(new TagCatalog(areTagsNamespaced))
+    {
+    }
+
+    private ItemCatalog(TagCatalog tags)
+    {
+        Tags = tags;
         Registry = new ItemRegistry<TKey>(RegisterDefinitionSchemas, FreezeCatalogState);
     }
 

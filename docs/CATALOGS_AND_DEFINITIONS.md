@@ -125,8 +125,8 @@ Every tag catalog uses exactly one mode.
 
 | Mode | Example | Selection |
 |---|---|---|
-| Namespaced | `core:equipment.tools.knife` | Default |
-| Non-namespaced | `equipment.tools.knife` | Call `UseNonNamespacedTagsOnly()` before defining tags |
+| Namespaced | `core:equipment.tools.knife` | `new ItemCatalog<TKey>()` or `new ItemCatalog<TKey>(true)` |
+| Non-namespaced | `equipment.tools.knife` | `new ItemCatalog<TKey>(false)` |
 
 Namespaced tags separate a namespace from a dot-separated path:
 
@@ -146,13 +146,17 @@ Select the mode before declaring any tags.
 
 ```csharp
 var namespacedCatalog = new ItemCatalog<string>();
-namespacedCatalog.Tags.UseNamespacedTagsOnly(); // Optional: this is the default.
-
-var simpleCatalog = new ItemCatalog<string>();
-simpleCatalog.Tags.UseNonNamespacedTagsOnly();
+var explicitNamespacedCatalog =
+    new ItemCatalog<string>(areTagsNamespaced: true);
+var simpleCatalog =
+    new ItemCatalog<string>(areTagsNamespaced: false);
 ```
 
-Selecting the already selected mode is harmless before tags are defined. Switching to the other mode, or selecting a mode after tags have been added to the tag catalog, is rejected.
+`TagCatalog` provides the same parameterless and `areTagsNamespaced` constructors when it is used directly.
+
+The existing `UseNamespacedTagsOnly()` and `UseNonNamespacedTagsOnly()` methods remain compatibility shims for catalogs
+created with the parameterless constructor. Call them before defining tags. Constructor-selected mode is explicit and
+cannot be switched later.
 
 ## Declaring Tags
 
@@ -234,11 +238,12 @@ catalog.Attributes.Define<bool>("stackable");
 
 Attribute IDs are strings in the public authoring API. The pair of ID and .NET value type forms the declaration.
 
-Declaring the same ID and type again returns the existing declaration. Declaring the same ID with a different type is rejected.
+Every attribute ID is declared exactly once. Declaring an existing ID again is rejected, whether the requested value
+type is the same or different.
 
 ```csharp
 catalog.Attributes.Define<int>("weight");
-catalog.Attributes.Define<int>("weight");    // Reuses the declaration.
+catalog.Attributes.Define<int>("weight");   // Rejected.
 catalog.Attributes.Define<float>("weight"); // Rejected.
 ```
 

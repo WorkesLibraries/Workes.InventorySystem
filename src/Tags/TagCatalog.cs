@@ -33,6 +33,31 @@ public sealed class TagCatalog
     }
 
     /// <summary>
+    /// Creates a tag catalog that defaults to namespaced IDs.
+    /// </summary>
+    /// <remarks>
+    /// This constructor preserves the compatibility workflow where mode may be changed before any tags are defined.
+    /// Prefer <see cref="TagCatalog(bool)"/> when selecting mode for a new catalog.
+    /// </remarks>
+    public TagCatalog()
+    {
+    }
+
+    /// <summary>
+    /// Creates a tag catalog with an explicitly selected mode.
+    /// </summary>
+    /// <param name="areTagsNamespaced">
+    /// <see langword="true"/> to require namespaced tag IDs; <see langword="false"/> to require non-namespaced IDs.
+    /// </param>
+    public TagCatalog(bool areTagsNamespaced)
+    {
+        Mode = areTagsNamespaced
+            ? TagCatalogMode.Namespaced
+            : TagCatalogMode.NonNamespaced;
+        _modeExplicitlySelected = true;
+    }
+
+    /// <summary>
     /// Configures this catalog to accept only namespaced tag ids.
     /// </summary>
     /// <remarks>This is the default mode. The mode must be selected before any tags are defined.</remarks>

@@ -22,18 +22,14 @@ public sealed class AttributeCatalog
     /// <param name="id">The stable attribute identifier.</param>
     /// <returns>The declared attribute metadata.</returns>
     /// <exception cref="ArgumentException"><paramref name="id"/> is null, empty, or whitespace.</exception>
-    /// <exception cref="InvalidOperationException">The id is already declared with a different value type.</exception>
+    /// <exception cref="InvalidOperationException">The id is already declared.</exception>
     public AttributeDefinition Define<T>(string id)
     {
         var key = new AttributeKey<T>(id);
 
         if (_attributes.TryGetValue(key.Id, out var existing))
-        {
-            if (existing.ValueType != typeof(T))
-                throw new InvalidOperationException($"Attribute '{key.Id}' is already declared with value type '{existing.ValueType.Name}'.");
-
-            return existing;
-        }
+            throw new InvalidOperationException(
+                $"Attribute '{key.Id}' is already declared with value type '{existing.ValueType.Name}'.");
 
         var definition = new AttributeDefinition(key.Id, typeof(T), key);
         _attributes.Add(key.Id, definition);
