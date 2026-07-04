@@ -129,6 +129,9 @@ Focused guides:
 - [Persistence](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/PERSISTENCE.md)
 - [Extending The Inventory System](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/EXTENDING.md)
 
+See the [Changelog](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/CHANGELOG.md) for release history
+and migration-sensitive changes.
+
 The repository also contains
 [executable examples](https://github.com/WorkesLibraries/Workes.InventorySystem/tree/main/tests/Examples) covering item
 setup, layouts, transfers, policies, events, metadata, and other common workflows. Use them when you find the documentation to be lacking examples.
