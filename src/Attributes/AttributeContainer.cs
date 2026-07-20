@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 namespace Workes.InventorySystem.Attributes;
 
 /// <summary>
 /// Mutable store for typed attribute values addressed by string identifier.
 /// </summary>
 /// <remarks>
-/// This container remains mutable for inventory-level attributes and other general-purpose holders.
 /// Item definitions expose their attributes as <see cref="IAttributeView"/> and should write schema attributes through their definition-class constructors.
 /// </remarks>
 public sealed class AttributeContainer : IAttributeView
@@ -66,28 +64,4 @@ public sealed class AttributeContainer : IAttributeView
         return _values.Keys;
     }
 
-    internal IEnumerable<(string id, Type valueType, object? value)> GetSnapshotEntries()
-    {
-        foreach (var pair in _values)
-        {
-            if (pair.Key is IAttributeKey key)
-                yield return (key.Id, key.ValueType, pair.Value);
-        }
-    }
-
-    internal void ReplaceSnapshotEntries(IEnumerable<(string id, Type valueType, object? value)> entries)
-    {
-        _values.Clear();
-        foreach (var entry in entries)
-        {
-            var keyType = typeof(AttributeKey<>).MakeGenericType(entry.valueType);
-            var key = Activator.CreateInstance(
-                keyType,
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                args: new object[] { entry.id },
-                culture: null)!;
-            _values.Add(key, entry.value);
-        }
-    }
 }

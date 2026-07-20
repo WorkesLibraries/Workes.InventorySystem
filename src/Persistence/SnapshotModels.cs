@@ -16,8 +16,8 @@ public sealed class InventorySnapshot
     /// <summary>Gets or sets entries in inventory storage order.</summary>
     public List<InventorySnapshotEntry> Entries { get; set; } = new();
 
-    /// <summary>Gets or sets inventory-level attributes.</summary>
-    public List<SnapshotNamedValue> Attributes { get; set; } = new();
+    /// <summary>Gets or sets inventory-owned metadata values.</summary>
+    public List<SnapshotNamedValue> Metadata { get; set; } = new();
 
     /// <summary>Gets or sets the captured layout state.</summary>
     public InventoryLayoutSnapshot Layout { get; set; } = new();
@@ -61,7 +61,7 @@ public sealed class InventoryLayoutSnapshot
 /// </summary>
 public sealed class SnapshotNamedValue
 {
-    /// <summary>Gets or sets the property, metadata, or attribute name.</summary>
+    /// <summary>Gets or sets the property or metadata name.</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the encoded value.</summary>

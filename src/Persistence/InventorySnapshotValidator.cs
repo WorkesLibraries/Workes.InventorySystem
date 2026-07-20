@@ -24,11 +24,13 @@ public static class InventorySnapshotValidator
             error = $"Inventory snapshot format version {snapshot.FormatVersion} is unsupported.";
             return false;
         }
-        if (snapshot.Entries == null || snapshot.Attributes == null || snapshot.Layout == null)
+        if (snapshot.Entries == null || snapshot.Metadata == null || snapshot.Layout == null)
         {
             error = "Inventory snapshot collections and layout cannot be null.";
             return false;
         }
+        if (!TryValidateNamedValues(snapshot.Metadata, "inventory metadata", out error))
+            return false;
 
         var entryIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in snapshot.Entries)
@@ -51,17 +53,10 @@ public static class InventorySnapshotValidator
             if (!TryValidateNamedValues(
                     entry.Metadata,
                     $"entry '{entry.EntryId}' metadata",
-                    allowSameNameWithDifferentCodec: false,
                     out error))
                 return false;
         }
 
-        if (!TryValidateNamedValues(
-                snapshot.Attributes,
-                "inventory attributes",
-                allowSameNameWithDifferentCodec: true,
-                out error))
-            return false;
         if (string.IsNullOrWhiteSpace(snapshot.Layout.Kind) || snapshot.Layout.DataVersion <= 0)
         {
             error = "Inventory snapshot layout requires a kind and positive data version.";
@@ -79,7 +74,6 @@ public static class InventorySnapshotValidator
     private static bool TryValidateNamedValues(
         List<SnapshotNamedValue>? values,
         string role,
-        bool allowSameNameWithDifferentCodec,
         out string? error)
     {
         if (values == null)
@@ -92,9 +86,7 @@ public static class InventorySnapshotValidator
         {
             string identity = value == null
                 ? string.Empty
-                : allowSameNameWithDifferentCodec
-                    ? value.Name + "\0" + value.Value?.CodecId
-                    : value.Name;
+                : value.Name;
             if (value == null || string.IsNullOrWhiteSpace(value.Name) || !identities.Add(identity))
             {
                 error = $"Inventory snapshot {role} names must be non-empty and unique.";

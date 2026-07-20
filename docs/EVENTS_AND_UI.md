@@ -57,6 +57,7 @@ One `InventoryChangedEventArgs<TKey>` can contain several categories from the sa
 | `Moved` | A surviving item changed placement directly, through sorting/repacking, or as collateral layout reflow. |
 | `Swapped` | Two layout placements were exchanged. |
 | `MetadataChanged` | Metadata changed directly on an existing item instance. |
+| `InventoryMetadataChanged` | Inventory-owned metadata changed, with detached before/after values and sorted keys. |
 | `ConfigurationChanged` | A runtime stack resolver, capacity policy, or layout parameter changed. |
 | `Cleared` | Existing contents were cleared as part of the operation. |
 | `AffectedLayoutContexts` | Positions gathered from relevant payloads and layout reconciliation. |
@@ -102,11 +103,21 @@ void OnInventoryChanged(
         RefreshMetadataBadge(
             metadata.LayoutContexts,
             metadata.AfterMetadata);
+
+    if (args.InventoryMetadataChanged is { } inventoryMetadata)
+        RefreshInventoryHeader(
+            inventoryMetadata.AfterMetadata,
+            inventoryMetadata.ChangedKeys);
 }
 ```
 
 `AffectedLayoutContexts` is for visual positions. A preserve-only configuration change can have no affected contexts, so
 configuration panels should also inspect `ConfigurationChanged`.
+
+Inventory metadata contributes no layout context by itself. If the accepted change causes layout reconciliation, the
+same event also contains movements and supplemental affected contexts. Its before/after dictionaries and every nested
+array or list are detached at each read boundary, so retained event history cannot mutate the inventory or be changed
+by later inventory operations.
 
 ## Added Items
 
@@ -273,10 +284,24 @@ foreach (var metadata in args.MetadataChanged)
 }
 ```
 
-The dictionaries are copied snapshots, but their stored object values are not recursively deep-cloned.
+The dictionaries and every supported nested array or list are recursively detached on each read.
 
 A layout that orders items from metadata can reconcile after this mutation. The same event then contains
 `MetadataChanged` for the edited item and `Moved` for every surviving item whose context changed.
+
+### Inventory metadata
+
+Direct mutation of `Inventory.Metadata` produces the non-generic `InventoryMetadataChanged` payload:
+
+| Member | Meaning |
+|---|---|
+| `BeforeMetadata` | Deeply detached inventory metadata before mutation. |
+| `AfterMetadata` | Deeply detached inventory metadata after mutation. |
+| `ChangedKeys` | Added, removed, or recursively unequal keys in ordinal order. |
+
+A structural no-op emits no event. Root metadata has no contexts of its own, but metadata-triggered layout
+reconciliation can add `Moved`, affected contexts, or an independently justified full-refresh request to the same
+operation event.
 
 ### Partial-stack metadata
 
@@ -354,7 +379,6 @@ Current built-in operations request a full refresh in these cases:
 | `Clear()` on a non-empty inventory | Every previous position is invalidated. |
 | `ReplaceContents(...)` when replacing existing contents | `Cleared` is true and the view is replaced as a whole. |
 | Successful layout parameter mutation | Addressable positions or placement behavior may have changed. |
-| Snapshot application involving inventory attributes | Attribute replacement has no dedicated semantic payload. |
 
 Additional details:
 
@@ -445,10 +469,9 @@ layout.
 
 ## Persistence And View Rebuilds
 
-A portable snapshot application that replaces contents or inventory attributes emits one atomic replacement event. The
-handler observes final contents and layout state; old instances appear in `Removed` and replacements in `Added`.
-`Origin` distinguishes exact restoration, lossless reconciliation, and salvage. Inventory attributes have no dedicated
-semantic payload, so their replacement requests a full refresh. Failed application emits no event.
+A portable snapshot application that replaces contents emits one atomic replacement event. The handler observes final
+contents and layout state; old instances appear in `Removed` and replacements in `Added`. `Origin` distinguishes exact
+restoration, lossless reconciliation, and salvage. Failed application emits no event.
 
 The obsolete `Deserialize(...)` API retains its legacy multi-step behavior and should not be used for new UI
 integration.
@@ -518,9 +541,7 @@ inventory.Changed += (_, args) =>
     {
         UpdateProjectionAt(
             context,
-            inventory.Layout.GetItemAt(
-                inventory,
-                context));
+            inventory.GetItemAt(context));
     }
 };
 ```

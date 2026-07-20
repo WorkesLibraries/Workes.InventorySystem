@@ -175,7 +175,7 @@ public class InventoryMetadataMutationTests
         inventory.Items[0].Metadata.TrySet("quality", "fresh", out _);
 
         var accepted = inventory.Items[0].Metadata.TryReplace(
-            new Dictionary<string, object> { ["rarity"] = "rare" },
+            new Dictionary<string, object?> { ["rarity"] = "rare" },
             out var error);
 
         Assert.That(accepted, Is.True, error);
@@ -203,7 +203,7 @@ public class InventoryMetadataMutationTests
         inventory.Changed += (_, _) => events++;
 
         var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Replace(
-            new Dictionary<string, object> { ["rarity"] = "rare" }));
+            new Dictionary<string, object?> { ["rarity"] = "rare" }));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);

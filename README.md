@@ -109,7 +109,7 @@ Two rules prevent many integration mistakes:
 | `SectionedLayout<TKey>` | Multiple named slot groups with independent restrictions. |
 
 Layouts own contexts, placement, sorting, and repacking. Inventory remains responsible for item lifetime, validation,
-atomic commit, and events.
+atomic commit, events, and application-facing layout queries such as `GetItemAt(context)`.
 
 ## Documentation
 

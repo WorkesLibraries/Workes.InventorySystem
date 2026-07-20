@@ -97,6 +97,16 @@ Application code may inspect item instances, but it does not construct them or c
 Inventories, committed transactions, transfers, portable snapshot application, splits, and rebuild operations create
 and update them.
 
+### Three kinds of descriptive state
+
+- Definition attributes are registered, typed facts shared by every instance of an item definition.
+- Item metadata is schema-free portable state belonging to one runtime stack.
+- `Inventory.Metadata` is schema-free portable state belonging to the inventory itself.
+
+Inventory metadata suits owner IDs, generated names, provenance, progression annotations, and custom flags. It is
+persisted and inventory-owned, but it does not replace runtime component parameters or application configuration.
+Parameterized stack, capacity, rule, and layout components remain authoritative for their own behavior.
+
 ## Stable IDs And Canonical Definitions
 
 `TKey` is the definition-ID type used consistently by catalogs, definitions, inventories, transactions, transfers, and serialized items.
@@ -289,6 +299,7 @@ Runtime
 - Treating `Inventory.Items` as visual layout order.
 - Mutating a layout, rule set, stack resolver, or capacity policy around the inventory’s validation paths.
 - Mixing definition-level attributes with per-instance metadata.
+- Mirroring component parameters into inventory metadata and expecting either side to synchronize automatically.
 
 ## Continue Reading
 

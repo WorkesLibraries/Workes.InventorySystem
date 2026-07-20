@@ -58,6 +58,70 @@ public class InventorySnapshotRestorationTests
         Assert.That(events[0].Moved, Is.Empty);
     }
 
+    [TestCase(SnapshotApplicationMode.Exact)]
+    [TestCase(SnapshotApplicationMode.Reconcile)]
+    [TestCase(SnapshotApplicationMode.Salvage)]
+    public void SnapshotApplication_PreservesRootMetadataAndEmitsItInTheSingleEvent(
+        SnapshotApplicationMode mode)
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(
+            new FixedSizeStackResolver<string>(10),
+            new EntryLayout<string>(),
+            new UnlimitedCapacityPolicy<string>(),
+            apple);
+        var source = manager.CreateInventory();
+        source.Metadata.Set("ownerId", "player-7");
+        source.Metadata.Set("upgrades", new List<int> { 1, 3 });
+        source.Add(apple, 2);
+        var snapshot = source.CaptureSnapshot();
+
+        var target = manager.CreateInventory();
+        target.Metadata.Set("ownerId", "old-owner");
+        var stableMetadata = target.Metadata;
+        var events = new List<InventoryChangedEventArgs<string>>();
+        target.Changed += (_, args) => events.Add(args);
+
+        SnapshotApplicationResult result = mode switch
+        {
+            SnapshotApplicationMode.Exact => target.RestoreSnapshot(snapshot),
+            SnapshotApplicationMode.Reconcile => target.ReconcileSnapshot(snapshot),
+            _ => target.SalvageSnapshot(snapshot)
+        };
+
+        Assert.That(result.RestoredInstanceCount, Is.EqualTo(1));
+        Assert.That(target.Metadata, Is.SameAs(stableMetadata));
+        Assert.That(target.Metadata.TryGet<string>("ownerId", out var owner), Is.True);
+        Assert.That(owner, Is.EqualTo("player-7"));
+        Assert.That(target.Metadata.TryGet<List<int>>("upgrades", out var upgrades), Is.True);
+        Assert.That(upgrades, Is.EqualTo(new[] { 1, 3 }));
+        Assert.That(events, Has.Count.EqualTo(1));
+        Assert.That(events[0].InventoryMetadataChanged, Is.Not.Null);
+        Assert.That(events[0].InventoryMetadataChanged!.ChangedKeys, Is.EqualTo(new[] { "ownerId", "upgrades" }));
+    }
+
+    [Test]
+    public void MetadataOnlyExactRestore_EmitsOneSnapshotOriginEvent()
+    {
+        var manager = CreateManager(
+            new FixedSizeStackResolver<string>(10),
+            new EntryLayout<string>(),
+            new UnlimitedCapacityPolicy<string>());
+        var source = manager.CreateInventory();
+        source.Metadata.Set("name", "Vault");
+        var target = manager.CreateInventory();
+        InventoryChangedEventArgs<string>? captured = null;
+        target.Changed += (_, args) => captured = args;
+
+        target.RestoreSnapshot(source.CaptureSnapshot());
+
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.Origin, Is.EqualTo(InventoryChangeOrigin.SnapshotExactRestore));
+        Assert.That(captured.InventoryMetadataChanged, Is.Not.Null);
+        Assert.That(captured.Added, Is.Empty);
+        Assert.That(captured.Removed, Is.Empty);
+    }
+
     [Test]
     public void Assessment_ReportsReconciliationWhenCurrentStackLimitRequiresSplitting()
     {
@@ -456,31 +520,6 @@ public class InventorySnapshotRestorationTests
         Assert.That(assessment.CanSalvage, Is.False);
         Assert.That(assessment.Issues, Is.Not.Empty);
         Assert.That(target.TrySalvageSnapshot(malformed, null, out _, out _), Is.False);
-    }
-
-    [Test]
-    public void ExactRestore_ReplacesInventoryAttributesAndMarksUnrepresentedRefresh()
-    {
-        var manager = CreateManager(
-            new FixedSizeStackResolver<string>(10),
-            new EntryLayout<string>(),
-            new UnlimitedCapacityPolicy<string>());
-        var source = manager.CreateInventory();
-        source.Attributes.Set("level", 7);
-        source.Attributes.Set<string?>("owner", null);
-        var target = manager.CreateInventory();
-        target.Attributes.Set("legacy", true);
-        InventoryChangedEventArgs<string>? change = null;
-        target.Changed += (_, args) => change = args;
-
-        target.RestoreSnapshot(source.CaptureSnapshot());
-
-        Assert.That(target.Attributes.TryGet("level", out int level), Is.True);
-        Assert.That(level, Is.EqualTo(7));
-        Assert.That(target.Attributes.Contains<bool>("legacy"), Is.False);
-        Assert.That(target.Attributes.Contains<string?>("owner"), Is.True);
-        Assert.That(change, Is.Not.Null);
-        Assert.That(change!.RequiresFullRefresh, Is.True);
     }
 
     [Test]

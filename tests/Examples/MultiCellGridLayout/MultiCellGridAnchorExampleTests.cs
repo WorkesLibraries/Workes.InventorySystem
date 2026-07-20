@@ -57,7 +57,7 @@ public class MultiCellGridAnchorExampleTests
         {
             var cells = new string[width];
             for (int x = 0; x < width; x++)
-                cells[x] = inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id ?? ".";
+                cells[x] = inventory.GetItemAt(MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id ?? ".";
             lines[y] = string.Join(" | ", cells);
         }
 

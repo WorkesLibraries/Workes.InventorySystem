@@ -63,7 +63,7 @@ public class LayoutSortingExampleTests
         return string.Join(
             Environment.NewLine,
             Enumerable.Range(0, slotCount)
-                .Select(i => $"slot {i}: {inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(i))?.Definition.Id ?? "empty"}"));
+                .Select(i => $"slot {i}: {inventory.GetItemAt(SlotLayoutContext<string>.Single(i))?.Definition.Id ?? "empty"}"));
     }
 
     private static string DescribeStorageOrder(Inventory<string> inventory)

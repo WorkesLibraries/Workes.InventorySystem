@@ -754,8 +754,6 @@ public static class InventoryTransfer
         if (source == null || source.IsEmpty)
             return null;
 
-        var clone = new InstanceMetadata();
-        clone.RestoreMetadata(new Dictionary<string, object>(source.ToDictionary()));
-        return clone;
+        return source.Clone();
     }
 }

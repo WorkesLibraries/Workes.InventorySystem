@@ -49,6 +49,9 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// </summary>
     public IReadOnlyList<ItemMetadataChanged<TKey>> MetadataChanged { get; }
 
+    /// <summary>Gets the inventory-owned metadata change, when one was committed.</summary>
+    public InventoryMetadataChanged? InventoryMetadataChanged { get; }
+
     /// <summary>
     /// Gets whether the inventory was fully cleared.
     /// </summary>
@@ -91,6 +94,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Moved = new List<ItemMoved<TKey>>();
         Swapped = new List<ItemSwapped<TKey>>();
         MetadataChanged = new List<ItemMetadataChanged<TKey>>();
+        InventoryMetadataChanged = null;
         Cleared = false;
         ConfigurationChanged = new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = new List<ILayoutContext<TKey>>();
@@ -113,6 +117,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
     /// Whether the supplied payloads and affected contexts do not completely describe the observable change.
     /// </param>
     /// <param name="origin">The high-level workflow that produced the change.</param>
+    /// <param name="inventoryMetadataChanged">The inventory-owned metadata change.</param>
     public InventoryChangedEventArgs(
         IEnumerable<ItemAdded<TKey>>? added = null,
         IEnumerable<ItemRemoved<TKey>>? removed = null,
@@ -124,7 +129,8 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         IEnumerable<InventoryConfigurationChanged<TKey>>? configurationChanged = null,
         IEnumerable<ILayoutContext<TKey>>? affectedLayoutContexts = null,
         bool requiresFullRefresh = false,
-        InventoryChangeOrigin origin = InventoryChangeOrigin.Operation)
+        InventoryChangeOrigin origin = InventoryChangeOrigin.Operation,
+        InventoryMetadataChanged? inventoryMetadataChanged = null)
     {
         Origin = origin;
         Added = added != null ? added.ToList() : new List<ItemAdded<TKey>>();
@@ -133,6 +139,7 @@ public class InventoryChangedEventArgs<TKey> : EventArgs
         Moved = moved != null ? moved.ToList() : new List<ItemMoved<TKey>>();
         Swapped = swapped != null ? swapped.ToList() : new List<ItemSwapped<TKey>>();
         MetadataChanged = metadataChanged != null ? metadataChanged.ToList() : new List<ItemMetadataChanged<TKey>>();
+        InventoryMetadataChanged = inventoryMetadataChanged;
         Cleared = cleared;
         ConfigurationChanged = configurationChanged != null ? configurationChanged.ToList() : new List<InventoryConfigurationChanged<TKey>>();
         AffectedLayoutContexts = BuildAffectedContexts(affectedLayoutContexts);

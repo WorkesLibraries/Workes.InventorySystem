@@ -94,7 +94,7 @@ public class InventoryPolicyMutationExampleTests
         builder.AppendLine("------------------");
         builder.AppendLine($"Stack maxStack: {((FixedSizeStackResolver<string>)inventory.StackResolver).MaxStack}");
         builder.AppendLine($"Capacity maxTotalItemAmount: {((MaxTotalItemAmountCapacityPolicy<string>)inventory.CapacityPolicy).MaxTotalItemAmount}");
-        builder.AppendLine($"Layout slotCount: {inventory.Layout.GetPositionCount(inventory)}");
+        builder.AppendLine($"Layout slotCount: {inventory.GetLayoutPositionCount()}");
         builder.AppendLine();
         builder.AppendLine("Final Inventory");
         builder.AppendLine("---------------");

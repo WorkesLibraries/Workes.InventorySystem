@@ -35,7 +35,7 @@ public class MultiCellGridLayoutExampleTests
         var rejectedOverlap = inventory.TryAdd(crate, out error, 1, MultiCellGridLayoutContext<string>.Single(3, 2));
 
         Assert.That(rejectedOverlap, Is.False);
-        var chestContexts = inventory.Layout.GetContextsForStorageIndex(inventory, 1)
+        var chestContexts = inventory.GetLayoutContextsForStorageIndex(1)
             .OfType<MultiCellGridLayoutContext<string>>()
             .Select(c => $"({c.X},{c.Y})");
         var builder = new StringBuilder();
@@ -53,7 +53,7 @@ public class MultiCellGridLayoutExampleTests
         {
             var values = new string[width];
             for (int x = 0; x < width; x++)
-                values[x] = inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id ?? ".";
+                values[x] = inventory.GetItemAt(MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id ?? ".";
             lines[y] = string.Join(" | ", values);
         }
 

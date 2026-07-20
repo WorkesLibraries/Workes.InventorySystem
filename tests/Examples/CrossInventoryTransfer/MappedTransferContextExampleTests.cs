@@ -80,7 +80,7 @@ public class MappedTransferContextExampleTests
         builder.AppendLine(new string('-', title.Length));
         for (int slot = 0; slot < slotCount; slot++)
         {
-            var item = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(slot));
+            var item = inventory.GetItemAt(SlotLayoutContext<string>.Single(slot));
             builder.Append("Slot ").Append(slot).Append(": ");
             builder.AppendLine(item == null ? "empty" : item.Definition.Id + " x" + item.Amount);
         }

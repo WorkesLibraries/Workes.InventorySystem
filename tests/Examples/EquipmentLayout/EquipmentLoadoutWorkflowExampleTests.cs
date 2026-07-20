@@ -101,7 +101,7 @@ public class EquipmentLoadoutWorkflowExampleTests
 
     private static string RenderSlot(Inventory<string> inventory, string slotId)
     {
-        var item = inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single(slotId));
+        var item = inventory.GetItemAt(EquipmentLayoutContext<string>.Single(slotId));
         return $"{slotId}: {item?.Definition.Id ?? "empty"}";
     }
 

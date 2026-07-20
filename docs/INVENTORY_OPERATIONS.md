@@ -75,14 +75,17 @@ Important inventory members include:
 | `Items` | A read-only list of owned stacks in storage order. |
 | `InstanceCount` | Number of item instances or stacks. |
 | `TotalItemCount` | Sum of all stack amounts. |
-| `Layout` | Current placement and presentation behavior. |
+| `Layout` | Current placement and presentation behavior for extension and compatibility scenarios. |
 | `StackResolver` | Current stack-size behavior. |
 | `CapacityPolicy` | Current capacity behavior. |
 | `Rules` | Inventory-owned rules by ID. |
-| `Attributes` | Inventory-level attributes. |
+| `Metadata` | Schema-free, portable inventory-owned metadata. |
 | `Changed` | Notification after committed content or placement changes. |
 
-`Items` is storage order, not visual order. Use the layout when you need slots, cells, sections, equipment positions, or other presentation locations.
+`Items` is storage order, not visual order. Use inventory-owned layout query wrappers such as
+`GetLayoutPositionCount()`, `GetAddressableLayoutContexts()`, `GetItemAt(context)`,
+`GetLayoutContextsForStorageIndex(index)`, and `GetLayoutContextsForItem(item)` when you need slots, cells, sections,
+equipment positions, or other presentation locations.
 
 ## Item Instances
 
@@ -509,11 +512,8 @@ Other read APIs include:
 | `ToDictionary()` | Mutable dictionary copy. |
 | `StructuralEquals(other)` | Key/value equality used by stack compatibility. |
 
-`AsReadOnly()` may reflect later mutations. `ToDictionary()` copies the dictionary container.
-
-Stored values are not deep-cloned.
-Treat stored arrays and lists as immutable after assignment. Mutating one through the original reference or a value
-returned by `TryGet(...)`, `AsReadOnly()`, or `ToDictionary()` bypasses inventory-owned validation and change events.
+Every read returns recursively detached arrays and lists. `AsReadOnly()` also wraps its detached dictionary so keys
+cannot be added or removed. Mutating a returned collection never changes stored metadata.
 
 ## Mutate Metadata
 
@@ -524,6 +524,7 @@ Metadata mutation follows the same conditional/throwing pattern as inventory ope
 | `TryAdd(...)` | `Add(...)` | Add only when the key is absent. |
 | `TrySet(...)` | `Set(...)` | Add or replace a value. |
 | `TryChange(...)` | `Change(...)` | Replace only when the key exists. |
+| `TryUpdate<T>(...)` | `Update<T>(...)` | Derive a replacement from an existing typed value. |
 | `TryRemove(...)` | `Remove(...)` | Remove an existing key. |
 | `TryClear(...)` | `Clear()` | Remove all entries. |
 | `TryReplace(...)` | `Replace(...)` | Replace the complete dictionary. |
@@ -578,7 +579,30 @@ stack.Metadata.TryTransform(
 
 `TryTransform(...)` works on a proposed clone. For inventory-owned metadata, the complete transformed result is validated before commit.
 
-Dictionary containers are copied, but nested stored objects are not deep-cloned.
+Inputs, proposed candidates, committed values, and returned values are recursively copied. Unexpected exceptions from
+an update or transform callback propagate while leaving metadata unchanged.
+
+## Inventory Metadata
+
+`Inventory.Metadata` is a stable `InventoryMetadata` object for schema-free state that belongs to the inventory itself:
+
+```csharp
+inventory.Metadata.Set("ownerId", playerId);
+inventory.Metadata.Set("generatedName", "Vault of Embers");
+inventory.Metadata.Update<int>("upgradeCount", count => count + 1);
+```
+
+It supports the same read, add, set, change, update, remove, clear, replace, transform, `Try...`, and structural-equality
+operations as item metadata. Useful conventions include owner IDs, generated names, provenance, progression
+annotations, and custom flags.
+
+Owned changes are validated against the complete current contents using a candidate inventory that contains the
+proposed metadata. Stack resolvers, capacity policies, rules, and layout validation therefore see the proposed value.
+Accepted changes preserve the `Inventory.Metadata` object reference, reconcile the layout, emit one
+`InventoryMetadataChanged` payload, and are included in portable snapshots.
+
+Do not mirror authoritative stack, capacity, rule, or layout parameters into metadata. Parameterized components remain
+the source of truth for behavior; metadata is application-convention state and never changes components automatically.
 
 ## Metadata Applies To The Whole Stack
 

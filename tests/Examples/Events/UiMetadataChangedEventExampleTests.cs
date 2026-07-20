@@ -82,8 +82,8 @@ public class UiMetadataChangedEventExampleTests
     }
 
     private static IEnumerable<string> DescribeMetadataChanges(
-        IReadOnlyDictionary<string, object> before,
-        IReadOnlyDictionary<string, object> after)
+        IReadOnlyDictionary<string, object?> before,
+        IReadOnlyDictionary<string, object?> after)
     {
         foreach (var key in before.Keys.Concat(after.Keys).Distinct().OrderBy(key => key))
         {
@@ -110,7 +110,7 @@ public class UiMetadataChangedEventExampleTests
 
         for (int slot = 0; slot < 3; slot++)
         {
-            var item = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(slot));
+            var item = inventory.GetItemAt(SlotLayoutContext<string>.Single(slot));
             if (item == null)
             {
                 builder.AppendLine($"{slot}: empty");
@@ -123,7 +123,7 @@ public class UiMetadataChangedEventExampleTests
         return builder.ToString();
     }
 
-    private static string FormatMetadata(IReadOnlyDictionary<string, object> metadata)
+    private static string FormatMetadata(IReadOnlyDictionary<string, object?> metadata)
     {
         return string.Join(", ", metadata.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value}"));
     }

@@ -1,5 +1,6 @@
 using Workes.InventorySystem.Core;
 using Workes.InventorySystem.Layout;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 namespace Workes.InventorySystem.Events.Dto;
@@ -10,6 +11,9 @@ namespace Workes.InventorySystem.Events.Dto;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 public sealed class ItemMetadataChanged<TKey>
 {
+    private readonly MetadataStore _beforeMetadata;
+    private readonly MetadataStore _afterMetadata;
+
     /// <summary>
     /// Gets the item instance after metadata mutation.
     /// </summary>
@@ -23,12 +27,12 @@ public sealed class ItemMetadataChanged<TKey>
     /// <summary>
     /// Gets the metadata before mutation.
     /// </summary>
-    public IReadOnlyDictionary<string, object> BeforeMetadata { get; }
+    public IReadOnlyDictionary<string, object?> BeforeMetadata => _beforeMetadata.AsReadOnlyDetached();
 
     /// <summary>
     /// Gets the metadata after mutation.
     /// </summary>
-    public IReadOnlyDictionary<string, object> AfterMetadata { get; }
+    public IReadOnlyDictionary<string, object?> AfterMetadata => _afterMetadata.AsReadOnlyDetached();
 
     /// <summary>
     /// Gets the layout contexts occupied by the item.
@@ -51,18 +55,18 @@ public sealed class ItemMetadataChanged<TKey>
     public ItemMetadataChanged(
         ItemInstance<TKey> instance,
         int index,
-        IReadOnlyDictionary<string, object> beforeMetadata,
-        IReadOnlyDictionary<string, object> afterMetadata,
+        IReadOnlyDictionary<string, object?> beforeMetadata,
+        IReadOnlyDictionary<string, object?> afterMetadata,
         IEnumerable<ILayoutContext<TKey>>? layoutContexts)
     {
         Instance = instance;
         Index = index;
-        BeforeMetadata = beforeMetadata != null
-            ? new Dictionary<string, object>(beforeMetadata)
-            : new Dictionary<string, object>();
-        AfterMetadata = afterMetadata != null
-            ? new Dictionary<string, object>(afterMetadata)
-            : new Dictionary<string, object>();
+        _beforeMetadata = new MetadataStore();
+        if (!_beforeMetadata.TryReplace(beforeMetadata, out var beforeError))
+            throw new ArgumentException(beforeError, nameof(beforeMetadata));
+        _afterMetadata = new MetadataStore();
+        if (!_afterMetadata.TryReplace(afterMetadata, out var afterError))
+            throw new ArgumentException(afterError, nameof(afterMetadata));
         LayoutContexts = layoutContexts != null ? layoutContexts.ToList() : new List<ILayoutContext<TKey>>();
     }
 }

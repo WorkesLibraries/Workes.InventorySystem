@@ -65,7 +65,7 @@ public class RepackAndSplitPolicyMutationExampleTests
         Assert.That(shrinkWithoutRepack, Is.False);
         Assert.That(shrinkWithRepack, Is.True, shrinkWithRepackError);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 5, 5, 1 }));
-        Assert.That(inventory.Layout.GetPositionCount(inventory), Is.EqualTo(3));
+        Assert.That(inventory.GetLayoutPositionCount(), Is.EqualTo(3));
         Assert.That(inventory.Count(coin), Is.EqualTo(10));
         Assert.That(inventory.Count(potion), Is.EqualTo(1));
 

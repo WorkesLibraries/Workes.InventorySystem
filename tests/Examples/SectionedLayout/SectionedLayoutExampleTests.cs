@@ -87,10 +87,10 @@ public class SectionedLayoutExampleTests
         builder.AppendLine("Sectioned inventory");
         builder.AppendLine("-------------------");
 
-        foreach (var context in inventory.Layout.GetAddressableContexts(inventory))
+        foreach (var context in inventory.GetAddressableLayoutContexts())
         {
             var sectionContext = (SectionedLayoutContext<string>)context;
-            var item = inventory.Layout.GetItemAt(inventory, sectionContext);
+            var item = inventory.GetItemAt(sectionContext);
             builder.Append(sectionContext.SectionId);
             builder.Append('[');
             builder.Append(sectionContext.SlotIndex);

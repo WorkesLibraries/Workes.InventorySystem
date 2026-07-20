@@ -45,7 +45,7 @@ Capture either returns one complete snapshot or no snapshot. It never mutates th
 |---|---|
 | `FormatVersion` | Package-owned snapshot schema version. The current version is `1`. |
 | `Entries` | Item instances in `Inventory.Items` storage order. |
-| `Attributes` | Inventory-level attributes. |
+| `Metadata` | Inventory-owned metadata, sorted by ordinal key. |
 | `Layout` | Stable layout kind, layout-data version, shape, and placement state. |
 
 Each entry contains:
@@ -58,9 +58,9 @@ Each entry contains:
 Snapshots do not contain catalog definitions, schemas, tags, definition attributes, policies, rules, stack-resolver
 configuration, runtime `InstanceId` values, or application save versions. Recreate that configuration independently.
 
-Every application mode replaces the target inventory's attributes with the snapshot attributes as part of the same
-atomic commit. An unsupported runtime attribute makes capture fail; an encoded attribute that cannot be decoded makes
-assessment and application fail. Salvage does not silently discard malformed attributes.
+In 2.0, the former `Inventory<TKey>.Attributes` surface is replaced by inventory-owned `Metadata`. Definition
+attributes remain a separate registered system on `ItemCatalog<TKey>.Attributes` and
+`ItemDefinition<TKey>.Attributes`.
 
 ## Portable Values
 
@@ -91,9 +91,9 @@ Built-in codecs cover:
 
 Metadata deliberately does not accept dictionaries, enums, multidimensional arrays, arbitrary enumerable
 implementations, literal `object` values, or domain objects. Unsupported metadata is rejected immediately by
-`InstanceMetadata.Add(...)`, `Set(...)`, `Change(...)`, `Replace(...)`, and `Transform(...)`, including their `Try`
-forms. The complete proposed metadata state is checked before commit. Collection contents are preserved, but reference
-identity is not; cyclic graphs are rejected.
+`InstanceMetadata` and `InventoryMetadata` mutation APIs, including their `Try` forms. The complete proposed metadata
+state is checked before commit. Collection contents are preserved, but reference identity is not; cyclic graphs are
+rejected.
 
 ## Custom Key Codecs
 
@@ -160,8 +160,8 @@ application.
 
 ## Deep Detachment
 
-Capture recursively creates new DTOs and collections. Later mutation of inventory metadata, inventory attributes, or
-layout state cannot change an existing snapshot. Mutating the snapshot cannot change the inventory.
+Capture recursively creates new DTOs and collections. Later mutation of inventory metadata or layout state cannot
+change an existing snapshot. Mutating the snapshot cannot change the inventory.
 
 Shared runtime references are encoded as independent values. Object identity is not a persistence concept. Custom codec
 output is validated and copied before it enters the snapshot.
@@ -249,8 +249,8 @@ change afterward.
 
 - snapshot entry storage order.
 - one stack per snapshot entry with the exact saved amount and metadata.
+- inventory metadata.
 - every saved layout position.
-- the captured inventory attributes.
 - all item quantities.
 
 Exact restoration resolves definitions through the current key codec, registry, and migrations. Every layout codec is
@@ -259,14 +259,14 @@ stack limits, capacity, rules, layout shape, slot restrictions, footprints, or o
 the saved state invalid. It never implements restoration as repeated ordinary adds, so compatible saved stacks are not
 merged or split.
 
-The operation builds and validates an isolated candidate. Failure leaves contents, placement, attributes, and events
-untouched.
+The operation builds and validates an isolated candidate. Failure leaves contents, placement, and events untouched.
 
 ## Lossless Reconciliation
 
 `ReconcileSnapshot(...)` and `TryReconcileSnapshot(...)` ignore saved placement and instance boundaries while retaining
 every resolved definition/metadata quantity. Current stack limits may split stacks; compatible entries may merge; the
 current layout chooses automatic placement. Current capacity and rules validate the complete final replacement.
+Inventory metadata is restored exactly and is available before stack resolution and validation.
 
 Use reconciliation for saves whose logical items remain valid but whose presentation shape has changed.
 
@@ -290,15 +290,18 @@ non-monotonic quantity constraints.
 Malformed snapshots, unsupported codecs, invalid options, and unrecoverable configuration remain operation failures
 even in salvage mode.
 
+Salvage may discard item quantities, but it never discards inventory metadata. If root metadata is malformed,
+unsupported, or makes the candidate invalid, the whole application fails atomically.
+
 All application modes return `SnapshotApplicationResult`. Exact and reconciliation never report loss. Runtime
 `InstanceId` values are newly created because they are deliberately not persistent identity.
 
 ## Application Events
 
-Successful application emits one coherent `Inventory.Changed` event after final state is visible when it replaces any
-contents or inventory attributes. Previous instances are `Removed`, replacements are `Added`, and they are not
-represented as `Moved`. Inventory-attribute replacement has no dedicated semantic payload, so an application involving
-attributes requests a full refresh.
+Successful application emits one coherent `Inventory.Changed` event after final state is visible when it replaces
+contents or changes inventory metadata. Previous instances are `Removed`, replacements are `Added`, and they are not
+represented as `Moved`. Root metadata differences appear as `InventoryMetadataChanged`; metadata-only restoration of
+an otherwise empty inventory still emits the snapshot-origin event.
 
 `InventoryChangedEventArgs.Origin` identifies `SnapshotExactRestore`, `SnapshotReconciliation`, or `SnapshotSalvage`.
 Failure emits no event. `RequiresFullRefresh` remains reserved for observable state not fully represented by semantic
@@ -375,6 +378,7 @@ explicit migration path.
 
 - Treating `InventorySnapshot` as the whole application save file.
 - Expecting snapshot capture to persist policies, rules, or catalog definitions.
+- Expecting the removed `Inventory<TKey>.Attributes` container instead of using `Inventory.Metadata`.
 - Adding a custom `TKey` without its `InventorySnapshotKeyCodec` attribute.
 - Changing a codec ID when evolving its data version.
 - Assuming arbitrary collections or domain objects serialize automatically.

@@ -74,7 +74,7 @@ public class SectionDefinitionRestrictionExampleTests
 
     private static string? ItemAt(Inventory<string> inventory, string sectionId, int slotIndex)
     {
-        return inventory.Layout.GetItemAt(inventory, SectionedLayoutContext<string>.Single(sectionId, slotIndex))?.Definition.Id;
+        return inventory.GetItemAt(SectionedLayoutContext<string>.Single(sectionId, slotIndex))?.Definition.Id;
     }
 
     private static void WriteOutput(string output)

@@ -189,6 +189,10 @@ public sealed class DefinitionMaxStackResolver<TKey>
 
 Return a positive value for every supported item. Resolver behavior affects additions, merging, transactions,
 transfers, metadata changes, repacking, reconciliation, snapshot application, and runtime parameter validation.
+During an `Inventory.Metadata` mutation, the supplied inventory is an isolated candidate containing the proposed root
+metadata and the preserved contents. Capacity policies, rules, and layout validation follow the same rule: inspect
+`inventory.Metadata` when application-convention state legitimately affects a decision, but never mutate it during
+validation.
 
 ### Parameterized resolvers
 
@@ -878,8 +882,8 @@ The codec type needs a public parameterless constructor. Keep `FormatId` stable,
 wire shape changes, and decode every historical version the application still supports. The `workes.inventory.`
 prefix is reserved.
 
-Custom codecs extend definition IDs only. Instance metadata supports package-owned portable scalars, one-dimensional
-arrays, and `List<T>` recursively; custom domain-object metadata codecs are intentionally unsupported.
+Custom codecs extend definition IDs only. Item and inventory metadata support package-owned portable scalars,
+one-dimensional arrays, and `List<T>` recursively; custom domain-object metadata codecs are intentionally unsupported.
 
 ## Custom Footprint Providers
 

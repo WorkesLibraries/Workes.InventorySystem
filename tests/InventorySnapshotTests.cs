@@ -22,17 +22,17 @@ public class InventorySnapshotTests
         var inventory = CreateInventory(
             new SlotLayout<string>(3),
             apple);
-        var nested = new List<object?> { "rare", new List<int> { 1, 4, 9 }, null };
+        var nested = new List<int[]> { new[] { 1, 4, 9 }, Array.Empty<int>() };
         var metadata = new InstanceMetadata();
         metadata.Set("nested", nested);
+        inventory.Metadata.Set("ownerId", Guid.Parse("25c5ac54-d8ec-451a-9900-f07357d80a37"));
+        inventory.Metadata.Set("upgrades", new List<int> { 2, 5 });
         var builder = InventoryTransaction<string>.From(inventory);
         Assert.That(
             builder.TryAdd(apple, 2, SlotLayoutContext<string>.Single(2), metadata, out var addError),
             Is.True,
             addError);
         inventory.CommitTransaction(builder.Build());
-        inventory.Attributes.Set("owner", "player-1");
-        inventory.Attributes.Set("levels", new[] { 2, 3, 5 });
 
         var snapshot = inventory.CaptureSnapshot();
         var json = JsonSerializer.Serialize(snapshot);
@@ -40,7 +40,7 @@ public class InventorySnapshotTests
 
         Assert.That(InventorySnapshotValidator.TryValidate(jsonRoundTrip, out var jsonError), Is.True, jsonError);
         Assert.That(jsonRoundTrip!.Entries.Single().EntryId, Is.EqualTo("e0"));
-        Assert.That(jsonRoundTrip.Attributes.Select(value => value.Name), Is.EqualTo(new[] { "levels", "owner" }));
+        Assert.That(jsonRoundTrip.Metadata.Select(value => value.Name), Is.EqualTo(new[] { "ownerId", "upgrades" }));
 
         var serializer = new XmlSerializer(typeof(InventorySnapshot));
         using var stream = new MemoryStream();
@@ -51,6 +51,7 @@ public class InventorySnapshotTests
         Assert.That(InventorySnapshotValidator.TryValidate(xmlRoundTrip, out var xmlError), Is.True, xmlError);
         Assert.That(xmlRoundTrip.Layout.Kind, Is.EqualTo("workes.inventory.layout.slot"));
         Assert.That(xmlRoundTrip.Entries.Single().Metadata.Single().Name, Is.EqualTo("nested"));
+        Assert.That(xmlRoundTrip.Metadata.Select(value => value.Name), Is.EqualTo(new[] { "ownerId", "upgrades" }));
     }
 
     [Test]
@@ -172,38 +173,7 @@ public class InventorySnapshotTests
         snapshot.Entries[0].Amount = 99;
         encodedValues.Data.Items.Clear();
         Assert.That(inventory.Items.Single().Amount, Is.EqualTo(1));
-        Assert.That((List<int>)inventory.Items.Single().Metadata.AsReadOnly()["values"], Is.EqualTo(new[] { 1, 2, 3 }));
-    }
-
-    [Test]
-    public void CaptureSnapshot_PreservesTypedInventoryAttributesIncludingNull()
-    {
-        var inventory = CreateInventory(new EntryLayout<string>());
-        inventory.Attributes.Set("mode", 7);
-        inventory.Attributes.Set("mode", "seven");
-        inventory.Attributes.Set<string?>("optional", null);
-
-        var snapshot = inventory.CaptureSnapshot();
-
-        Assert.That(snapshot.Attributes, Has.Count.EqualTo(3));
-        var modes = snapshot.Attributes.Where(attribute => attribute.Name == "mode").ToList();
-        Assert.That(modes, Has.Count.EqualTo(2));
-        Assert.That(
-            modes.Any(value =>
-                InventorySnapshotCodecs.TryDecode(value.Value, out int number, out _) &&
-                number == 7),
-            Is.True);
-        Assert.That(
-            modes.Any(value =>
-                InventorySnapshotCodecs.TryDecode(value.Value, out string text, out _) &&
-                text == "seven"),
-            Is.True);
-        var optional = snapshot.Attributes.Single(attribute => attribute.Name == "optional");
-        Assert.That(
-            InventorySnapshotCodecs.TryDecode(optional.Value, out string? decoded, out var error),
-            Is.True,
-            error);
-        Assert.That(decoded, Is.Null);
+        Assert.That((List<int>)inventory.Items.Single().Metadata.AsReadOnly()["values"]!, Is.EqualTo(new[] { 1, 2 }));
     }
 
     [Test]
@@ -496,6 +466,14 @@ public class InventorySnapshotTests
             typeof(Inventory<string>).GetMethod(nameof(Inventory<string>.Deserialize))!
                 .GetCustomAttribute<ObsoleteAttribute>(),
             Is.Not.Null);
+    }
+
+    [Test]
+    public void InventoryAttributes_IsRemovedAndInventoryMetadataIsCaptured()
+    {
+        Assert.That(typeof(Inventory<string>).GetProperty("Attributes"), Is.Null);
+        Assert.That(typeof(Inventory<string>).GetProperty(nameof(Inventory<string>.Metadata)), Is.Not.Null);
+        Assert.That(typeof(InventorySnapshot).GetProperty(nameof(InventorySnapshot.Metadata)), Is.Not.Null);
     }
 
     private static T RoundTrip<T>(T value)

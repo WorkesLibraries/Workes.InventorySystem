@@ -65,8 +65,6 @@ public sealed class InventoryTransferEntry<TKey>
         if (source == null || source.IsEmpty)
             return null;
 
-        var clone = new InstanceMetadata();
-        clone.RestoreMetadata(source.ToDictionary());
-        return clone;
+        return source.Clone();
     }
 }

@@ -26,7 +26,7 @@ public class InstanceMetadataTests
         Assert.That(enumError, Does.Contain("unsupported"));
         Assert.That(
             metadata.TryReplace(
-                new Dictionary<string, object> { ["valid"] = 1, ["bad"] = new int[1, 1] },
+                new Dictionary<string, object?> { ["valid"] = 1, ["bad"] = new int[1, 1] },
                 out var replaceError),
             Is.False);
         Assert.That(replaceError, Does.Contain("one-dimensional"));
@@ -120,7 +120,7 @@ public class InstanceMetadataTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
 
-        metadata.Replace(new Dictionary<string, object> { ["rarity"] = "rare" });
+        metadata.Replace(new Dictionary<string, object?> { ["rarity"] = "rare" });
 
         Assert.That(metadata.AsReadOnly().ContainsKey("quality"), Is.False);
         Assert.That(metadata.TryGet<string>("rarity", out var rarity), Is.True);
@@ -183,7 +183,7 @@ public class InstanceMetadataTests
     }
 
     [Test]
-    public void AsReadOnly_ReturnsLiveViewWhenMetadataExists()
+    public void AsReadOnly_ReturnsDetachedSnapshotWhenMetadataExists()
     {
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
@@ -191,7 +191,7 @@ public class InstanceMetadataTests
         var view = metadata.AsReadOnly();
         metadata.Set("quality", "stale");
 
-        Assert.That(view["quality"], Is.EqualTo("stale"));
+        Assert.That(view["quality"], Is.EqualTo("fresh"));
     }
 
     [Test]

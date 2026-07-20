@@ -120,7 +120,7 @@ public class GridLayoutExampleTests
         {
             for (int x = 0; x < width; x++)
             {
-                var item = inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(x, y));
+                var item = inventory.GetItemAt(GridLayoutContext<string>.Single(x, y));
                 builder.Append('[');
                 builder.Append(item == null ? "empty" : item.Definition.Id + " x" + item.Amount);
                 builder.Append(']');

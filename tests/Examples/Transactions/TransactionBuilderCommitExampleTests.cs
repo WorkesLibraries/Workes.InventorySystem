@@ -40,8 +40,8 @@ public class TransactionBuilderCommitExampleTests
         var committed = inventory.TryCommitTransaction(builder, placement, out error);
 
         Assert.That(committed, Is.True, error);
-        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
-        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(3))!.Definition, Is.SameAs(sword));
+        Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
+        Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(3))!.Definition, Is.SameAs(sword));
 
         var output = BuildOutput(committed, inventory);
         var outputPath = WriteOutput(output);
@@ -62,9 +62,9 @@ public class TransactionBuilderCommitExampleTests
         builder.AppendLine();
         builder.AppendLine("Slots");
         builder.AppendLine("-----");
-        for (int slot = 0; slot < inventory.Layout.GetPositionCount(inventory); slot++)
+        for (int slot = 0; slot < inventory.GetLayoutPositionCount(); slot++)
         {
-            var item = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(slot));
+            var item = inventory.GetItemAt(SlotLayoutContext<string>.Single(slot));
             builder.AppendLine($"{slot}: {(item == null ? "." : item.Definition.Id + " x" + item.Amount)}");
         }
 

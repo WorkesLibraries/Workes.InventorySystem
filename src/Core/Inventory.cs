@@ -1,4 +1,3 @@
-using Workes.InventorySystem.Attributes;
 using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Stacking;
 using Workes.InventorySystem.Capacity;
@@ -17,7 +16,7 @@ namespace Workes.InventorySystem.Core;
 /// Mutable inventory that owns item instances, layout state, capacity validation, stacking behavior, rules, and change events.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
-public partial class Inventory<TKey> : IInstanceMetadataOwner
+public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadataOwner
 {
     private readonly List<ItemInstance<TKey>> _items = new();
 
@@ -77,10 +76,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
         public InstanceMetadata? Metadata { get; }
     }
 
-    /// <summary>
-    /// Gets inventory-level attributes.
-    /// </summary>
-    public AttributeContainer Attributes { get; } = new();
+    /// <summary>Gets schema-free, portable metadata owned by this inventory.</summary>
+    public InventoryMetadata Metadata { get; } = new();
 
     /// <summary>
     /// Gets the manager that created this inventory.
@@ -121,6 +118,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
         _capacityPolicy = capacityPolicy;
         _layout = layout;
         _rules = rules;
+        Metadata.AttachOwner(this);
     }
 
     /// <summary>
@@ -385,6 +383,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
     {
         var clonedLayout = source._layout.Clone();
         var clone = new Inventory<TKey>(source.Manager, source._stackResolver, source._capacityPolicy, clonedLayout, source._rules.Clone());
+        clone.Metadata.ReplaceDirect(source.Metadata);
 
         foreach (var item in source._items)
         {
@@ -509,13 +508,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
         return true;
     }
 
-    private static InstanceMetadata CloneMetadata(InstanceMetadata source)
-    {
-        var clone = new InstanceMetadata();
-        if (source != null && !source.IsEmpty)
-            clone.RestoreMetadata(new Dictionary<string, object>(source.ToDictionary()));
-        return clone;
-    }
+    private static InstanceMetadata CloneMetadata(InstanceMetadata source) =>
+        source.Clone();
 
     private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out string? error)
     {
@@ -555,7 +549,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
 
     internal bool TryApplyMetadataMutation(
         InstanceMetadata metadata,
-        Func<InstanceMetadata, bool> mutate,
+        InstanceMetadata proposedMetadata,
         out string? error)
     {
         if (metadata == null)
@@ -563,9 +557,6 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
             error = "Metadata cannot be null.";
             return false;
         }
-
-        if (mutate == null)
-            throw new ArgumentNullException(nameof(mutate));
 
         int index = -1;
         ItemInstance<TKey>? item = null;
@@ -586,18 +577,6 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
         }
 
         var beforeMetadata = metadata.ToDictionary();
-        var proposedMetadata = metadata.Clone();
-        if (!mutate(proposedMetadata))
-        {
-            error = "Metadata mutation was rejected.";
-            return false;
-        }
-
-        if (metadata.StructuralEquals(proposedMetadata))
-        {
-            error = null;
-            return true;
-        }
 
         var proposedInstance = new ItemInstance<TKey>(
             item.Definition,
@@ -623,7 +602,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
             return false;
 
         var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
-        metadata.ReplaceDirect(proposedMetadata.AsReadOnly());
+        metadata.ReplaceDirect(proposedMetadata);
         var reconciliation = ReconcileLayoutAfterMutation();
         var layoutContexts = _layout.GetContextsForStorageIndex(this, index);
         var metadataChanged = new ItemMetadataChanged<TKey>(
@@ -645,10 +624,42 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
 
     bool IInstanceMetadataOwner.TryApplyMetadataMutation(
         InstanceMetadata metadata,
-        Func<InstanceMetadata, bool> mutate,
+        InstanceMetadata proposedMetadata,
         out string? error)
     {
-        return TryApplyMetadataMutation(metadata, mutate, out error);
+        return TryApplyMetadataMutation(metadata, proposedMetadata, out error);
+    }
+
+    bool IInventoryMetadataOwner.TryApplyMetadataMutation(
+        InventoryMetadata metadata,
+        InventoryMetadata proposedMetadata,
+        out string? error)
+    {
+        if (!ReferenceEquals(metadata, Metadata))
+        {
+            error = "Metadata does not belong to this inventory.";
+            return false;
+        }
+
+        var candidate = CreateSimulationClone(this);
+        candidate.Metadata.ReplaceDirect(proposedMetadata);
+        if (!TryValidateReplacement(candidate, out _, out error))
+            return false;
+
+        var before = Metadata.Clone();
+        var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
+        Metadata.ReplaceDirect(proposedMetadata);
+        var reconciliation = ReconcileLayoutAfterMutation();
+        var moved = BuildReflowMovements(layoutContextsBefore);
+
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+            moved: moved,
+            inventoryMetadataChanged: new InventoryMetadataChanged(before, Metadata),
+            affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
+            requiresFullRefresh: reconciliation.RequiresFullRefresh,
+            origin: InventoryChangeOrigin.Operation));
+        error = null;
+        return true;
     }
 
     internal bool TrySplitAndSetMetadata(
@@ -1112,6 +1123,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
             _capacityPolicy,
             _layout.Clone(),
             rules);
+        validationInventory.Metadata.ReplaceDirect(Metadata);
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
 
         foreach (var item in _items)
@@ -1846,6 +1858,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
             capacityPolicy,
             layout,
             _rules.Clone());
+        validationInventory.Metadata.ReplaceDirect(Metadata);
 
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>(proposedContents.Count);
         foreach (var state in proposedContents)
@@ -3519,6 +3532,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner
                 DefinitionId = item.Definition.Id,
                 Amount = item.Amount,
                 Metadata = item.Metadata.ToDictionary()
+                    .ToDictionary(pair => pair.Key, pair => pair.Value!)
             });
         }
 

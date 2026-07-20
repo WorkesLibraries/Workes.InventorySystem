@@ -22,7 +22,7 @@ public class LayoutContextExampleTests
         var placed = inventory.TryAdd(apple, out var error, 5, SlotLayoutContext<string>.Single(3));
 
         Assert.That(placed, Is.True, error);
-        Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(3))!.Amount, Is.EqualTo(5));
+        Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(3))!.Amount, Is.EqualTo(5));
         WriteOutput("ManualSingleSlotPlacement.txt", DescribeSlots(inventory, 5));
     }
 
@@ -70,7 +70,7 @@ public class LayoutContextExampleTests
         builder.AppendLine("-----");
         for (int slot = 0; slot < slotCount; slot++)
         {
-            var item = inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(slot));
+            var item = inventory.GetItemAt(SlotLayoutContext<string>.Single(slot));
             builder.Append("Slot ").Append(slot).Append(": ");
             builder.AppendLine(item == null ? "empty" : item.Definition.Id + " x" + item.Amount);
         }

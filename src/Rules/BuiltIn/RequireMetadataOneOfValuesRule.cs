@@ -51,7 +51,7 @@ public class RequireMetadataOneOfValuesRule<TKey> : IRulePolicy<TKey>
                 return false;
             }
 
-            if (!_allowedValues.Contains(value))
+            if (!_allowedValues.Contains(value!))
             {
                 error = $"Expected item metadata '{_key}' to be one of: {_allowedValuesDescription}, but it was '{value}'.";
                 return false;

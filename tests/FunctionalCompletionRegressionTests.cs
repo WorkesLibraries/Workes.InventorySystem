@@ -169,7 +169,7 @@ public class FunctionalCompletionRegressionTests
 
     private static string? Cell(Inventory<string> inventory, int x, int y)
     {
-        return inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id;
+        return inventory.GetItemAt(MultiCellGridLayoutContext<string>.Single(x, y))?.Definition.Id;
     }
 
     private static Inventory<string> CreateInventory(

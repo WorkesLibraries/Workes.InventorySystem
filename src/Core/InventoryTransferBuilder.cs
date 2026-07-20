@@ -130,8 +130,6 @@ public sealed class InventoryTransferBuilder<TKey>
         if (metadata == null || metadata.IsEmpty)
             return null;
 
-        var clone = new InstanceMetadata();
-        clone.RestoreMetadata(new Dictionary<string, object>(metadata.ToDictionary()));
-        return clone;
+        return metadata.Clone();
     }
 }

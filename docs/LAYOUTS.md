@@ -87,7 +87,7 @@ Direct contexts are also used for movement and lookup:
 var slot0 = SlotLayoutContext<string>.Single(0);
 var slot3 = SlotLayoutContext<string>.Single(3);
 
-var item = inventory.Layout.GetItemAt(inventory, slot3);
+var item = inventory.GetItemAt(slot3);
 inventory.Move(slot3, slot0);
 ```
 
@@ -163,14 +163,13 @@ Each added-entry index may be mapped only once.
 
 ## Query Layout Positions
 
-Layouts expose position-oriented reads:
+Inventories expose position-oriented layout reads:
 
 ```csharp
-var contexts = inventory.Layout.GetAddressableContexts(inventory);
-var positionCount = inventory.Layout.GetPositionCount(inventory);
+var contexts = inventory.GetAddressableLayoutContexts();
+var positionCount = inventory.GetLayoutPositionCount();
 
-var item = inventory.Layout.GetItemAt(
-    inventory,
+var item = inventory.GetItemAt(
     SlotLayoutContext<string>.Single(4));
 ```
 
@@ -180,16 +179,19 @@ Map storage back to presentation with:
 var itemIndex = 0;
 
 var occupiedContexts =
-    inventory.Layout.GetContextsForStorageIndex(inventory, itemIndex);
+    inventory.GetLayoutContextsForStorageIndex(itemIndex);
 
 var foundOne =
-    inventory.Layout.TryGetContextForStorageIndex(
-        inventory,
+    inventory.TryGetLayoutContextForStorageIndex(
         itemIndex,
         out var primaryContext);
 ```
 
-Most built-in layouts return one context for one storage entry. A multi-cell item can return every occupied cell.
+Most built-in layouts return one context for one storage entry. A multi-cell item can return every occupied cell. When
+you already have an owned item instance, use `GetLayoutContextsForItem(...)` or `TryGetLayoutContextForItem(...)`.
+
+The lower-level `IInventoryLayout<TKey>` query methods still exist because custom layouts implement them and internal
+simulation calls need the explicit inventory parameter. Application code should prefer the inventory-owned wrappers.
 
 ## Entry Layout
 
@@ -238,8 +240,7 @@ inventory.Add(
     potion,
     context: SlotLayoutContext<string>.Single(5));
 
-var potionStack = inventory.Layout.GetItemAt(
-    inventory,
+var potionStack = inventory.GetItemAt(
     SlotLayoutContext<string>.Single(5));
 ```
 
@@ -401,12 +402,11 @@ One item instance may occupy several cells. Placement rejects:
 Every occupied cell resolves to the same item instance:
 
 ```csharp
-var item = inventory.Layout.GetItemAt(
-    inventory,
+var item = inventory.GetItemAt(
     MultiCellGridLayoutContext<string>.Single(3, 2));
 ```
 
-`GetContextsForStorageIndex(...)` returns every cell occupied by that item.
+`GetLayoutContextsForStorageIndex(...)` returns every cell occupied by that item.
 
 ## Footprints
 

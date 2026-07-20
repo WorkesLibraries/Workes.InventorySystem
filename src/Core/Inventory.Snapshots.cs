@@ -36,18 +36,15 @@ public partial class Inventory<TKey>
     {
         public SnapshotPlan(
             Inventory<TKey> candidate,
-            IReadOnlyList<(string id, Type type, object? value)> attributes,
             IReadOnlyList<SnapshotItemLoss> losses,
             IReadOnlyList<SnapshotIssue> issues)
         {
             Candidate = candidate;
-            Attributes = attributes;
             Losses = losses;
             Issues = issues;
         }
 
         public Inventory<TKey> Candidate { get; }
-        public IReadOnlyList<(string id, Type type, object? value)> Attributes { get; }
         public IReadOnlyList<SnapshotItemLoss> Losses { get; }
         public IReadOnlyList<SnapshotIssue> Issues { get; }
     }
@@ -206,7 +203,7 @@ public partial class Inventory<TKey>
                 snapshot,
                 allowUnknownDefinitions: false,
                 out var entries,
-                out var attributes,
+                out var rootMetadata,
                 out _,
                 out issue,
                 out error))
@@ -258,7 +255,7 @@ public partial class Inventory<TKey>
             storageIndices.Add(entry.Source.EntryId, index);
         }
 
-        if (!TryValidateExactPlacement(layoutCandidate, entries, instancesById, out error))
+        if (!TryValidateExactPlacement(layoutCandidate, entries, instancesById, rootMetadata, out error))
             return FailPlan(SnapshotIssueCode.Layout, error!, out issue, out error);
 
         if (!_layout.SnapshotCodec.TryCreateExactLayout(
@@ -278,7 +275,7 @@ public partial class Inventory<TKey>
                 out error);
         }
 
-        var candidate = CreateDetachedCandidate(exactLayout);
+        var candidate = CreateDetachedCandidate(exactLayout, rootMetadata);
         foreach (var entry in entries)
             AddCandidateInstanceDirect(candidate, instancesById[entry.Source.EntryId]);
 
@@ -287,7 +284,6 @@ public partial class Inventory<TKey>
 
         plan = new SnapshotPlan(
             candidate,
-            attributes,
             Array.Empty<SnapshotItemLoss>(),
             Array.Empty<SnapshotIssue>());
         return true;
@@ -305,13 +301,13 @@ public partial class Inventory<TKey>
                 snapshot,
                 allowUnknownDefinitions: false,
                 out var entries,
-                out var attributes,
+                out var rootMetadata,
                 out _,
                 out issue,
                 out error))
             return false;
 
-        var candidate = CreateEmptyAutomaticCandidate();
+        var candidate = CreateEmptyAutomaticCandidate(rootMetadata);
         foreach (var entry in entries)
         {
             if (!TryAddAutomatically(candidate, entry, entry.Source.Amount, out error))
@@ -330,7 +326,6 @@ public partial class Inventory<TKey>
 
         plan = new SnapshotPlan(
             candidate,
-            attributes,
             Array.Empty<SnapshotItemLoss>(),
             Array.Empty<SnapshotIssue>());
         return true;
@@ -354,7 +349,7 @@ public partial class Inventory<TKey>
                 snapshot,
                 discardUnknown,
                 out var entries,
-                out var attributes,
+                out var rootMetadata,
                 out var losses,
                 out issue,
                 out error))
@@ -387,7 +382,7 @@ public partial class Inventory<TKey>
             }
         }
 
-        var candidate = CreateEmptyAutomaticCandidate();
+        var candidate = CreateEmptyAutomaticCandidate(rootMetadata);
         foreach (var entry in ordered)
         {
             int retained = 0;
@@ -443,7 +438,7 @@ public partial class Inventory<TKey>
                 loss.EntryId,
                 loss.Quantity))
             .ToList();
-        plan = new SnapshotPlan(candidate, attributes, losses, issues);
+        plan = new SnapshotPlan(candidate, losses, issues);
         return true;
     }
 
@@ -451,35 +446,30 @@ public partial class Inventory<TKey>
         InventorySnapshot snapshot,
         bool allowUnknownDefinitions,
         out List<ResolvedSnapshotEntry> entries,
-        out List<(string id, Type type, object? value)> attributes,
+        out InventoryMetadata rootMetadata,
         out List<SnapshotItemLoss> losses,
         out SnapshotIssue? issue,
         out string? error)
     {
         entries = new List<ResolvedSnapshotEntry>();
-        attributes = new List<(string id, Type type, object? value)>();
+        rootMetadata = new InventoryMetadata();
         losses = new List<SnapshotItemLoss>();
         issue = null;
 
         if (!InventorySnapshotValidator.TryValidate(snapshot, out error))
             return FailPlan(SnapshotIssueCode.MalformedSnapshot, error!, out issue, out error);
 
-        foreach (var attribute in snapshot.Attributes)
+        foreach (var named in snapshot.Metadata)
         {
-            if (!InventorySnapshotCodecs.TryDecodeRuntime(
-                    attribute.Value,
-                    out var value,
-                    out var valueType,
-                    out error) ||
-                valueType == null)
+            if (!InventorySnapshotCodecs.TryDecodeRuntime(named.Value, out var value, out error) ||
+                !rootMetadata.TrySet(named.Name, value, out error))
             {
                 return FailPlan(
                     SnapshotIssueCode.UnsupportedCodec,
-                    $"Inventory attribute '{attribute.Name}' could not be decoded: {error}",
+                    $"Inventory metadata '{named.Name}' could not be decoded: {error}",
                     out issue,
                     out error);
             }
-            attributes.Add((attribute.Name, valueType, value));
         }
 
         for (int index = 0; index < snapshot.Entries.Count; index++)
@@ -543,9 +533,10 @@ public partial class Inventory<TKey>
         InventoryLayoutSnapshotCandidate<TKey> layoutCandidate,
         IReadOnlyList<ResolvedSnapshotEntry> entries,
         IReadOnlyDictionary<string, ItemInstance<TKey>> instances,
+        InventoryMetadata rootMetadata,
         out string? error)
     {
-        var validation = CreateEmptyAutomaticCandidate();
+        var validation = CreateEmptyAutomaticCandidate(rootMetadata);
         for (int storageIndex = 0; storageIndex < entries.Count; storageIndex++)
         {
             var entry = entries[storageIndex];
@@ -585,7 +576,7 @@ public partial class Inventory<TKey>
         return true;
     }
 
-    private Inventory<TKey> CreateEmptyAutomaticCandidate()
+    private Inventory<TKey> CreateEmptyAutomaticCandidate(InventoryMetadata? metadata = null)
     {
         var layout = _layout.Clone();
         var candidate = new Inventory<TKey>(
@@ -595,17 +586,24 @@ public partial class Inventory<TKey>
             layout,
             new RuleContainer<TKey>());
         layout.OnInventoryCleared(candidate);
+        if (metadata != null)
+            candidate.Metadata.ReplaceDirect(metadata);
         return candidate;
     }
 
-    private Inventory<TKey> CreateDetachedCandidate(IInventoryLayout<TKey> layout)
+    private Inventory<TKey> CreateDetachedCandidate(
+        IInventoryLayout<TKey> layout,
+        InventoryMetadata? metadata = null)
     {
-        return new Inventory<TKey>(
+        var candidate = new Inventory<TKey>(
             Manager,
             _stackResolver,
             new UnlimitedCapacityPolicy<TKey>(),
             layout,
             new RuleContainer<TKey>());
+        if (metadata != null)
+            candidate.Metadata.ReplaceDirect(metadata);
+        return candidate;
     }
 
     private static void AddCandidateInstanceDirect(Inventory<TKey> candidate, ItemInstance<TKey> instance)
@@ -657,7 +655,7 @@ public partial class Inventory<TKey>
     {
         foreach (var item in candidate._items)
         {
-            if (!TryResolveMaxStackSize(item, out int maxStack, out error) ||
+            if (!candidate.TryResolveMaxStackSize(item, out int maxStack, out error) ||
                 item.Amount > maxStack)
             {
                 issueCode = SnapshotIssueCode.StackLimit;
@@ -667,7 +665,7 @@ public partial class Inventory<TKey>
             }
         }
 
-        var removed = _items
+        var removed = candidate._items
             .Select((item, index) => (index, item))
             .ToList();
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
@@ -677,24 +675,29 @@ public partial class Inventory<TKey>
             added.Add((candidate._items[index], context));
         }
         var replacement = new InventoryTransaction<TKey>(
-            this,
+            candidate,
             new List<(int index, int delta)>(),
             removed,
             added);
-        if (!TryValidateTransactionDefinitions(replacement, out error))
+        if (!candidate.TryValidateTransactionDefinitions(replacement, out error))
         {
             issueCode = SnapshotIssueCode.UnknownDefinition;
             return false;
         }
-        var normalized = GenerateNormalizedInventoryTransaction(replacement);
-        if (!_capacityPolicy.CanApply(this, normalized, out error))
+        var normalized = candidate.GenerateNormalizedInventoryTransaction(replacement);
+        if (!_capacityPolicy.CanApply(candidate, normalized, out error))
         {
             issueCode = SnapshotIssueCode.Capacity;
             return false;
         }
-        if (!_rules.CanApply(this, normalized, replacement, out error))
+        if (!_rules.CanApply(candidate, normalized, replacement, out error))
         {
             issueCode = SnapshotIssueCode.Rule;
+            return false;
+        }
+        if (!candidate._layout.CanSatisfyPlacement(candidate, replacement, out error))
+        {
+            issueCode = SnapshotIssueCode.Layout;
             return false;
         }
 
@@ -717,14 +720,17 @@ public partial class Inventory<TKey>
                 _layout.GetContextsForStorageIndex(this, index)));
         }
 
-        bool attributesChanged =
-            Attributes.GetSnapshotEntries().Any() ||
-            plan.Attributes.Count > 0;
         foreach (var item in _items)
             item.DetachOwner(this);
         _items.Clear();
 
         var sourceCandidate = plan.Candidate;
+        var beforeMetadata = Metadata.Clone();
+        Metadata.ReplaceDirect(sourceCandidate.Metadata);
+        InventoryMetadataChanged? inventoryMetadataChanged =
+            beforeMetadata.StructuralEquals(Metadata)
+                ? null
+                : new InventoryMetadataChanged(beforeMetadata, Metadata);
         _layout = sourceCandidate._layout;
         for (int index = 0; index < sourceCandidate._items.Count; index++)
         {
@@ -734,7 +740,6 @@ public partial class Inventory<TKey>
             item.AttachOwner(this);
         }
         sourceCandidate._items.Clear();
-        Attributes.ReplaceSnapshotEntries(plan.Attributes);
 
         var addedEvents = new List<ItemAdded<TKey>>(_items.Count);
         for (int index = 0; index < _items.Count; index++)
@@ -745,12 +750,12 @@ public partial class Inventory<TKey>
                 _layout.GetContextsForStorageIndex(this, index)));
         }
 
-        if (removedEvents.Count > 0 || addedEvents.Count > 0 || attributesChanged)
+        if (removedEvents.Count > 0 || addedEvents.Count > 0 || inventoryMetadataChanged != null)
         {
             Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
                 added: addedEvents,
                 removed: removedEvents,
-                requiresFullRefresh: attributesChanged,
+                inventoryMetadataChanged: inventoryMetadataChanged,
                 origin: mode switch
                 {
                     SnapshotApplicationMode.Exact => InventoryChangeOrigin.SnapshotExactRestore,

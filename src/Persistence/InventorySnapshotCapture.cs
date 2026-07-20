@@ -17,6 +17,14 @@ internal static class InventorySnapshotCapture
         var result = new InventorySnapshot();
         var entryIds = new Dictionary<ItemInstance<TKey>, string>();
 
+        foreach (var pair in inventory.Metadata.EnumerateStored().OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (!TryNamedValue(pair.Key, pair.Value, "inventory metadata", out var named, out error) ||
+                named == null)
+                return false;
+            result.Metadata.Add(named);
+        }
+
         for (int index = 0; index < inventory.Items.Count; index++)
         {
             var instance = inventory.Items[index];
@@ -53,15 +61,6 @@ internal static class InventorySnapshotCapture
             result.Entries.Add(entry);
         }
 
-        foreach (var pair in inventory.Attributes.GetSnapshotEntries()
-                     .OrderBy(pair => pair.id, StringComparer.Ordinal)
-                     .ThenBy(pair => pair.valueType.FullName, StringComparer.Ordinal))
-        {
-            if (!TryAttribute(pair.id, pair.valueType, pair.value, out var named, out error) || named == null)
-                return false;
-            result.Attributes.Add(named);
-        }
-
         if (!TryCaptureLayout(inventory, entryIds, result.Entries, out var layout, out error) || layout == null)
             return false;
         result.Layout = layout;
@@ -70,29 +69,6 @@ internal static class InventorySnapshotCapture
             return false;
 
         snapshot = result;
-        return true;
-    }
-
-    private static bool TryAttribute(
-        string name,
-        Type valueType,
-        object? value,
-        out SnapshotNamedValue? named,
-        out string? error)
-    {
-        named = null;
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            error = "Snapshot inventory attribute name cannot be null or empty.";
-            return false;
-        }
-        if (!InventorySnapshotCodecs.TryEncodeDeclared(value, valueType, out var encoded, out error) ||
-            encoded == null)
-        {
-            error = $"Snapshot inventory attribute '{name}' could not be captured: {error}";
-            return false;
-        }
-        named = new SnapshotNamedValue { Name = name, Value = encoded };
         return true;
     }
 

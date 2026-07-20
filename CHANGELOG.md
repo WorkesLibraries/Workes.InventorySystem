@@ -11,6 +11,8 @@ This file records notable changes to `Workes.InventorySystem`.
 - `InstanceMetadata` now rejects values outside the portable snapshot value model. Metadata must consist of null,
   supported scalar values, one-dimensional arrays, or `List<T>` values, recursively; custom objects, dictionaries, enums,
   multidimensional arrays, and arbitrary enumerable types are rejected.
+- Removed `Inventory<TKey>.Attributes` and replaced it with inventory-owned `Metadata`. Definition attributes on
+  catalogs and definitions are unchanged.
 - `AttributeCatalog.Define<T>(id)` now rejects every duplicate ID declaration, including attempts using the same value
   type, instead of returning the existing declaration.
 - `InventoryChangedEventArgs<TKey>.RequiresFullRefresh` now means that the event payload and affected contexts do not
@@ -23,7 +25,9 @@ This file records notable changes to `Workes.InventorySystem`.
 ### Added
 
 - Added portable, non-generic `InventorySnapshot` capture through `CaptureSnapshot()` and `TryCaptureSnapshot(...)`,
-  including deeply detached entries, metadata, inventory attributes, and complete built-in layout state.
+  including deeply detached entries, item metadata, inventory metadata, and complete built-in layout state.
+- Added `InventoryMetadata`, inventory-owned validation and reconciliation, `InventoryMetadataChanged`, and portable
+  root-metadata restoration across exact, reconciliation, and salvage workflows.
 - Added snapshot validation and application workflows: `AssessSnapshot(...)`, exact `RestoreSnapshot(...)`, lossless
   `ReconcileSnapshot(...)`, deterministic `SalvageSnapshot(...)`, and their conditional `Try...` forms. Application is
   atomic and returns structured assessment, result, issue, and item-loss information.
@@ -39,6 +43,10 @@ This file records notable changes to `Workes.InventorySystem`.
   each snapshot-application workflow.
 - Added `InventoryTransaction<TKey>.WithAddedEntryContexts(...)` so custom layouts can map contexts for added entries
   without replacing transaction structure.
+- Added inventory-owned layout query wrappers such as `GetLayoutPositionCount()`,
+  `GetAddressableLayoutContexts()`, `GetItemAt(context)`, `GetLayoutContextsForStorageIndex(...)`, and
+  `GetLayoutContextsForItem(...)` so application code no longer needs to pass an inventory back into its own layout for
+  ordinary reads.
 - Added `ItemCatalog<TKey>(bool areTagsNamespaced)` and `TagCatalog(bool areTagsNamespaced)` constructors for explicit
   namespaced or non-namespaced tag-mode selection. Parameterless construction retains the existing compatibility
   workflow.
@@ -51,8 +59,10 @@ This file records notable changes to `Workes.InventorySystem`.
   placement under the new configuration.
 - Inventory mutations can now reconcile layout-owned presentation state and report every surviving item whose context
   changed in the same coherent event.
-- Snapshot application replaces contents, layout state, and inventory attributes atomically and emits one final event
-  only after the committed state is visible.
+- Snapshot application replaces contents and layout state atomically and emits one final event only after the committed
+  state is visible.
+- Metadata arrays and lists now use value-snapshot ownership at every input, candidate, event, persistence, and read
+  boundary. `InstanceMetadata` also supports typed `Update<T>(...)` and `TryUpdate<T>(...)`.
 
 ### Deprecated
 
