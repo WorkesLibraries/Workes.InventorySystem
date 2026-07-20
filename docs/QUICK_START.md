@@ -59,23 +59,23 @@ var manager = new InventoryManager<string>(
 // 5. Create and use an inventory.
 var inventory = manager.CreateInventory();
 
-inventory.Add(apple, amount: 5);
-inventory.Add(coin, amount: 25);
-inventory.Add(healthPotion, amount: 2);
+inventory.Add("apple", amount: 5);
+inventory.Add("coin", amount: 25);
+inventory.Add("health_potion", amount: 2);
 
 // 6. Query total amounts and current stacks.
 Console.WriteLine(
-    $"Apple amount: {inventory.Count(apple)}");
+    $"Apple amount: {inventory.Count("apple")}");
 
 Console.WriteLine(
-    $"Coin amount: {inventory.Count(coin)}");
+    $"Coin amount: {inventory.Count("coin")}");
 
 Console.WriteLine(
-    $"Coin stacks: {inventory.Find(coin).Count}");
+    $"Coin stacks: {inventory.Find("coin").Count}");
 
 Console.WriteLine(
     $"Contains a health potion: " +
-    inventory.Contains(healthPotion));
+    inventory.Contains("health_potion"));
 ```
 
 The output is:
@@ -88,7 +88,8 @@ Contains a health potion: True
 ```
 
 The coin amount becomes three stacks because the fixed stack resolver allows at most `10` items per compatible stack.
-`Count(coin)` returns the total amount across those stacks.
+`Count("coin")` returns the total amount across those stacks. Definition-object overloads such as `Count(coin)` and
+`Add(coin)` are also available when your code already holds the canonical registered definition object.
 
 ## What Each Part Does
 

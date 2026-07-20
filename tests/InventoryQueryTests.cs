@@ -282,9 +282,9 @@ public class InventoryQueryTests
         var inventory = manager.CreateInventory();
         var tag = "core:test";
 
-        Assert.Throws<ArgumentNullException>(() => inventory.Count(null!));
-        Assert.Throws<ArgumentNullException>(() => inventory.Contains(null!));
-        Assert.Throws<ArgumentNullException>(() => inventory.Find(null!));
+        Assert.Throws<ArgumentNullException>(() => inventory.Count((ItemDefinition<string>)null!));
+        Assert.Throws<ArgumentNullException>(() => inventory.Contains((ItemDefinition<string>)null!));
+        Assert.Throws<ArgumentNullException>(() => inventory.Find((ItemDefinition<string>)null!));
         Assert.Throws<ArgumentNullException>(() => inventory.FindByTag(null!));
         Assert.Throws<ArgumentNullException>(() => inventory.CountByTag(null!));
         Assert.Throws<ArgumentException>(() => inventory.ContainsAllTags());

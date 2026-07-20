@@ -58,6 +58,22 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
+    /// Adds items resolved from a current or migrated definition id to the simulated state.
+    /// </summary>
+    /// <param name="definitionId">The definition id to resolve through the target inventory's catalog registry.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TryAdd(TKey definitionId, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    {
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return TryAdd(definition, amount, context, null, out error);
+    }
+
+    /// <summary>
     /// Adds items with optional metadata to the simulated state.
     /// </summary>
     /// <param name="definition">The item definition to add.</param>
@@ -74,6 +90,23 @@ public class InventoryTransactionBuilder<TKey>
 
         MergeAndApply(tx);
         return true;
+    }
+
+    /// <summary>
+    /// Adds items with optional metadata resolved from a current or migrated definition id to the simulated state.
+    /// </summary>
+    /// <param name="definitionId">The definition id to resolve through the target inventory's catalog registry.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <param name="metadata">Optional per-instance metadata for the added items.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TryAdd(TKey definitionId, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out string? error)
+    {
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return TryAdd(definition, amount, context, metadata, out error);
     }
 
     /// <summary>
@@ -133,6 +166,22 @@ public class InventoryTransactionBuilder<TKey>
 
         MergeAndApply(tx);
         return true;
+    }
+
+    /// <summary>
+    /// Removes items resolved from a current or migrated definition id from the simulated state.
+    /// </summary>
+    /// <param name="definitionId">The definition id to resolve through the target inventory's catalog registry.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    {
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
     }
 
     /// <summary>

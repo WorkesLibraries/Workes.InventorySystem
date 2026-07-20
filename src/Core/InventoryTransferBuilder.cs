@@ -91,6 +91,28 @@ public sealed class InventoryTransferBuilder<TKey>
         return _builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
     }
 
+    /// <summary>
+    /// Plans to remove an amount by a current or migrated item definition id for transfer.
+    /// </summary>
+    /// <param name="definitionId">The definition id to resolve through the source inventory's catalog registry.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    {
+        if (amount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+
+        if (!Source.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return _builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+    }
+
     internal InventoryTransaction<TKey> BuildSourceTransaction()
     {
         return _builder.Build();

@@ -37,14 +37,14 @@ public class InventoryQueryExampleTests
         catalog.Freeze();
 
         var backpack = CreateManager(catalog).CreateInventory();
-        backpack.TryAdd(apple, out _, 4);
-        backpack.TryAdd(berry, out _, 2);
-        backpack.TryAdd(carrot, out _, 1);
-        backpack.TryAdd(oakLog, out _, 6);
+        backpack.TryAdd("apple", out _, 4);
+        backpack.TryAdd("berry", out _, 2);
+        backpack.TryAdd("carrot", out _, 1);
+        backpack.TryAdd("oak_log", out _, 6);
 
-        Assert.That(backpack.Count(apple), Is.EqualTo(4));
-        Assert.That(backpack.Contains(apple, 3), Is.True);
-        Assert.That(backpack.Find(apple).Single().Definition, Is.SameAs(apple));
+        Assert.That(backpack.Count("apple"), Is.EqualTo(4));
+        Assert.That(backpack.Contains("apple", 3), Is.True);
+        Assert.That(backpack.Find("apple").Single().Definition, Is.SameAs(apple));
         Assert.That(backpack.FindByTag(ingredient).Count, Is.EqualTo(3));
         Assert.That(backpack.CountByTag(craftingMaterial), Is.EqualTo(6));
         Assert.That(backpack.ContainsAllTags(ingredient, fruit), Is.True);
@@ -56,9 +56,9 @@ public class InventoryQueryExampleTests
             craftingMaterial,
             new Dictionary<string, object>
             {
-                { "Count(apple)", backpack.Count(apple) },
-                { "Contains(apple, 3)", backpack.Contains(apple, 3) },
-                { "Find(apple)", string.Join(", ", backpack.Find(apple).Select(i => i.Definition.Id + " x" + i.Amount)) },
+                { "Count(\"apple\")", backpack.Count("apple") },
+                { "Contains(\"apple\", 3)", backpack.Contains("apple", 3) },
+                { "Find(\"apple\")", string.Join(", ", backpack.Find("apple").Select(i => i.Definition.Id + " x" + i.Amount)) },
                 { "FindByTag(food:ingredient)", string.Join(", ", backpack.FindByTag(ingredient).Select(i => i.Definition.Id + " x" + i.Amount)) },
                 { "CountByTag(crafting:material)", backpack.CountByTag(craftingMaterial) },
                 { "ContainsAllTags(food:ingredient, food:ingredient.fruit)", backpack.ContainsAllTags(ingredient, fruit) }

@@ -113,6 +113,11 @@ Always retain or resolve the registered object instead of reconstructing definit
 
 `Contains` and `TryGet` concern current registered IDs. Use `Resolve` when persisted data may contain migrated IDs.
 
+Inventory APIs that accept a definition ID, such as `Add(id)`, `TryAdd(id, ...)`, `Count(id)`, `Find(id)`, and
+`TryRemoveByDefinition(id, ...)`, use the same migration-aware `Resolve` path before operating on the canonical
+registered definition. Definition-object overloads remain valid when application code already holds the canonical
+registered object.
+
 ## Tags
 
 Tags classify definitions for rules, layouts, queries, and application behavior.

@@ -126,6 +126,12 @@ Use the throwing wrapper when the operation is expected to succeed:
 inventory.Add(apple, amount: 5);
 ```
 
+When application code already has a definition ID, use the matching ID overload:
+
+```csharp
+inventory.Add("apple", amount: 5);
+```
+
 The general pattern is:
 
 | Conditional flow | Expected-success flow |
@@ -142,24 +148,25 @@ The general pattern is:
 
 ## Add Items
 
-Add a canonical registered definition through the inventory:
+Add a canonical registered definition or a current/migrated definition ID through the inventory:
 
 ```csharp
 inventory.Add(apple, amount: 5);
+inventory.Add("apple", amount: 5);
 ```
 
 Conditional form:
 
 ```csharp
 var added = inventory.TryAdd(
-    apple,
+    "apple",
     out var error,
     amount: 5);
 ```
 
 Adding performs the complete inventory operation:
 
-1. Confirms the exact definition object is registered in the inventory catalog.
+1. Resolves the definition ID through the inventory catalog registry, or confirms the exact definition object is registered.
 2. Resolves the maximum stack size.
 3. Fills compatible existing stacks when the layout exposes them as merge candidates.
 4. Creates additional stacks for any remaining amount.
@@ -174,7 +181,7 @@ Layouts can accept an optional layout context:
 
 ```csharp
 inventory.Add(
-    potion,
+    "potion",
     amount: 1,
     context: SlotLayoutContext<string>.Single(2));
 ```
@@ -220,7 +227,7 @@ Remove an amount across matching stacks:
 
 ```csharp
 inventory.RemoveByDefinition(
-    apple,
+    "apple",
     amount: 5,
     ignoreMetadata: true);
 ```
@@ -229,7 +236,7 @@ Conditional form:
 
 ```csharp
 var removed = inventory.TryRemoveByDefinition(
-    apple,
+    "apple",
     amount: 5,
     ignoreMetadata: true,
     out var error);
@@ -240,7 +247,7 @@ var removed = inventory.TryRemoveByDefinition(
 - `true` permits removal across stacks regardless of metadata.
 - `false` uses the first matching stack’s metadata as the reference. When that reference is non-empty, only structurally equal metadata contributes. An empty reference is treated as no metadata filter.
 
-Pass the canonical registered definition even though removal searches matching definition IDs internally.
+Pass either the canonical registered definition or a current/migrated definition ID.
 
 The complete amount must be available across eligible stacks or the operation is rejected without partial removal.
 
@@ -252,17 +259,31 @@ Inventory queries return current counts or snapshot lists of matching item insta
 
 ```csharp
 var appleAmount = inventory.Count(apple);
+var appleAmountById = inventory.Count("apple");
 var hasFiveApples = inventory.Contains(apple, amount: 5);
+var hasFiveApplesById = inventory.Contains("apple", amount: 5);
 var appleStacks = inventory.Find(apple);
+var appleStacksById = inventory.Find("apple");
 ```
 
 | API | Result |
 |---|---|
 | `Count(definition)` | Total amount across stacks using the exact definition object. |
+| `Count(definitionId)` | Total amount after resolving a current or migrated definition ID. |
 | `Contains(definition, amount)` | Whether at least that total amount exists. |
+| `Contains(definitionId, amount)` | Whether at least that total amount exists after resolving a current or migrated definition ID. |
 | `Find(definition)` | Snapshot list of matching item instances. |
+| `Find(definitionId)` | Snapshot list after resolving a current or migrated definition ID. |
 
 Definition queries use object identity, matching the catalog’s canonical-definition invariant. A detached same-ID definition does not match.
+
+Definition-ID queries first call the catalog registry's migration-aware resolution, then use the resolved canonical
+definition.
+
+Unknown IDs throw from query APIs. Conditional mutation APIs such as `TryAdd(id, ...)` and
+`TryRemoveByDefinition(id, ...)` return `false` and put the resolution failure in `error`. If passing a literal
+`null`, cast it to the intended type because `ItemDefinition<TKey>` and `TKey` overloads can both be applicable for
+nullable key types.
 
 The list returned by `Find(...)` is a snapshot of the matches. Later inventory changes do not add or remove entries from that returned list, although its item-instance objects remain live readable handles.
 
@@ -670,10 +691,10 @@ Successful compound operations commit as one inventory change rather than exposi
 
 | Goal | API |
 |---|---|
-| Add a registered definition | `TryAdd(...)` / `Add(...)` |
+| Add a registered definition or definition ID | `TryAdd(...)` / `Add(...)` |
 | Remove from one known stack | `TryRemove(...)` / `Remove(...)` |
 | Remove using storage order | `TryRemoveAtStorageIndex(...)` / `RemoveAtStorageIndex(...)` |
-| Remove an amount across stacks | `TryRemoveByDefinition(...)` / `RemoveByDefinition(...)` |
+| Remove an amount across stacks by definition or definition ID | `TryRemoveByDefinition(...)` / `RemoveByDefinition(...)` |
 | Move one placed item | `TryMove(...)` / `Move(...)` |
 | Exchange two placed items | `TrySwap(...)` / `Swap(...)` |
 | Combine compatible stacks | `TryMergeMove(...)` / `MergeMove(...)` |

@@ -179,6 +179,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Counts the total amount of items whose definition resolves from a current or migrated definition id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <returns>The summed amount across matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definitionId"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
+    public int Count(TKey definitionId) =>
+        Count(ResolveRegisteredDefinitionId(definitionId));
+
+    /// <summary>
     /// Determines whether the inventory contains at least the requested amount of the exact item definition instance.
     /// </summary>
     /// <param name="definition">The item definition instance to search for.</param>
@@ -197,6 +207,18 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Determines whether the inventory contains at least the requested amount of the definition resolved from an id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="amount">The minimum amount required.</param>
+    /// <returns><see langword="true"/> when the requested amount exists; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definitionId"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="amount"/> is less than or equal to zero.</exception>
+    /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
+    public bool Contains(TKey definitionId, int amount = 1) =>
+        Contains(ResolveRegisteredDefinitionId(definitionId), amount);
+
+    /// <summary>
     /// Finds item instances that use the exact item definition instance.
     /// </summary>
     /// <param name="definition">The item definition instance to search for.</param>
@@ -209,6 +231,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         return FindWhere(item => ReferenceEquals(item.Definition, definition));
     }
+
+    /// <summary>
+    /// Finds item instances whose definition resolves from a current or migrated definition id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <returns>A snapshot list of matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definitionId"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
+    public IReadOnlyList<ItemInstance<TKey>> Find(TKey definitionId) =>
+        Find(ResolveRegisteredDefinitionId(definitionId));
 
     /// <summary>
     /// Finds item instances whose definitions satisfy a catalog-resolved tag.
@@ -533,6 +565,40 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         error = null;
         return true;
+    }
+
+    internal bool TryResolveRegisteredDefinitionId(
+        TKey definitionId,
+        out ItemDefinition<TKey>? definition,
+        out string? error)
+    {
+        definition = null;
+
+        if (definitionId == null)
+        {
+            error = "Item definition id cannot be null.";
+            return false;
+        }
+
+        try
+        {
+            definition = Manager.Registry.Resolve(definitionId);
+            error = null;
+            return true;
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private ItemDefinition<TKey> ResolveRegisteredDefinitionId(TKey definitionId)
+    {
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out var error) || definition == null)
+            throw new InvalidOperationException(error);
+
+        return definition;
     }
 
     private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out string? error)
@@ -2837,6 +2903,22 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Attempts to add an amount of the item definition resolved from a current or migrated definition id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
+    public bool TryAdd(TKey definitionId, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    {
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return TryAdd(definition, out error, amount, context);
+    }
+
+    /// <summary>
     /// Adds an amount of an item definition to the inventory or throws when the add is rejected.
     /// </summary>
     /// <param name="definition">The item definition to add.</param>
@@ -2846,6 +2928,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public void Add(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryAdd(definition, out var error, amount, context))
+            ThrowMutationFailure(error, "Add operation failed.");
+    }
+
+    /// <summary>
+    /// Adds an amount of the item definition resolved from a current or migrated definition id, or throws when rejected.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="amount">The amount to add.</param>
+    /// <param name="context">Optional layout-specific placement context.</param>
+    /// <exception cref="InvalidOperationException">The id cannot be resolved, or the add is rejected by validation, rules, capacity, or layout.</exception>
+    public void Add(TKey definitionId, int amount = 1, ILayoutContext<TKey>? context = null)
+    {
+        if (!TryAdd(definitionId, out var error, amount, context))
             ThrowMutationFailure(error, "Add operation failed.");
     }
 
@@ -2920,6 +3015,22 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Attempts to remove an amount of the item definition resolved from a current or migrated definition id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    {
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+            return false;
+
+        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+    }
+
+    /// <summary>
     /// Removes an amount by item definition or throws when the removal is rejected.
     /// </summary>
     /// <param name="definition">The item definition to remove.</param>
@@ -2929,6 +3040,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
     {
         if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var error))
+            ThrowMutationFailure(error, "Remove operation failed.");
+    }
+
+    /// <summary>
+    /// Removes an amount of the item definition resolved from a current or migrated definition id, or throws when rejected.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <exception cref="InvalidOperationException">The id cannot be resolved, or the removal is rejected by validation, rules, capacity, or layout.</exception>
+    public void RemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata)
+    {
+        if (!TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var error))
             ThrowMutationFailure(error, "Remove operation failed.");
     }
 

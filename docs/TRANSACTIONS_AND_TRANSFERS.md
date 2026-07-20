@@ -73,10 +73,13 @@ The builder exposes conditional staging methods:
 | API | Staged operation |
 |---|---|
 | `TryAdd(definition, out error, amount, context)` | Add an amount, optionally with direct placement |
+| `TryAdd(definitionId, out error, amount, context)` | Resolve a current or migrated ID, then add |
 | `TryAdd(definition, amount, context, metadata, out error)` | Add with instance metadata |
+| `TryAdd(definitionId, amount, context, metadata, out error)` | Resolve a current or migrated ID, then add with metadata |
 | `TryRemove(instance, out error, amount)` | Remove from a known item instance |
 | `TryRemoveAtStorageIndex(index, out error, amount)` | Remove by storage index |
 | `TryRemoveByDefinition(definition, amount, ignoreMetadata, out error)` | Remove across matching stacks |
+| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out error)` | Resolve a current or migrated ID, then remove across matching stacks |
 | `IsEmpty` | Inspect whether staging currently produces any structural change |
 
 Each successful call updates only the builder's simulation. Later calls see earlier staged work:
@@ -86,7 +89,7 @@ var builder =
     InventoryTransaction<string>.From(backpack);
 
 if (!builder.TryAdd(
-        apple,
+        "apple",
         out var addError,
         amount: 5))
 {
@@ -94,7 +97,7 @@ if (!builder.TryAdd(
 }
 
 if (!builder.TryRemoveByDefinition(
-        coin,
+        "coin",
         amount: 10,
         ignoreMetadata: true,
         out var removeError))
@@ -333,6 +336,7 @@ mutates the source.
 | `TryRemove(item, amount, out error)` | Stage removal from one source instance |
 | `TryRemoveAtStorageIndex(index, amount, out error)` | Stage removal by source storage index |
 | `TryRemoveByDefinition(definition, amount, ignoreMetadata, out error)` | Stage removal across matching source stacks |
+| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out error)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
 
 Each `InventoryTransferEntry<TKey>` exposes the canonical definition, amount, cloned metadata snapshot, and original
 source instance for inspection.

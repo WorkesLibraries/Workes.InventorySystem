@@ -47,6 +47,8 @@ This file records notable changes to `Workes.InventorySystem`.
   `GetAddressableLayoutContexts()`, `GetItemAt(context)`, `GetLayoutContextsForStorageIndex(...)`, and
   `GetLayoutContextsForItem(...)` so application code no longer needs to pass an inventory back into its own layout for
   ordinary reads.
+- Added migration-aware definition-ID overloads for common inventory, transaction-builder, and transfer-builder
+  workflows, including add, count, contains, find, and remove-by-definition operations.
 - Added `ItemCatalog<TKey>(bool areTagsNamespaced)` and `TagCatalog(bool areTagsNamespaced)` constructors for explicit
   namespaced or non-namespaced tag-mode selection. Parameterless construction retains the existing compatibility
   workflow.

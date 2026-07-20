@@ -66,11 +66,11 @@ var manager = new InventoryManager<string>(
 
 var inventory = manager.CreateInventory();
 
-inventory.Add(apple, amount: 5);
-inventory.Add(coin, amount: 25);
+inventory.Add("apple", amount: 5);
+inventory.Add("coin", amount: 25);
 
-Console.WriteLine(inventory.Count(apple));     // 5
-Console.WriteLine(inventory.Find(coin).Count); // 3 stacks: 10, 10, 5
+Console.WriteLine(inventory.Count("apple"));     // 5
+Console.WriteLine(inventory.Find("coin").Count); // 3 stacks: 10, 10, 5
 ```
 
 Use throwing methods such as `Add(...)` when success is expected. Use their `Try...` counterparts when rejection is a
