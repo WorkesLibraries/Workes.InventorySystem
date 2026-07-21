@@ -19,7 +19,7 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotCaptureContext<TKey> context,
         IEnumerable<int?> storageIndices,
         out SnapshotEncodedValue? encoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         var references = new List<object?>();
         foreach (var storageIndex in storageIndices)
@@ -51,7 +51,7 @@ internal static class BuiltInLayoutSnapshot
         Func<int, ILayoutContext<TKey>> contextFactory,
         Func<IReadOnlyDictionary<string, SnapshotEncodedValue>, int, bool> validateShape,
         out InventoryLayoutSnapshotCandidate<TKey>? candidate,
-        out string? error)
+        out InventoryFailure? error)
     {
         candidate = null;
         var snapshot = context.Snapshot;
@@ -145,7 +145,7 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotRestoreContext<TKey> context,
         string propertyName,
         out List<int?> indices,
-        out string? error)
+        out InventoryFailure? error)
     {
         indices = new List<int?>();
         error = null;
@@ -178,7 +178,7 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotRestoreContext<TKey> context,
         string name,
         out TValue value,
-        out string? error)
+        out InventoryFailure? error)
     {
         value = default!;
         error = null;
@@ -198,7 +198,7 @@ internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotC
     public string LayoutKind => "workes.inventory.layout.entry";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not EntryLayout<TKey> layout ||
@@ -213,14 +213,14 @@ internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotC
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error) =>
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error) =>
         BuiltInLayoutSnapshot.TryDecode(
             context, LayoutKind, "order", false,
             index => new EntryLayoutContext<TKey>(index),
             (_, count) => count == context.EntryCount,
             out candidate, out error);
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;
@@ -256,7 +256,7 @@ internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
     public string LayoutKind => "workes.inventory.layout.slot";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not SlotLayout<TKey> layout ||
@@ -271,11 +271,11 @@ internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error) =>
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error) =>
         BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "slots", false,
             index => new SlotLayoutContext<TKey>(index), (_, _) => true, out candidate, out error);
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;
@@ -307,7 +307,7 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
     public string LayoutKind => "workes.inventory.layout.grid";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not GridLayout<TKey> layout ||
@@ -328,7 +328,7 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
     {
         int width = 0;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "cells", false,
@@ -345,7 +345,7 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
             }, out candidate, out error);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;
@@ -387,7 +387,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
     public string LayoutKind => "workes.inventory.layout.multi-cell-grid";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not MultiCellGridLayout<TKey> layout ||
@@ -409,7 +409,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
     {
         int width = 0;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "cells", true,
@@ -429,7 +429,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
             }, out candidate, out error);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;
@@ -502,7 +502,7 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
     public string LayoutKind => "workes.inventory.layout.equipment";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not EquipmentLayout<TKey> layout ||
@@ -521,7 +521,7 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
     {
         List<string>? slotIds = null;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "slots", false,
@@ -538,7 +538,7 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
             }, out candidate, out error);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;
@@ -575,7 +575,7 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
     public string LayoutKind => "workes.inventory.layout.sectioned";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out string? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
     {
         error = null;
         if (context.Layout is not SectionedLayout<TKey> layout ||
@@ -595,7 +595,7 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out string? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
     {
         List<string>? sectionIds = null;
         List<int>? counts = null;
@@ -636,7 +636,7 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
             }, out candidate, out error);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out string? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         layout = null;
         error = null;

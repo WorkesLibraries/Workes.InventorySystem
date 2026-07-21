@@ -41,7 +41,8 @@ All extension implementations should follow these rules:
 - Keep validation side-effect free. A failed proposal must not mutate inventory, layout, policy, rule, or shared state.
 - Keep results deterministic. Candidate ordering, placement scans, tie-breaking, and codec output must be stable.
 - Treat definitions registered in the inventory catalog as canonical. Do not create detached same-ID replacements.
-- Return useful rejection messages from `Try...` and `Can...` contracts.
+- Return useful `InventoryFailure` values from `Try...` and `Can...` contracts. Use stable, namespaced custom codes for
+  extension-owned failures and keep `Message` human-readable. See [Failure Handling](FAILURES.md).
 - Create isolated replacement objects for parameter changes and candidate layouts; do not mutate the active component.
 - Deep-copy mutable layout state from `Clone()`.
 - Let inventory-owned APIs commit and emit events. Layouts and policies do not normally invoke `Inventory.Changed`.
@@ -49,7 +50,7 @@ All extension implementations should follow these rules:
 - Make singleton codecs stateless and safe for concurrent calls.
 
 Invalid constructor configuration and invalid definition data can throw. Conditional runtime validation should normally
-return `false` with an error. The inventory catches the failure before commit.
+return `false` with an `InventoryFailure`. The inventory catches the failure before commit.
 
 ## Validation And Simulation Lifecycle
 
@@ -181,7 +182,7 @@ public sealed class DefinitionMaxStackResolver<TKey>
 
         return maximum > 0
             ? maximum
-            : throw new InvalidOperationException(
+            : throw new InventoryOperationException(
                 $"Definition '{instance.Definition.Id}' has invalid '{_attributeId}'.");
     }
 }
@@ -217,7 +218,7 @@ public bool TryCreateWithParameter(
     string parameterId,
     object? value,
     out IStackResolver<TKey>? resolver,
-    out string? error)
+    out InventoryFailure? failure)
 {
     resolver = null;
 
@@ -225,14 +226,19 @@ public bool TryCreateWithParameter(
         value is not int maximum ||
         maximum <= 0)
     {
-        error = "Parameter 'fallbackMaxStack' expects a positive Int32.";
+        failure = InventoryFailure.Create(
+            InventoryFailureKind.Configuration,
+            InventoryFailureCodes.ConfigurationUnsupportedParameter,
+            "Parameter 'fallbackMaxStack' expects a positive Int32.",
+            component: nameof(DefinitionMaxStackResolver<TKey>),
+            source: parameterId);
         return false;
     }
 
     resolver = new DefinitionMaxStackResolver<TKey>(
         _attributeId,
         maximum);
-    error = null;
+    failure = null;
     return true;
 }
 ```
@@ -313,7 +319,7 @@ public sealed class BulkCapacityPolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? failure)
     {
         var current = inventory.Items.Sum(
             item => Bulk(item.Definition) * item.Amount);
@@ -325,27 +331,39 @@ public sealed class BulkCapacityPolicy<TKey>
         var projected = current + added - removed;
         if (projected > _maximum)
         {
-            error = $"Bulk capacity exceeded: {projected}/{_maximum}.";
+            failure = InventoryFailure.Create(
+                InventoryFailureKind.Capacity,
+                "com.example.inventory.capacity.bulk_exceeded",
+                $"Bulk capacity exceeded: {projected}/{_maximum}.",
+                component: nameof(BulkCapacityPolicy<TKey>));
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     public bool CanAdd(
         Inventory<TKey> inventory,
         ItemInstance<TKey> instance,
-        out string? error)
+        out InventoryFailure? failure)
     {
         var projected =
             inventory.Items.Sum(item => Bulk(item.Definition) * item.Amount) +
             Bulk(instance.Definition) * instance.Amount;
 
-        error = projected <= _maximum
-            ? null
-            : $"Bulk capacity exceeded: {projected}/{_maximum}.";
-        return error == null;
+        if (projected <= _maximum)
+        {
+            failure = null;
+            return true;
+        }
+
+        failure = InventoryFailure.Create(
+            InventoryFailureKind.Capacity,
+            "com.example.inventory.capacity.bulk_exceeded",
+            $"Bulk capacity exceeded: {projected}/{_maximum}.",
+            component: nameof(BulkCapacityPolicy<TKey>));
+        return false;
     }
 
     private int Bulk(ItemDefinition<TKey> definition) =>
@@ -393,17 +411,17 @@ public sealed class MaxDefinitionAmountRule<TKey>
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? failure)
     {
         var projected = snapshot.GetQuantity(_definition);
         if (projected > _maximum)
         {
-            error =
+            failure =
                 $"Cannot carry more than {_maximum} of '{_definition.Id}'.";
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -480,7 +498,7 @@ foreach (var (addedIndex, shelfIndex) in shelfContext.AddedEntryShelves)
     contexts[addedIndex] = ShelfLayoutContext<TKey>.Single(shelfIndex);
 
 mappedTransaction = transaction.WithAddedEntryContexts(contexts);
-error = null;
+failure = null;
 return true;
 ```
 
@@ -556,11 +574,15 @@ Simple shelf sorting can accept `ItemSortContext<TKey>`:
 public bool TrySort(
     Inventory<TKey> inventory,
     IInventorySortContext<TKey> sortContext,
-    out string? error)
+    out InventoryFailure? failure)
 {
     if (sortContext is not ItemSortContext<TKey> itemSort)
     {
-        error = "Invalid sort context type.";
+        failure = InventoryFailure.Create(
+            InventoryFailureKind.Layout,
+            InventoryFailureCodes.LayoutRejected,
+            "Invalid sort context type.",
+            component: nameof(ShelfLayout<TKey>));
         return false;
     }
 
@@ -591,7 +613,7 @@ public bool TrySort(
                 : null;
     }
 
-    error = null;
+    failure = null;
     return true;
 }
 ```
@@ -725,7 +747,11 @@ foreach (var storageIndex in layout.Shelves)
     if (!context.TryGetEntryId(item, out var entryId))
     {
         data = null;
-        error = "Shelf references an unknown inventory item.";
+        failure = InventoryFailure.Create(
+            InventoryFailureKind.Snapshot,
+            InventoryFailureCodes.SnapshotMalformed,
+            "Shelf references an unknown inventory item.",
+            component: nameof(ShelfLayoutSnapshotCodec<TKey>));
         return false;
     }
 
@@ -770,7 +796,7 @@ Exact reconstruction receives validated candidate data plus entry-ID mappings:
 public bool TryCreateExactLayout(
     InventoryLayoutSnapshotRestoreContext<TKey> context,
     out IInventoryLayout<TKey>? layout,
-    out string? error)
+    out InventoryFailure? failure)
 {
     layout = null;
 
@@ -778,10 +804,14 @@ public bool TryCreateExactLayout(
         !TryDecodeReferences(
             context.Candidate.Data,
             out var references,
-            out error) ||
+            out failure) ||
         references.Count != target.ShelfCount)
     {
-        error ??= "Saved shelf shape is incompatible.";
+        failure ??= InventoryFailure.Create(
+            InventoryFailureKind.Layout,
+            InventoryFailureCodes.LayoutRejected,
+            "Saved shelf shape is incompatible.",
+            component: nameof(ShelfLayoutSnapshotCodec<TKey>));
         return false;
     }
 
@@ -800,7 +830,11 @@ public bool TryCreateExactLayout(
         }
         else
         {
-            error = $"Unknown snapshot entry '{reference}'.";
+            failure = InventoryFailure.Create(
+                InventoryFailureKind.Snapshot,
+                InventoryFailureCodes.SnapshotMalformed,
+                $"Unknown snapshot entry '{reference}'.",
+                component: nameof(ShelfLayoutSnapshotCodec<TKey>));
             return false;
         }
     }
@@ -808,7 +842,7 @@ public bool TryCreateExactLayout(
     layout = ShelfLayout<TKey>.FromSnapshot(
         target,
         storageMap);
-    error = null;
+    failure = null;
     return true;
 }
 ```
@@ -849,10 +883,10 @@ public sealed class ItemKeyCodec
     public bool TryEncode(
         ItemKey value,
         out SnapshotValue? encoded,
-        out string? error)
+        out InventoryFailure? failure)
     {
         encoded = SnapshotValue.String(value.Value);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -860,19 +894,23 @@ public sealed class ItemKeyCodec
         SnapshotValue encoded,
         int version,
         out ItemKey value,
-        out string? error)
+        out InventoryFailure? failure)
     {
         if (version != 1 ||
             encoded.Kind != SnapshotValueKind.String ||
             encoded.StringValue == null)
         {
             value = default!;
-            error = "Unsupported item-key snapshot data.";
+            failure = InventoryFailure.Create(
+                InventoryFailureKind.Snapshot,
+                InventoryFailureCodes.SnapshotCodecRejected,
+                "Unsupported item-key snapshot data.",
+                component: nameof(ItemKeyCodec));
             return false;
         }
 
         value = new ItemKey(encoded.StringValue);
-        error = null;
+        failure = null;
         return true;
     }
 }

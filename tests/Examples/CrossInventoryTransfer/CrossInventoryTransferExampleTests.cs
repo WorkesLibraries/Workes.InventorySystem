@@ -43,7 +43,7 @@ public class CrossInventoryTransferExampleTests
         var movedLogs = backpack.TryTransferTo(craftingInput, backpack.Find(oakLog).Single(), 3, null, out var moveLogError);
         var rejectedApple = backpack.TryTransferTo(craftingInput, backpack.Find(apple).Single(), 1, null, out var appleError);
 
-        Assert.That(movedLogs, Is.True, moveLogError);
+        Assert.That(movedLogs, Is.True);
         Assert.That(rejectedApple, Is.False);
         Assert.That(backpack.Count(oakLog), Is.EqualTo(2));
         Assert.That(backpack.Count(apple), Is.EqualTo(2));
@@ -88,9 +88,9 @@ public class CrossInventoryTransferExampleTests
         IReadOnlyList<string> afterBackpack,
         IReadOnlyList<string> afterCraftingInput,
         bool movedLogs,
-        string? moveLogError,
+        InventoryFailure? moveLogError,
         bool rejectedApple,
-        string? appleError)
+        InventoryFailure? appleError)
     {
         var outputDirectory = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "CrossInventoryTransfer");
         Directory.CreateDirectory(outputDirectory);

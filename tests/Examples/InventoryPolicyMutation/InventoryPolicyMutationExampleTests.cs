@@ -75,7 +75,7 @@ public class InventoryPolicyMutationExampleTests
         TestContext.Out.WriteLine($"Inventory policy mutation example written to: {outputPath}");
     }
 
-    private static string FormatResult(bool accepted, string? error)
+    private static string FormatResult(bool accepted, InventoryFailure? error)
     {
         return accepted ? "committed" : $"rejected ({error})";
     }

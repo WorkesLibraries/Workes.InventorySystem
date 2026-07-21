@@ -41,7 +41,7 @@ public class OnlyAllowItemsRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var allowedDescription = string.Join(", ", _allowed.Select(x => $"{x!.Id}"));
         foreach (var (definition, _, _) in transaction.Added)

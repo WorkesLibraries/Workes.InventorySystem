@@ -32,7 +32,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var failures = new List<string>(_rules.Length);
 
@@ -50,9 +50,9 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             }
 
             var ruleName = rule.GetType().Name;
-            failures.Add(string.IsNullOrWhiteSpace(childError)
+            failures.Add(string.IsNullOrWhiteSpace(childError?.Message)
                 ? $"'{ruleName}' rejected (no details)."
-                : $"'{ruleName}' rejected: {childError}");
+                : $"'{ruleName}' rejected: {childError.Message}");
         }
 
         InventoryRuleSnapshot<TKey>? snapshot = null;
@@ -71,13 +71,17 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             }
 
             var ruleName = rule.GetType().Name;
-            failures.Add(string.IsNullOrWhiteSpace(childError)
+            failures.Add(string.IsNullOrWhiteSpace(childError?.Message)
                 ? $"'{ruleName}' rejected (no details)."
-                : $"'{ruleName}' rejected: {childError}");
+                : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = "OrRule expected at least one nested rule to allow the transaction, but none did. " +
-                $"Failures: {string.Join(" ", failures)}";
+        error = InventoryFailure.Create(
+            InventoryFailureKind.Rules,
+            InventoryFailureCodes.RulesRejected,
+            "OrRule expected at least one nested rule to allow the transaction, but none did. " +
+            $"Failures: {string.Join(" ", failures)}",
+            component: nameof(OrRule<TKey>));
         return false;
     }
 
@@ -87,7 +91,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         var failures = new List<string>(_rules.Length);
 
@@ -104,9 +108,9 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             }
 
             var ruleName = rule.GetType().Name;
-            failures.Add(string.IsNullOrWhiteSpace(childError)
+            failures.Add(string.IsNullOrWhiteSpace(childError?.Message)
                 ? $"'{ruleName}' rejected (no details)."
-                : $"'{ruleName}' rejected: {childError}");
+                : $"'{ruleName}' rejected: {childError.Message}");
         }
 
         // Snapshot-capable rules later.
@@ -122,13 +126,17 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             }
 
             var ruleName = rule.GetType().Name;
-            failures.Add(string.IsNullOrWhiteSpace(childError)
+            failures.Add(string.IsNullOrWhiteSpace(childError?.Message)
                 ? $"'{ruleName}' rejected (no details)."
-                : $"'{ruleName}' rejected: {childError}");
+                : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = "OrRule expected at least one nested rule to allow the transaction, but none did. " +
-                $"Failures: {string.Join(" ", failures)}";
+        error = InventoryFailure.Create(
+            InventoryFailureKind.Rules,
+            InventoryFailureCodes.RulesRejected,
+            "OrRule expected at least one nested rule to allow the transaction, but none did. " +
+            $"Failures: {string.Join(" ", failures)}",
+            component: nameof(OrRule<TKey>));
         return false;
     }
 
@@ -137,7 +145,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var failures = new List<string>(_rules.Length);
         var normalized = inventory.GenerateNormalizedInventoryTransaction(transaction);
@@ -155,13 +163,17 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             }
 
             var ruleName = rule.GetType().Name;
-            failures.Add(string.IsNullOrWhiteSpace(childError)
+            failures.Add(string.IsNullOrWhiteSpace(childError?.Message)
                 ? $"'{ruleName}' rejected (no details)."
-                : $"'{ruleName}' rejected: {childError}");
+                : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = "OrRule expected at least one nested rule to allow the transaction, but none did. " +
-                $"Failures: {string.Join(" ", failures)}";
+        error = InventoryFailure.Create(
+            InventoryFailureKind.Rules,
+            InventoryFailureCodes.RulesRejected,
+            "OrRule expected at least one nested rule to allow the transaction, but none did. " +
+            $"Failures: {string.Join(" ", failures)}",
+            component: nameof(OrRule<TKey>));
         return false;
     }
 }

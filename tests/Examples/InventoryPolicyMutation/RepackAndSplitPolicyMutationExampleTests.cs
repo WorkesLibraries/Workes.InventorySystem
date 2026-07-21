@@ -61,9 +61,9 @@ public class RepackAndSplitPolicyMutationExampleTests
         operations.AppendLine($"Shrink slotCount to 3 with repack: {FormatResult(shrinkWithRepack, shrinkWithRepackError)}");
 
         Assert.That(lowerWithoutSplit, Is.False);
-        Assert.That(lowerWithSplitAndRepack, Is.True, lowerWithSplitAndRepackError);
+        Assert.That(lowerWithSplitAndRepack, Is.True, lowerWithSplitAndRepackError?.Message);
         Assert.That(shrinkWithoutRepack, Is.False);
-        Assert.That(shrinkWithRepack, Is.True, shrinkWithRepackError);
+        Assert.That(shrinkWithRepack, Is.True, shrinkWithRepackError?.Message);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 5, 5, 1 }));
         Assert.That(inventory.GetLayoutPositionCount(), Is.EqualTo(3));
         Assert.That(inventory.Count(coin), Is.EqualTo(10));
@@ -74,7 +74,7 @@ public class RepackAndSplitPolicyMutationExampleTests
         TestContext.Out.WriteLine($"Inventory policy repack/split example written to: {outputPath}");
     }
 
-    private static string FormatResult(bool accepted, string? error)
+    private static string FormatResult(bool accepted, InventoryFailure? error)
     {
         return accepted ? "committed" : $"rejected ({error})";
     }

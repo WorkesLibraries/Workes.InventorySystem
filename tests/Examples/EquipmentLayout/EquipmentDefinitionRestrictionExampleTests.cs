@@ -28,10 +28,10 @@ public class EquipmentDefinitionRestrictionExampleTests
         var heirloomCommitted = heirloomInventory.TryAdd(familyHeirloom, out var heirloomError, context: EquipmentLayoutContext<string>.Single("main-hand"));
         var helmetCommitted = helmetInventory.TryAdd(helmet, out var helmetError, context: EquipmentLayoutContext<string>.Single("main-hand"));
 
-        Assert.That(swordCommitted, Is.True, swordError);
-        Assert.That(heirloomCommitted, Is.True, heirloomError);
+        Assert.That(swordCommitted, Is.True, swordError?.Message);
+        Assert.That(heirloomCommitted, Is.True, heirloomError?.Message);
         Assert.That(helmetCommitted, Is.False);
-        Assert.That(helmetError, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(helmetError?.Message, Is.EqualTo("No compatible equipment slot available."));
 
         var output =
             "Equipment Definition Restrictions Example\n" +

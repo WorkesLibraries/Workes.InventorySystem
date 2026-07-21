@@ -12,7 +12,7 @@ namespace Workes.InventorySystem.Layout;
 /// This is an extension contract for custom layouts. Normal application code should
 /// usually call inventory-level methods such as <c>TryAdd(...)</c>,
 /// <see cref="Inventory{TKey}.TryMove"/>, <see cref="Inventory{TKey}.TrySwap"/>, and
-/// <see cref="Inventory{TKey}.TrySortLayout(Workes.InventorySystem.Sorting.IInventorySortContext{TKey}, out string?)"/>
+/// <see cref="Inventory{TKey}.TrySortLayout(Workes.InventorySystem.Sorting.IInventorySortContext{TKey}, out InventoryFailure?)"/>
 /// instead of invoking layout mutation methods directly. UI code should prefer inventory-owned
 /// query wrappers such as <see cref="Inventory{TKey}.GetAddressableLayoutContexts"/>,
 /// <see cref="Inventory{TKey}.GetItemAt(ILayoutContext{TKey})"/>,
@@ -100,7 +100,7 @@ public interface IInventoryLayout<TKey>
     /// are applied before additions, amount deltas do not create new layout
     /// positions, and added-entry contexts are authoritative for new placements.
     /// </remarks>
-    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error);
+    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error);
 
     /// <summary>
     /// Applies a transaction-level placement context to the transaction.
@@ -123,7 +123,7 @@ public interface IInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error);
+        out InventoryFailure? error);
 
     /// <summary>
     /// Validates whether a new item instance can be placed.
@@ -133,7 +133,7 @@ public interface IInventoryLayout<TKey>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <param name="error">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the instance can be placed; otherwise, <see langword="false"/>.</returns>
-    bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error);
+    bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error);
 
     /// <summary>
     /// Moves an item between two layout contexts.
@@ -143,7 +143,7 @@ public interface IInventoryLayout<TKey>
     /// <param name="contextTo">The destination layout context.</param>
     /// <param name="error">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the move succeeds; otherwise, <see langword="false"/>.</returns>
-    bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error);
+    bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error);
 
     /// <summary>
     /// Swaps two items between layout contexts.
@@ -153,7 +153,7 @@ public interface IInventoryLayout<TKey>
     /// <param name="contextTo">The second layout context.</param>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the swap succeeds; otherwise, <see langword="false"/>.</returns>
-    bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error);
+    bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error);
 
     /// <summary>
     /// Sorts the layout's placement state without mutating inventory storage order.
@@ -167,7 +167,7 @@ public interface IInventoryLayout<TKey>
     /// Layouts interpret sort contexts themselves so complex layouts can support
     /// richer strategies than simple item comparison.
     /// </remarks>
-    bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error);
+    bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error);
 
     /// <summary>
     /// Notifies the layout that the inventory added an item at the specified storage index.

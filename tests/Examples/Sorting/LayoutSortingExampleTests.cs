@@ -42,7 +42,7 @@ public class LayoutSortingExampleTests
             }));
         };
 
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True);
 
         var builder = new StringBuilder();
         builder.AppendLine("Before slots");

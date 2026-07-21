@@ -92,7 +92,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = new MultiCellGridLayout<TKey>(Width, Height, FootprintProvider, PlacementOrder, DefaultAnchor);
         error = null;
@@ -104,7 +104,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryResolveConfiguration(
@@ -130,7 +130,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryResolveConfiguration(
@@ -187,7 +187,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         out int height,
         out GridPlacementOrder placementOrder,
         out GridAnchor defaultAnchor,
-        out string? error)
+        out InventoryFailure? error)
     {
         width = Width;
         height = Height;
@@ -347,7 +347,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         return TrySimulatePlacement(inventory, transaction, out _, out error);
     }
@@ -359,7 +359,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -448,7 +448,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
     {
         var footprint = FootprintProvider.GetFootprint(instance.Definition);
         if (context is MultiCellGridLayoutContext<TKey> gridContext && !gridContext.IsMapped)
@@ -484,7 +484,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
@@ -525,7 +525,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         error = "Layout does not support swapping multi-cell items.";
         return false;
@@ -533,7 +533,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
     {
         MultiCellGridSortPriority priority;
         IComparer<ItemInstance<TKey>>? comparer;
@@ -698,7 +698,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         return clone;
     }
 
-    private bool TrySimulatePlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out List<int?>? simulated, out string? error)
+    private bool TrySimulatePlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out List<int?>? simulated, out InventoryFailure? error)
     {
         simulated = null;
         error = null;
@@ -888,7 +888,7 @@ public sealed class MultiCellGridLayout<TKey> : IParameterizedRepackableInventor
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;

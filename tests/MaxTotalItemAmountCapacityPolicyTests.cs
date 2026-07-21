@@ -27,7 +27,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
 
         var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(error, Is.Null);
     }
 
@@ -42,7 +42,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
     }
 
     [Test]
@@ -53,7 +53,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
 
         var result = inventory.TryAdd(apple, out var error, 5);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
     }
 
@@ -67,7 +67,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var result = inventory.TryAdd(apple, out var error, 2);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(4));
     }
 
@@ -88,7 +88,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var result = inventory.TryCommitTransaction(transaction, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(changed, Is.EqualTo(0));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
     }
@@ -106,7 +106,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
 
         var result = inventory.TryCommitTransaction(builder.Build(), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
         Assert.That(inventory.Count(apple), Is.EqualTo(3));
         Assert.That(inventory.Count(berry), Is.EqualTo(2));
@@ -127,7 +127,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(source.Count(apple), Is.EqualTo(3));
         Assert.That(target.Count(apple), Is.EqualTo(2));
     }
@@ -145,7 +145,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
     {
         var inventory = CreateInventory(new UnlimitedCapacityPolicy<string>(), definition);
 
-        Assert.That(inventory.TryAdd(definition, out var error, amount), Is.True, error);
+        Assert.That(inventory.TryAdd(definition, out var error, amount), Is.True);
         return inventory.Items.Single();
     }
 

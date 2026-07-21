@@ -124,7 +124,7 @@ var detachedApple =
 // Rejected: detachedApple is not the registered object.
 inventory.TryAdd(
     detachedApple,
-    out var error);
+    out var failure);
 ```
 
 When loading saved IDs, resolve them through the catalog registry.
@@ -146,15 +146,17 @@ Use `Try...` methods when failure is an ordinary application branch:
 ```csharp
 if (!inventory.TryAdd(
         apple,
-        out var error,
+        out var failure,
         amount: 5))
 {
     Console.WriteLine(
-        $"Could not add apples: {error}");
+        $"Could not add apples: {failure?.Message}");
 }
 ```
 
 Use throwing methods such as `Add(...)` when the operation is expected to succeed.
+Those throwing wrappers raise project-owned inventory exceptions carrying the same `InventoryFailure`.
+See [Failure Handling](FAILURES.md) for categories, stable codes, and exception behavior.
 
 Rejected operations leave the inventory unchanged.
 
@@ -172,4 +174,5 @@ Focused guides:
 - [Policies And Rules](POLICIES_AND_RULES.md)
 - [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md)
 - [Events And UI Integration](EVENTS_AND_UI.md)
+- [Failure Handling](FAILURES.md)
 - [Persistence](PERSISTENCE.md)

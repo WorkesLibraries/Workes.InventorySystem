@@ -43,8 +43,8 @@ public class UiMoveAnimationEventExampleTests
             }
         };
 
-        Assert.That(inventory.TryMove(GridLayoutContext<string>.Single(0, 1), GridLayoutContext<string>.Single(0, 0), out var error), Is.True, error);
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out error), Is.True, error);
+        Assert.That(inventory.TryMove(GridLayoutContext<string>.Single(0, 1), GridLayoutContext<string>.Single(0, 0), out var error), Is.True);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out error), Is.True);
 
         WriteExample("Events", "UiMoveAnimationEventExample.txt", string.Join("\n", animations));
     }

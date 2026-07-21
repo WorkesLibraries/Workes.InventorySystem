@@ -22,14 +22,14 @@ public class InventoryRuleMutationTests
         var berry = new ItemDefinition<string>("berry");
         var inventory = CreateInventory(null, apple, berry);
 
-        Assert.That(inventory.TryAdd(berry, out var addError), Is.True, addError);
+        Assert.That(inventory.TryAdd(berry, out var addError), Is.True);
 
         var accepted = inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), out var error);
 
         Assert.That(accepted, Is.False);
         Assert.That(error, Is.Not.Null);
         Assert.That(inventory.Rules.ContainsKey("only-apple"), Is.False);
-        Assert.That(inventory.TryAdd(berry, out var secondAddError), Is.True, secondAddError);
+        Assert.That(inventory.TryAdd(berry, out var secondAddError), Is.True, secondAddError?.Message);
     }
 
     [Test]
@@ -39,14 +39,14 @@ public class InventoryRuleMutationTests
         var berry = new ItemDefinition<string>("berry");
         var inventory = CreateInventory(null, apple, berry);
 
-        Assert.That(inventory.TryAdd(apple, out var addError), Is.True, addError);
+        Assert.That(inventory.TryAdd(apple, out var addError), Is.True);
 
         var accepted = inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Rules.ContainsKey("only-apple"), Is.True);
         Assert.That(inventory.TryAdd(berry, out var rejectedError), Is.False);
-        Assert.That(rejectedError, Does.Contain("only-apple"));
+        Assert.That(rejectedError?.Message, Does.Contain("only-apple"));
     }
 
     [Test]
@@ -58,13 +58,13 @@ public class InventoryRuleMutationTests
         rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), enabled: false);
         var inventory = CreateInventory(rules, apple, berry);
 
-        Assert.That(inventory.TryAdd(berry, out var addError), Is.True, addError);
+        Assert.That(inventory.TryAdd(berry, out var addError), Is.True);
 
         var accepted = inventory.TrySetRuleEnabled("only-apple", enabled: true, out var error);
 
         Assert.That(accepted, Is.False);
         Assert.That(error, Is.Not.Null);
-        Assert.That(inventory.TryAdd(berry, out var secondAddError), Is.True, secondAddError);
+        Assert.That(inventory.TryAdd(berry, out var secondAddError), Is.True, secondAddError?.Message);
     }
 
     [Test]
@@ -76,13 +76,13 @@ public class InventoryRuleMutationTests
         rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), enabled: false);
         var inventory = CreateInventory(rules, apple, berry);
 
-        Assert.That(inventory.TryAdd(apple, out var addError), Is.True, addError);
+        Assert.That(inventory.TryAdd(apple, out var addError), Is.True);
 
         var accepted = inventory.TrySetRuleEnabled("only-apple", enabled: true, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.TryAdd(berry, out var rejectedError), Is.False);
-        Assert.That(rejectedError, Does.Contain("only-apple"));
+        Assert.That(rejectedError?.Message, Does.Contain("only-apple"));
     }
 
     [Test]
@@ -94,13 +94,13 @@ public class InventoryRuleMutationTests
         rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple));
         var inventory = CreateInventory(rules, apple, berry);
 
-        Assert.That(inventory.TryAdd(apple, out var addError), Is.True, addError);
+        Assert.That(inventory.TryAdd(apple, out var addError), Is.True);
 
         var removed = inventory.TryRemoveRule("only-apple", out var error);
 
-        Assert.That(removed, Is.True, error);
+        Assert.That(removed, Is.True);
         Assert.That(inventory.Rules.ContainsKey("only-apple"), Is.False);
-        Assert.That(inventory.TryAdd(berry, out var berryError), Is.True, berryError);
+        Assert.That(inventory.TryAdd(berry, out var berryError), Is.True, berryError?.Message);
     }
 
     [Test]
@@ -112,10 +112,10 @@ public class InventoryRuleMutationTests
         var first = manager.CreateInventory();
         var second = manager.CreateInventory();
 
-        Assert.That(first.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), out var error), Is.True, error);
+        Assert.That(first.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), out var error), Is.True);
 
         Assert.That(first.TryAdd(berry, out _), Is.False);
-        Assert.That(second.TryAdd(berry, out var secondError), Is.True, secondError);
+        Assert.That(second.TryAdd(berry, out var secondError), Is.True, secondError?.Message);
     }
 
     [Test]
@@ -127,7 +127,7 @@ public class InventoryRuleMutationTests
 
         inventory.Add(berry);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<InventoryOperationException>(() =>
             inventory.SetRule("only-apple", new OnlyAllowItemsRule<string>(apple)));
         Assert.That(inventory.Rules.ContainsKey("only-apple"), Is.False);
     }
@@ -139,7 +139,7 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(null, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 5, enabled: true, out var error), Is.True, error);
+        Assert.That(inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 5, enabled: true, out var error), Is.True);
 
         var change = SingleRuleChange(events);
         Assert.That(change.Kind, Is.EqualTo(InventoryConfigurationChangeKind.Rules));
@@ -170,7 +170,7 @@ public class InventoryRuleMutationTests
         var replacementRule = new OnlyAllowItemsRule<string>(berry);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRule("active", replacementRule, out var error), Is.True, error);
+        Assert.That(inventory.TrySetRule("active", replacementRule, out var error), Is.True);
 
         var ruleChange = SingleRuleChange(events).RuleChange!;
         Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.Replaced));
@@ -190,7 +190,7 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(rules, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TryRemoveRule("only-apple", out var error), Is.True, error);
+        Assert.That(inventory.TryRemoveRule("only-apple", out var error), Is.True);
 
         var ruleChange = SingleRuleChange(events).RuleChange!;
         Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.Removed));
@@ -209,7 +209,7 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(rules, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var error), Is.True, error);
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var error), Is.True);
 
         var ruleChange = SingleRuleChange(events).RuleChange!;
         Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.EnabledChanged));
@@ -227,7 +227,7 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(rules, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 9, out var error), Is.True, error);
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 9, out var error), Is.True);
 
         var ruleChange = SingleRuleChange(events).RuleChange!;
         Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.PriorityChanged));
@@ -259,8 +259,8 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(rules, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var enabledError), Is.True, enabledError);
-        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 4, out var priorityError), Is.True, priorityError);
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var enabledError), Is.True, enabledError?.Message);
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 4, out var priorityError), Is.True, priorityError?.Message);
 
         Assert.That(events, Is.Empty);
     }
@@ -274,11 +274,11 @@ public class InventoryRuleMutationTests
         var inventory = CreateInventory(rules, apple);
         var events = CaptureEvents(inventory);
 
-        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var firstError), Is.True, firstError);
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var firstError), Is.True, firstError?.Message);
         var firstChange = events.Single().ConfigurationChanged.Single().RuleChange!;
         events.Clear();
 
-        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 7, out var secondError), Is.True, secondError);
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 7, out var secondError), Is.True, secondError?.Message);
 
         Assert.That(firstChange.PreviousState!.Enabled, Is.False);
         Assert.That(firstChange.CurrentState!.Enabled, Is.True);

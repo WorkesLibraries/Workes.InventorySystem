@@ -52,7 +52,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(ItemDefinition<TKey> definition, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(ItemDefinition<TKey> definition, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         return TryAdd(definition, amount, context, null, out error);
     }
@@ -65,7 +65,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(TKey definitionId, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(TKey definitionId, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
@@ -82,7 +82,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="metadata">Optional per-instance metadata for the added items.</param>
     /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out string? error)
+    public bool TryAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryFailure? error)
     {
         error = null;
         if (!_simulation.TryFormulateAdd(definition, amount, context, metadata, out var tx, out error) || tx == null)
@@ -101,7 +101,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="metadata">Optional per-instance metadata for the added items.</param>
     /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated add succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(TKey definitionId, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out string? error)
+    public bool TryAdd(TKey definitionId, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryFailure? error)
     {
         if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
@@ -117,7 +117,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>The instance is resolved to the matching instance in the simulation before removal.</remarks>
-    public bool TryRemove(ItemInstance<TKey> instance, out string? error, int amount = 1)
+    public bool TryRemove(ItemInstance<TKey> instance, out InventoryFailure? error, int amount = 1)
     {
         error = null;
         var simulationInstance = ResolveToSimulationInstance(instance);
@@ -140,7 +140,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveAtStorageIndex(int index, out string? error, int amount = 1)
+    public bool TryRemoveAtStorageIndex(int index, out InventoryFailure? error, int amount = 1)
     {
         error = null;
         if (!_simulation.TryFormulateRemoveAt(index, amount, out var tx, out error) || tx == null)
@@ -158,7 +158,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         error = null;
         if (!_simulation.TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out error) || tx == null)
@@ -176,7 +176,7 @@ public class InventoryTransactionBuilder<TKey>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
@@ -189,7 +189,7 @@ public class InventoryTransactionBuilder<TKey>
     /// </summary>
     /// <remarks>
     /// Most callers should commit the builder directly through <see cref="Inventory{TKey}.CommitTransaction(InventoryTransactionBuilder{TKey})"/>
-    /// or <see cref="Inventory{TKey}.TryCommitTransaction(InventoryTransactionBuilder{TKey}, out string?)"/>.
+    /// or <see cref="Inventory{TKey}.TryCommitTransaction(InventoryTransactionBuilder{TKey}, out InventoryFailure?)"/>.
     /// Use this method when code needs to inspect or store the structural transaction before committing it.
     /// </remarks>
     /// <returns>A structural transaction that represents all successful simulated operations.</returns>
@@ -238,7 +238,7 @@ public class InventoryTransactionBuilder<TKey>
     public bool TryBuild(
         ILayoutContext<TKey>? placementContext,
         out InventoryTransaction<TKey>? transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var candidate = Build();
         return _targetInventory.TryPrepareTransaction(candidate, placementContext, out transaction, out error);

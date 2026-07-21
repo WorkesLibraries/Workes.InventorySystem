@@ -22,7 +22,7 @@ public class MultiCellGridAnchorAndSortTests
         var table = new FootprintDefinition("table", 2, 1);
         var inventory = CreateInventory(new MultiCellGridLayout<string>(4, 2, Provider()), table);
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 0, GridAnchor.TopRight)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 0, GridAnchor.TopRight)), Is.True);
 
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("table"));
         Assert.That(Cell(inventory, 2, 0), Is.EqualTo("table"));
@@ -35,7 +35,7 @@ public class MultiCellGridAnchorAndSortTests
         var chest = new FootprintDefinition("chest", 2, 2);
         var inventory = CreateInventory(new MultiCellGridLayout<string>(4, 4, Provider()), chest);
 
-        Assert.That(inventory.TryAdd(chest, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 2, GridAnchor.BottomRight)), Is.True, error);
+        Assert.That(inventory.TryAdd(chest, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 2, GridAnchor.BottomRight)), Is.True);
 
         Assert.That(Cell(inventory, 1, 1), Is.EqualTo("chest"));
         Assert.That(Cell(inventory, 2, 2), Is.EqualTo("chest"));
@@ -48,7 +48,7 @@ public class MultiCellGridAnchorAndSortTests
         var table = new FootprintDefinition("table", 2, 1);
         var inventory = CreateInventory(new MultiCellGridLayout<string>(4, 2, Provider(), defaultAnchor: GridAnchor.TopRight), table);
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 0)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(2, 0)), Is.True);
 
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("table"));
         Assert.That(Cell(inventory, 2, 0), Is.EqualTo("table"));
@@ -60,7 +60,7 @@ public class MultiCellGridAnchorAndSortTests
         var table = new FootprintDefinition("table", 2, 1);
         var inventory = CreateInventory(new MultiCellGridLayout<string>(4, 2, Provider(), defaultAnchor: GridAnchor.TopRight), table);
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(0, 0, GridAnchor.TopLeft)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(0, 0, GridAnchor.TopLeft)), Is.True);
 
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("table"));
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("table"));
@@ -80,8 +80,8 @@ public class MultiCellGridAnchorAndSortTests
             .Add(1, 4, 2, GridAnchor.BottomRight)
             .Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("table"));
         Assert.That(Cell(inventory, 3, 1), Is.EqualTo("chest"));
@@ -95,7 +95,7 @@ public class MultiCellGridAnchorAndSortTests
         var inventory = CreateInventory(new MultiCellGridLayout<string>(2, 2, Provider()), apple);
 
         Assert.That(inventory.TrySortLayout((IInventorySortContext<string>)null!, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Sort context cannot be null."));
+        Assert.That(error?.Message, Is.EqualTo("Sort context cannot be null."));
     }
 
     [Test]
@@ -107,7 +107,7 @@ public class MultiCellGridAnchorAndSortTests
         inventory.TryAdd(small, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 0));
         inventory.TryAdd(large, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 1));
 
-        Assert.That(inventory.TrySortLayout(MultiCellGridSortContext<string>.Compact(), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout(MultiCellGridSortContext<string>.Compact(), out var error), Is.True);
 
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("large"));
         Assert.That(Cell(inventory, 1, 1), Is.EqualTo("large"));
@@ -123,7 +123,7 @@ public class MultiCellGridAnchorAndSortTests
         inventory.TryAdd(sword, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 0));
         inventory.TryAdd(apple, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
 
-        Assert.That(inventory.TrySortLayout(MultiCellGridSortContext<string>.Compact((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id)), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout(MultiCellGridSortContext<string>.Compact((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id)), out var error), Is.True);
 
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("apple"));
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("sword"));
@@ -138,7 +138,7 @@ public class MultiCellGridAnchorAndSortTests
         inventory.TryAdd(sword, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 1));
         inventory.TryAdd(apple, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 1));
 
-        Assert.That(inventory.TrySortLayout(ItemSortContext<string>.FromComparison((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id)), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout(ItemSortContext<string>.FromComparison((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id)), out var error), Is.True);
 
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("apple"));
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("sword"));

@@ -51,10 +51,10 @@ public class StackIncreaseCompactionPolicyMutationExampleTests
             InventoryParameterMutationActions.SplitOversizedStacks,
             out var splitError);
 
-        Assert.That(preserveUpgrade, Is.True, preserveError);
-        Assert.That(compressUpgrade, Is.True, compressError);
-        Assert.That(compressAndRepackUpgrade, Is.True, compressAndRepackError);
-        Assert.That(splitDowngrade, Is.True, splitError);
+        Assert.That(preserveUpgrade, Is.True, preserveError?.Message);
+        Assert.That(compressUpgrade, Is.True, compressError?.Message);
+        Assert.That(compressAndRepackUpgrade, Is.True, compressAndRepackError?.Message);
+        Assert.That(splitDowngrade, Is.True, splitError?.Message);
         Assert.That(preserveInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 10, 10, 10, 10 }));
         Assert.That(compressInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 25, 15 }));
         Assert.That(compressAndRepackInventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 25, 15 }));

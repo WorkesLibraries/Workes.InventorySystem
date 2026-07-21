@@ -11,7 +11,7 @@ internal static class InventorySnapshotCapture
     public static bool TryCapture<TKey>(
         Inventory<TKey> inventory,
         out InventorySnapshot? snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         snapshot = null;
         var result = new InventorySnapshot();
@@ -77,7 +77,7 @@ internal static class InventorySnapshotCapture
         object? value,
         string role,
         out SnapshotNamedValue? named,
-        out string? error)
+        out InventoryFailure? error)
     {
         named = null;
         if (string.IsNullOrWhiteSpace(name))
@@ -99,7 +99,7 @@ internal static class InventorySnapshotCapture
         IReadOnlyDictionary<ItemInstance<TKey>, string> entryIds,
         IReadOnlyList<InventorySnapshotEntry> snapshotEntries,
         out InventoryLayoutSnapshot? snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         snapshot = null;
         var codec = inventory.Layout.SnapshotCodec;

@@ -41,7 +41,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryAdd(apple, out var error, 1, SlotLayoutContext<string>.Single(2));
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var added = captured!.Added.Single();
         Assert.That(added.Index, Is.EqualTo(0));
         Assert.That(((SlotLayoutContext<string>)added.LayoutContext!).SlotIndex, Is.EqualTo(2));
@@ -57,7 +57,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryAdd(apple, out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var added = captured!.Added.Single();
         Assert.That(added.Index, Is.EqualTo(0));
         Assert.That(((EntryLayoutContext<string>)added.LayoutContext!).TargetIndex, Is.EqualTo(0));
@@ -74,7 +74,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryRemove(inventory.Items[0], out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var removed = captured!.Removed.Single();
         Assert.That(removed.Index, Is.EqualTo(0));
         Assert.That(((SlotLayoutContext<string>)removed.LayoutContext!).SlotIndex, Is.EqualTo(1));
@@ -91,7 +91,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryAdd(apple, out var error, 3, SlotLayoutContext<string>.Single(0));
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var modified = captured!.Modified.Single();
         Assert.That(modified.BeforeAmount, Is.EqualTo(2));
         Assert.That(modified.AfterAmount, Is.EqualTo(5));
@@ -110,7 +110,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryRemove(inventory.Items[0], out var error, 2);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var modified = captured!.Modified.Single();
         Assert.That(modified.BeforeAmount, Is.EqualTo(5));
         Assert.That(modified.AfterAmount, Is.EqualTo(3));
@@ -149,7 +149,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(captured!.Moved.Single().Cause, Is.EqualTo(ItemMovementCause.ExplicitMove));
         Assert.That(captured.Moved.Single().IsAutomatic, Is.False);
     }
@@ -167,7 +167,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(captured!.Moved, Is.Not.Empty);
         Assert.That(captured.Moved.All(move => move.Cause == ItemMovementCause.Sort), Is.True);
         Assert.That(captured.Moved.All(move => move.IsAutomatic), Is.True);
@@ -233,7 +233,7 @@ public class InventoryChangedEventTests
 
         var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         var movedContexts = captured!.Moved
             .SelectMany(move => move.FromLayoutContexts.Concat(move.ToLayoutContexts))
             .ToList();
@@ -253,7 +253,7 @@ public class InventoryChangedEventTests
         var result = inventory.TryAdd(apple, out var error, 1);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -272,7 +272,7 @@ public class InventoryChangedEventTests
         var result = inventory.TryCommitTransaction(builder.Build(), SlotLayoutContext<string>.Single(0), out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Slot already occupied."));
+        Assert.That(error?.Message, Is.EqualTo("Slot already occupied."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -294,7 +294,7 @@ public class InventoryChangedEventTests
 
         var result = source.TryTransferTo(target, source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(sourceEvent!.Modified.Single().AfterAmount, Is.EqualTo(1));
         Assert.That(((SlotLayoutContext<string>)sourceEvent.Modified.Single().AfterLayoutContext!).SlotIndex, Is.EqualTo(0));
         Assert.That(targetEvent!.Added.Single().Instance.Amount, Is.EqualTo(1));
@@ -365,7 +365,7 @@ public class InventoryChangedEventTests
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<InventoryOperationException>(() =>
             inventory.ReplaceContents(new[] { (berry, 1, (ILayoutContext<string>?)SlotLayoutContext<string>.Single(9)) }));
 
         Assert.That(changed, Is.EqualTo(0));
@@ -406,7 +406,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        Assert.That(inventory.Items[0].Metadata.TrySet("quality", "polished", out var error), Is.True, error);
+        Assert.That(inventory.Items[0].Metadata.TrySet("quality", "polished", out var error), Is.True);
 
         var changed = captured!.MetadataChanged.Single();
         Assert.That(changed.Instance, Is.SameAs(inventory.Items[0]));
@@ -427,7 +427,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        Assert.That(inventory.Items[0].TrySplitAndSetMetadata(1, "quest-item", true, out _, out var error), Is.True, error);
+        Assert.That(inventory.Items[0].TrySplitAndSetMetadata(1, "quest-item", true, out _, out var error), Is.True);
 
         Assert.That(captured!.Added, Has.Count.EqualTo(1));
         Assert.That(captured.Modified, Has.Count.EqualTo(1));

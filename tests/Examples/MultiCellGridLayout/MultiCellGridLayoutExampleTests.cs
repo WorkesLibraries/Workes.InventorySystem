@@ -30,8 +30,8 @@ public class MultiCellGridLayoutExampleTests
             new AttributeGridFootprintProvider<string>(Width, Height));
         var inventory = CreateInventory(layout, table, chest, crate);
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(0, 0)), Is.True, error);
-        Assert.That(inventory.TryAdd(chest, out error, 1, MultiCellGridLayoutContext<string>.Single(2, 1)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(0, 0)), Is.True);
+        Assert.That(inventory.TryAdd(chest, out error, 1, MultiCellGridLayoutContext<string>.Single(2, 1)), Is.True);
         var rejectedOverlap = inventory.TryAdd(crate, out error, 1, MultiCellGridLayoutContext<string>.Single(3, 2));
 
         Assert.That(rejectedOverlap, Is.False);

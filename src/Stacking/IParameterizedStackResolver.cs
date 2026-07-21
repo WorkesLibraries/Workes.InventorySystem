@@ -9,7 +9,7 @@ namespace Workes.InventorySystem.Stacking;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
 /// This is an extension contract. Normal runtime stack tuning should go through
-/// <see cref="Inventory{TKey}.TrySetStackResolverParameter(string, object?, out string?)"/>
+/// <see cref="Inventory{TKey}.TrySetStackResolverParameter(string, object?, out InventoryFailure?)"/>
 /// so the inventory can validate current contents before committing the change.
 /// </remarks>
 public interface IParameterizedStackResolver<TKey> : IStackResolver<TKey>
@@ -33,5 +33,5 @@ public interface IParameterizedStackResolver<TKey> : IStackResolver<TKey>
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out string? error);
+        out InventoryFailure? error);
 }

@@ -73,14 +73,14 @@ The builder exposes conditional staging methods:
 
 | API | Staged operation |
 |---|---|
-| `TryAdd(definition, out error, amount, context)` | Add an amount, optionally with direct placement |
-| `TryAdd(definitionId, out error, amount, context)` | Resolve a current or migrated ID, then add |
-| `TryAdd(definition, amount, context, metadata, out error)` | Add with instance metadata |
-| `TryAdd(definitionId, amount, context, metadata, out error)` | Resolve a current or migrated ID, then add with metadata |
-| `TryRemove(instance, out error, amount)` | Remove from a known item instance |
-| `TryRemoveAtStorageIndex(index, out error, amount)` | Remove by storage index |
-| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out error)` | Remove across matching stacks |
-| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out error)` | Resolve a current or migrated ID, then remove across matching stacks |
+| `TryAdd(definition, out failure, amount, context)` | Add an amount, optionally with direct placement |
+| `TryAdd(definitionId, out failure, amount, context)` | Resolve a current or migrated ID, then add |
+| `TryAdd(definition, amount, context, metadata, out failure)` | Add with instance metadata |
+| `TryAdd(definitionId, amount, context, metadata, out failure)` | Resolve a current or migrated ID, then add with metadata |
+| `TryRemove(instance, out failure, amount)` | Remove from a known item instance |
+| `TryRemoveAtStorageIndex(index, out failure, amount)` | Remove by storage index |
+| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure)` | Remove across matching stacks |
+| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out failure)` | Resolve a current or migrated ID, then remove across matching stacks |
 | `IsEmpty` | Inspect whether staging currently produces any structural change |
 
 Each successful call updates only the builder's simulation. Later calls see earlier staged work:
@@ -126,7 +126,7 @@ foreach (var addition in transaction.Added)
 }
 ```
 
-Use `TryBuild(placementContext, out transaction, out error)` when the transaction-level placement context should be
+Use `TryBuild(placementContext, out transaction, out failure)` when the transaction-level placement context should be
 applied and validated before inspection.
 
 Most application code can commit the builder directly:
@@ -135,17 +135,17 @@ Most application code can commit the builder directly:
 var committed =
     backpack.TryCommitTransaction(
         builder,
-        out var error);
+        out var failure);
 ```
 
 Commit APIs:
 
 | API | Use |
 |---|---|
-| `TryCommitTransaction(builder, out error)` | Build and conditionally commit |
-| `TryCommitTransaction(builder, placementContext, out error)` | Build and commit with transaction-level placement |
-| `TryCommitTransaction(transaction, out error)` | Commit an inspected transaction |
-| `TryCommitTransaction(transaction, placementContext, out error)` | Commit an inspected transaction with placement |
+| `TryCommitTransaction(builder, out failure)` | Build and conditionally commit |
+| `TryCommitTransaction(builder, placementContext, out failure)` | Build and commit with transaction-level placement |
+| `TryCommitTransaction(transaction, out failure)` | Commit an inspected transaction |
+| `TryCommitTransaction(transaction, placementContext, out failure)` | Commit an inspected transaction with placement |
 | `CommitTransaction(...)` | Throwing wrappers when success is expected |
 
 At commit, the inventory validates the complete transaction against its current definitions, stack resolver, capacity
@@ -157,8 +157,9 @@ An `InventoryTransaction<TKey>`:
 - can be applied only once.
 - should be committed while the inventory still represents the state against which it was built.
 
-The `Try...` commit methods report ownership, repeated-use, placement, or validation failures through `error`.
-Throwing wrappers raise `InvalidOperationException` when commit is rejected.
+The `Try...` commit methods report ownership, repeated-use, placement, or validation failures through `failure`.
+Throwing wrappers raise `InventoryOperationException` when commit is rejected. See [Failure Handling](FAILURES.md) for
+structured failure categories, stable codes, and project exception behavior.
 
 ## Transaction Placement Contexts
 
@@ -191,7 +192,7 @@ builder.TryAdd(
     amount: 3,
     context: SlotLayoutContext<string>.Single(2),
     metadata: appleMetadata,
-    out var error);
+    out var failure);
 ```
 
 ### Deferred Mapped Placement
@@ -222,7 +223,7 @@ var committed =
     backpack.TryCommitTransaction(
         transaction,
         placement,
-        out var error);
+        out var failure);
 ```
 
 Mapped keys are added-entry indices, not:
@@ -285,7 +286,7 @@ var moved =
         herbStack,
         amount: 3,
         targetContext: null,
-        out var error);
+        out var failure);
 ```
 
 | API | Behavior |
@@ -323,7 +324,7 @@ var committed =
         transfer,
         craftingInput,
         targetContext: null,
-        out var error);
+        out var failure);
 ```
 
 `InventoryTransfer.From(source)` creates an outgoing-only builder. Staging removal never adds to a target and never
@@ -338,12 +339,12 @@ at commit time.
 | `Entries` | Snapshot of planned outgoing entries |
 | `IsEmpty` | Whether no outgoing entries are staged |
 | `To(target)` | Create an empty target-bound builder before staging removals |
-| `TryRemove(item, amount, out error)` | Stage removal from one source instance |
-| `TryRemove(item, amount, targetContext, out error)` | Stage removal and direct target placement; target-bound builders only |
-| `TryRemoveAtStorageIndex(index, amount, out error)` | Stage removal by source storage index |
-| `TryRemoveAtStorageIndex(index, amount, targetContext, out error)` | Stage indexed removal and direct target placement; target-bound builders only |
-| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out error)` | Stage removal across matching source stacks |
-| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out error)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
+| `TryRemove(item, amount, out failure)` | Stage removal from one source instance |
+| `TryRemove(item, amount, targetContext, out failure)` | Stage removal and direct target placement; target-bound builders only |
+| `TryRemoveAtStorageIndex(index, amount, out failure)` | Stage removal by source storage index |
+| `TryRemoveAtStorageIndex(index, amount, targetContext, out failure)` | Stage indexed removal and direct target placement; target-bound builders only |
+| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure)` | Stage removal across matching source stacks |
+| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out failure)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
 
 Each `InventoryTransferEntry<TKey>` exposes the canonical definition, amount, cloned metadata snapshot, and original
 source instance for inspection.
@@ -352,10 +353,10 @@ The builder must be committed through the same source inventory:
 
 | Source API | Behavior |
 |---|---|
-| `CanCommitTransfer(builder, target, out error)` | Validate without mutation |
-| `CanCommitTransfer(builder, target, targetContext, out error)` | Validate with target placement |
-| `TryCommitTransfer(builder, target, out error)` | Conditionally commit |
-| `TryCommitTransfer(builder, target, targetContext, out error)` | Commit with target placement |
+| `CanCommitTransfer(builder, target, out failure)` | Validate without mutation |
+| `CanCommitTransfer(builder, target, targetContext, out failure)` | Validate with target placement |
+| `TryCommitTransfer(builder, target, out failure)` | Conditionally commit |
+| `TryCommitTransfer(builder, target, targetContext, out failure)` | Commit with target placement |
 | `CommitTransfer(...)` | Throwing wrappers |
 
 An empty transfer is rejected. A builder created from another source is also rejected.
@@ -378,7 +379,7 @@ transfer.TryRemove(
     out var herbError);
 
 var committed =
-    transfer.TryCommit(out var error);
+    transfer.TryCommit(out var failure);
 ```
 
 `.To(target)` returns the same `InventoryTransferBuilder<TKey>` type in target-bound mode. It must be called before any
@@ -404,7 +405,7 @@ var accepted =
     transfer.TryRemove(
         backpack.Find(stone).Single(),
         amount: 1,
-        out var error);
+        out var failure);
 ```
 
 Here `accepted` is `false` immediately if `chest` has rules, capacity, stacking, or automatic-placement behavior that
@@ -422,7 +423,7 @@ transfer.TryRemoveByDefinition(
     herb,
     amount: 12,
     ignoreMetadata: true,
-    out var error);
+    out var failure);
 ```
 
 A single definition-based removal can produce several incoming entries from several source stacks, so it does not accept
@@ -465,7 +466,7 @@ source.TryTransferTo(
     amount: 1,
     targetContext:
         SlotLayoutContext<string>.Single(4),
-    out var error);
+    out var failure);
 ```
 
 For deferred placement of several incoming entries, use a mapped context keyed by
@@ -489,7 +490,7 @@ var moved =
         transfer,
         chest,
         placement,
-        out var error);
+        out var failure);
 ```
 
 The context belongs to the target layout. Its mapped indices describe incoming transfer-entry order, not source storage
@@ -519,13 +520,13 @@ var moved =
         backpack,
         "loot:treasure",
         targetContext: null,
-        out var error);
+        out var failure);
 ```
 
 These operations are all-or-nothing. If any selected amount cannot leave the source or enter the target, no selected
 contents move.
 
-A selection containing no items produces a failed result with an empty-transfer error rather than a successful no-op.
+A selection containing no items produces a failed result with an empty-transfer failure rather than a successful no-op.
 
 ## Maximum And Best-Effort Transfers
 
@@ -544,7 +545,7 @@ var moved =
         "loot:treasure",
         targetContext: null,
         out var transferredAmount,
-        out var error);
+        out var failure);
 ```
 
 `TryTransferMaximumTo(...)` searches for the largest accepted amount and commits that amount once. It returns `false`
@@ -570,7 +571,7 @@ Swap helpers validate incoming and outgoing contents for both inventories:
 |---|---|
 | `TrySwapItemsWithInventory(other, sourceItem, otherItem, ...)` | Complete stacks |
 | `TrySwapItemsWithInventory(other, sourceItem, sourceAmount, otherItem, otherAmount, ...)` | Selected amounts |
-| `TrySwapWithInventory(other, sourceTargetContext, otherTargetContext, out error)` | All contents |
+| `TrySwapWithInventory(other, sourceTargetContext, otherTargetContext, out failure)` | All contents |
 
 ```csharp
 var swapped =
@@ -582,7 +583,7 @@ var swapped =
         otherAmount: 1,
         sourceTargetContext: null,
         otherTargetContext: null,
-        out var error);
+        out var failure);
 ```
 
 Context direction is named from the receiving side:
@@ -599,7 +600,7 @@ contents change. Swapping two empty inventories succeeds as a no-op and emits no
 
 ## Failure Semantics
 
-Conditional APIs return `false` with a consumer-facing error for expected rejection. Common causes include:
+Conditional APIs return `false` with a consumer-facing failure for expected rejection. Common causes include:
 
 - a transaction or builder belongs to another inventory.
 - an inspected transaction was already applied.

@@ -96,7 +96,7 @@ public class RuleContainer<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         return CanApply(inventory, transaction, structuralTransaction: null, out error);
     }
@@ -113,7 +113,7 @@ public class RuleContainer<TKey>
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryTransaction<TKey>? structuralTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         InventoryRuleSnapshot<TKey>? snapshot = null;
 
@@ -137,11 +137,15 @@ public class RuleContainer<TKey>
 
             if (!allowed)
             {
-                var ruleName = rule.GetType().Name;
+                var ruleName = GetRuleComponentName(rule);
                 var ruleId = rule.Id;
-                error = string.IsNullOrWhiteSpace(error)
-                    ? $"Rule '{ruleId}' ({ruleName}) rejected the transaction."
-                    : $"Rule '{ruleId}' ({ruleName}) rejected the transaction: {error}";
+                error = InventoryFailure.Wrap(
+                    InventoryFailureKind.Rules,
+                    InventoryFailureCodes.RulesRejected,
+                    $"Rule '{ruleId}' ({ruleName}) rejected the transaction.",
+                    error,
+                    component: ruleName,
+                    source: ruleId);
                 return false;
             }
         }
@@ -159,17 +163,30 @@ public class RuleContainer<TKey>
                 if (structuralRule.CanApply(inventory, structuralTransaction, out error))
                     continue;
 
-                var ruleName = entry.Rule.GetType().Name;
+                var ruleName = GetRuleComponentName(entry.Rule);
                 var ruleId = entry.Rule.Id;
-                error = string.IsNullOrWhiteSpace(error)
-                    ? $"Rule '{ruleId}' ({ruleName}) rejected the transaction."
-                    : $"Rule '{ruleId}' ({ruleName}) rejected the transaction: {error}";
+                error = InventoryFailure.Wrap(
+                    InventoryFailureKind.Rules,
+                    InventoryFailureCodes.RulesRejected,
+                    $"Rule '{ruleId}' ({ruleName}) rejected the transaction.",
+                    error,
+                    component: ruleName,
+                    source: ruleId);
                 return false;
             }
         }
 
         error = null;
         return true;
+    }
+
+    private static string GetRuleComponentName(IRulePolicy<TKey> rule)
+    {
+        var name = rule is IdentifiedRulePolicy<TKey> identified
+            ? identified.Inner.GetType().Name
+            : rule.GetType().Name;
+        var genericMarker = name.IndexOf('`');
+        return genericMarker >= 0 ? name[..genericMarker] : name;
     }
 
     /// <summary>

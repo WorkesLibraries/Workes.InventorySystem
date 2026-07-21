@@ -9,7 +9,7 @@ namespace Workes.InventorySystem.Capacity;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
 /// This is an extension contract. Normal runtime capacity tuning should go through
-/// <see cref="Inventory{TKey}.TrySetCapacityPolicyParameter(string, object?, out string?)"/>
+/// <see cref="Inventory{TKey}.TrySetCapacityPolicyParameter(string, object?, out InventoryFailure?)"/>
 /// so the inventory can validate current contents before committing the change.
 /// </remarks>
 public interface IParameterizedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
@@ -33,5 +33,5 @@ public interface IParameterizedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
         string parameterId,
         object? value,
         out ICapacityPolicy<TKey>? policy,
-        out string? error);
+        out InventoryFailure? error);
 }

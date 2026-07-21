@@ -67,7 +67,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
+    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -93,7 +93,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
+    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -115,7 +115,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
         return true;
     }
 
-    private bool TryCalculateCurrentWeight(Inventory<TKey> inventory, out double weight, out string? error)
+    private bool TryCalculateCurrentWeight(Inventory<TKey> inventory, out double weight, out InventoryFailure? error)
     {
         weight = 0;
         foreach (var item in inventory.Items)
@@ -133,7 +133,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
     private bool TryCalculateWeight(
         System.Collections.Generic.IReadOnlyList<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)> entries,
         out double weight,
-        out string? error)
+        out InventoryFailure? error)
     {
         weight = 0;
         foreach (var (definition, _, amount) in entries)
@@ -148,7 +148,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
         return true;
     }
 
-    private bool TryGetWeight(ItemDefinition<TKey> definition, out double weight, out string? error)
+    private bool TryGetWeight(ItemDefinition<TKey> definition, out double weight, out InventoryFailure? error)
     {
         if (definition.Attributes.TryGet(WeightAttributeId, out weight))
         {
@@ -174,7 +174,7 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
         string parameterId,
         object? value,
         out ICapacityPolicy<TKey>? policy,
-        out string? error)
+        out InventoryFailure? error)
     {
         policy = null;
         if (parameterId == "maxWeight")

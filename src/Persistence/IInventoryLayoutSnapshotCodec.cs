@@ -25,7 +25,7 @@ public interface IInventoryLayoutSnapshotCodec<TKey>
     bool TryCapture(
         InventoryLayoutSnapshotCaptureContext<TKey> context,
         out SnapshotValue? data,
-        out string? error);
+        out InventoryFailure? error);
 
     /// <summary>
     /// Decodes and structurally validates layout data into an inert candidate without mutating a live layout.
@@ -33,7 +33,7 @@ public interface IInventoryLayoutSnapshotCodec<TKey>
     bool TryDecode(
         InventoryLayoutSnapshotDecodeContext<TKey> context,
         out InventoryLayoutSnapshotCandidate<TKey>? candidate,
-        out string? error);
+        out InventoryFailure? error);
 
     /// <summary>
     /// Creates an isolated layout containing the exact decoded placement, or rejects incompatible current
@@ -42,7 +42,7 @@ public interface IInventoryLayoutSnapshotCodec<TKey>
     bool TryCreateExactLayout(
         InventoryLayoutSnapshotRestoreContext<TKey> context,
         out IInventoryLayout<TKey>? layout,
-        out string? error);
+        out InventoryFailure? error);
 }
 
 /// <summary>Provides stable snapshot identities while a layout codec captures state.</summary>

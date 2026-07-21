@@ -40,7 +40,7 @@ public class TransferBuilderExampleTests
 
         var moved = backpack.TryCommitTransfer(builder, craftingInput, targetContext: null, out var error);
 
-        Assert.That(moved, Is.True, error);
+        Assert.That(moved, Is.True);
         Assert.That(backpack.Count(herb), Is.EqualTo(1));
         Assert.That(backpack.Count(bottle), Is.EqualTo(1));
         Assert.That(backpack.Count(coin), Is.EqualTo(12));

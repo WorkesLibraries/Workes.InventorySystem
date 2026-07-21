@@ -84,7 +84,7 @@ public sealed class AttributeMaxStackResolver<TKey> : IParameterizedStackResolve
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out string? error)
+        out InventoryFailure? error)
     {
         resolver = null;
         if (parameterId != "missingAttributeMaxStack")

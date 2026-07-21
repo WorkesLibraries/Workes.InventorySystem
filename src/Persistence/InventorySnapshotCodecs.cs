@@ -35,7 +35,7 @@ public static class InventorySnapshotCodecs
     public static bool TryEncode<T>(
         T value,
         out SnapshotEncodedValue? encoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryEncodeObject(value, out encoded, out error);
     }
@@ -46,7 +46,7 @@ public static class InventorySnapshotCodecs
     public static SnapshotEncodedValue Encode<T>(T value)
     {
         if (!TryEncode(value, out var encoded, out var error) || encoded == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
         return encoded;
     }
 
@@ -56,7 +56,7 @@ public static class InventorySnapshotCodecs
     public static bool TryDecode<T>(
         SnapshotEncodedValue encoded,
         out T value,
-        out string? error)
+        out InventoryFailure? error)
     {
         value = default!;
         if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out error) || detached == null)
@@ -121,7 +121,7 @@ public static class InventorySnapshotCodecs
     internal static bool TryDecodeRuntime(
         SnapshotEncodedValue encoded,
         out object? value,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryDecodeRuntime(encoded, out value, out _, out error);
     }
@@ -130,7 +130,7 @@ public static class InventorySnapshotCodecs
         SnapshotEncodedValue encoded,
         out object? value,
         out Type? valueType,
-        out string? error)
+        out InventoryFailure? error)
     {
         value = null;
         valueType = null;
@@ -183,7 +183,7 @@ public static class InventorySnapshotCodecs
     internal static bool TryEncodeObject(
         object? value,
         out SnapshotEncodedValue? encoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         encoded = null;
         if (value == null)
@@ -253,7 +253,7 @@ public static class InventorySnapshotCodecs
     internal static bool TryEncodeKey<TKey>(
         TKey value,
         out SnapshotEncodedValue? encoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (value is null)
         {
@@ -271,7 +271,7 @@ public static class InventorySnapshotCodecs
     internal static bool TryDecodeKey<TKey>(
         SnapshotEncodedValue encoded,
         out TKey value,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (HasRegisteredAdapter(typeof(TKey)))
             return TryDecode(encoded, out value, out error);
@@ -289,7 +289,7 @@ public static class InventorySnapshotCodecs
         object? value,
         Type declaredType,
         out SnapshotEncodedValue? encoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (value != null)
             return TryEncodeObject(value, out encoded, out error);
@@ -313,7 +313,7 @@ public static class InventorySnapshotCodecs
         return true;
     }
 
-    private static bool TryGetAdapter(Type type, out ICodecAdapter? adapter, out string? error)
+    private static bool TryGetAdapter(Type type, out ICodecAdapter? adapter, out InventoryFailure? error)
     {
         lock (s_gate)
         {
@@ -368,7 +368,7 @@ public static class InventorySnapshotCodecs
         Type openCodecType,
         Type elementType,
         out ICodecAdapter? adapter,
-        out string? error)
+        out InventoryFailure? error)
     {
         try
         {
@@ -393,7 +393,7 @@ public static class InventorySnapshotCodecs
     private static bool TryGetAdapterById(
         string formatId,
         out ICodecAdapter? adapter,
-        out string? error)
+        out InventoryFailure? error)
     {
         lock (s_gate)
         {
@@ -478,7 +478,7 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<char>(
             "workes.inventory.value.char",
             value => SnapshotValue.String(((int)value).ToString("X4", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out char decoded, out string? error) =>
+            (SnapshotValue value, out char decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -491,7 +491,7 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<bool>(
             "workes.inventory.value.boolean",
             SnapshotValue.Boolean,
-            (SnapshotValue value, out bool decoded, out string? error) =>
+            (SnapshotValue value, out bool decoded, out InventoryFailure? error) =>
             {
                 decoded = value.BooleanValue;
                 if (value.Kind != SnapshotValueKind.Boolean)
@@ -513,7 +513,7 @@ public static class InventorySnapshotCodecs
             "workes.inventory.value.single",
             value => SnapshotValue.String(
                 BitConverter.ToUInt32(BitConverter.GetBytes(value), 0).ToString("X8", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out float decoded, out string? error) =>
+            (SnapshotValue value, out float decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -526,7 +526,7 @@ public static class InventorySnapshotCodecs
             "workes.inventory.value.double",
             value => SnapshotValue.String(
                 unchecked((ulong)BitConverter.DoubleToInt64Bits(value)).ToString("X16", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out double decoded, out string? error) =>
+            (SnapshotValue value, out double decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -540,7 +540,7 @@ public static class InventorySnapshotCodecs
             value => SnapshotValue.String(string.Join(
                 ",",
                 decimal.GetBits(value).Select(part => unchecked((uint)part).ToString("X8", CultureInfo.InvariantCulture)))),
-            (SnapshotValue value, out decimal decoded, out string? error) =>
+            (SnapshotValue value, out decimal decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error))
@@ -569,7 +569,7 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<Guid>(
             "workes.inventory.value.guid",
             value => SnapshotValue.String(value.ToString("D")),
-            (SnapshotValue value, out Guid decoded, out string? error) =>
+            (SnapshotValue value, out Guid decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -593,7 +593,7 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<TimeSpan>(
             "workes.inventory.value.timespan",
             value => SnapshotValue.String(value.Ticks.ToString(CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out TimeSpan decoded, out string? error) =>
+            (SnapshotValue value, out TimeSpan decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -611,7 +611,7 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<T>(
             ReservedPrefix + "value." + suffix,
             value => SnapshotValue.String(value.ToString(null, CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out T decoded, out string? error) =>
+            (SnapshotValue value, out T decoded, out InventoryFailure? error) =>
             {
                 decoded = default;
                 if (!TryReadString(value, out var text, out error) ||
@@ -625,7 +625,7 @@ public static class InventorySnapshotCodecs
     private static bool TryDecodeDateTime(
         SnapshotValue value,
         out DateTime decoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         decoded = default;
         if (!TrySplitPair(value, out long ticks, out int kind, out error) ||
@@ -647,7 +647,7 @@ public static class InventorySnapshotCodecs
     private static bool TryDecodeDateTimeOffset(
         SnapshotValue value,
         out DateTimeOffset decoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         decoded = default;
         if (!TrySplitPair(value, out long ticks, out int offsetMinutes, out error))
@@ -668,7 +668,7 @@ public static class InventorySnapshotCodecs
         SnapshotValue value,
         out long first,
         out int second,
-        out string? error)
+        out InventoryFailure? error)
     {
         first = default;
         second = default;
@@ -685,7 +685,7 @@ public static class InventorySnapshotCodecs
     private static bool RequireString(
         SnapshotValue value,
         out string decoded,
-        out string? error)
+        out InventoryFailure? error)
     {
         decoded = string.Empty;
         if (!TryReadString(value, out var text, out error))
@@ -697,7 +697,7 @@ public static class InventorySnapshotCodecs
     private static bool TryReadString(
         SnapshotValue value,
         out string text,
-        out string? error)
+        out InventoryFailure? error)
     {
         text = string.Empty;
         if (value.Kind != SnapshotValueKind.String || value.StringValue == null)
@@ -707,7 +707,7 @@ public static class InventorySnapshotCodecs
         return true;
     }
 
-    private static bool Fail(string message, out string? error)
+    private static bool Fail(string message, out InventoryFailure? error)
     {
         error = message;
         return false;
@@ -716,7 +716,7 @@ public static class InventorySnapshotCodecs
     private static string CollectionId(string kind, Type elementType)
     {
         if (!TryGetAdapter(elementType, out var adapter, out var error) || adapter == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
         return ReservedPrefix + "value." + kind + "." + Uri.EscapeDataString(adapter.FormatId);
     }
 
@@ -732,15 +732,15 @@ public static class InventorySnapshotCodecs
     private delegate bool TryDecodeDelegate<T>(
         SnapshotValue value,
         out T decoded,
-        out string? error);
+        out InventoryFailure? error);
 
     private interface ICodecAdapter
     {
         Type ValueType { get; }
         string FormatId { get; }
         int CurrentVersion { get; }
-        bool TryEncode(object value, out SnapshotValue? encoded, out string? error);
-        bool TryDecode(SnapshotValue encoded, int version, out object? value, out string? error);
+        bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error);
+        bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error);
     }
 
     private sealed class CodecAdapter<T> : ICodecAdapter
@@ -756,7 +756,7 @@ public static class InventorySnapshotCodecs
         public string FormatId => _codec.FormatId;
         public int CurrentVersion => _codec.CurrentVersion;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             if (value is not T typed)
             {
@@ -767,7 +767,7 @@ public static class InventorySnapshotCodecs
             return _codec.TryEncode(typed, out encoded, out error);
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
         {
             value = null;
             if (!_codec.TryDecode(encoded, version, out var decoded, out error))
@@ -795,14 +795,14 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; }
         public int CurrentVersion => 1;
 
-        public bool TryEncode(T value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(T value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             encoded = _encode(value);
             error = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out T value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out T value, out InventoryFailure? error)
         {
             value = default!;
             if (version != CurrentVersion)
@@ -816,7 +816,7 @@ public static class InventorySnapshotCodecs
         public string FormatId => ReservedPrefix + "value.dynamic";
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             if (!TryEncodeObject(value, out var child, out error) || child == null)
             {
@@ -830,7 +830,7 @@ public static class InventorySnapshotCodecs
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object value, out InventoryFailure? error)
         {
             value = null!;
             if (version != CurrentVersion ||
@@ -851,7 +851,7 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; } = CollectionId("array", typeof(T));
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             var array = (T[])value;
             var items = new List<SnapshotEncodedValue>(array.Length);
@@ -869,7 +869,7 @@ public static class InventorySnapshotCodecs
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
         {
             value = null;
             if (version != CurrentVersion || encoded.Kind != SnapshotValueKind.List)
@@ -892,7 +892,7 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; } = CollectionId("list", typeof(T));
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             var list = (List<T>)value;
             var items = new List<SnapshotEncodedValue>(list.Count);
@@ -910,7 +910,7 @@ public static class InventorySnapshotCodecs
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
         {
             value = null;
             if (version != CurrentVersion || encoded.Kind != SnapshotValueKind.List)
@@ -931,7 +931,7 @@ public static class InventorySnapshotCodecs
     private static bool TryDecodeElement<T>(
         SnapshotEncodedValue encoded,
         out T value,
-        out string? error)
+        out InventoryFailure? error)
     {
         value = default!;
         if (!TryDecodeRuntime(encoded, out var decoded, out error))
@@ -1019,7 +1019,7 @@ public static class InventorySnapshotCodecs
         internal static bool TryEncode(
             TKey value,
             out SnapshotEncodedValue? encoded,
-            out string? error)
+            out InventoryFailure? error)
         {
             encoded = null;
             if (s_codec == null || s_configurationError != null)
@@ -1058,7 +1058,7 @@ public static class InventorySnapshotCodecs
         internal static bool TryDecode(
             SnapshotEncodedValue encoded,
             out TKey value,
-            out string? error)
+            out InventoryFailure? error)
         {
             value = default!;
             if (s_codec == null)
@@ -1097,7 +1097,7 @@ internal static class SnapshotValueValidator
     public static bool TryClone(
         SnapshotValue? value,
         out SnapshotValue? clone,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryClone(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out error);
     }
@@ -1105,7 +1105,7 @@ internal static class SnapshotValueValidator
     public static bool TryCloneEncoded(
         SnapshotEncodedValue? value,
         out SnapshotEncodedValue? clone,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryCloneEncoded(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out error);
     }
@@ -1114,7 +1114,7 @@ internal static class SnapshotValueValidator
         SnapshotValue? value,
         HashSet<object> path,
         out SnapshotValue? clone,
-        out string? error)
+        out InventoryFailure? error)
     {
         clone = null;
         if (value == null)
@@ -1236,7 +1236,7 @@ internal static class SnapshotValueValidator
         SnapshotEncodedValue? value,
         HashSet<object> path,
         out SnapshotEncodedValue? clone,
-        out string? error)
+        out InventoryFailure? error)
     {
         clone = null;
         if (value == null ||

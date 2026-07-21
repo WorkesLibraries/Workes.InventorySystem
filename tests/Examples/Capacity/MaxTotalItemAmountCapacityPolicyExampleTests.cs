@@ -33,10 +33,10 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
         var addedPotions = backpack.TryAdd(potion, out var potionError, 2);
         var addedExtraPotion = backpack.TryAdd(potion, out var extraPotionError, 1);
 
-        Assert.That(addedApples, Is.True, appleError);
-        Assert.That(addedPotions, Is.True, potionError);
+        Assert.That(addedApples, Is.True);
+        Assert.That(addedPotions, Is.True, potionError?.Message);
         Assert.That(addedExtraPotion, Is.False);
-        Assert.That(extraPotionError, Is.EqualTo("Capacity exceeded."));
+        Assert.That(extraPotionError?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(backpack.TotalItemCount, Is.EqualTo(5));
 
         var outputPath = Path.Combine(
@@ -49,7 +49,7 @@ public class MaxTotalItemAmountCapacityPolicyExampleTests
         TestContext.Out.WriteLine("Max total item amount capacity example output: " + outputPath);
     }
 
-    private static string Describe(Inventory<string> inventory, string? rejection)
+    private static string Describe(Inventory<string> inventory, InventoryFailure? rejection)
     {
         var builder = new StringBuilder();
         builder.AppendLine("Backpack capacity");

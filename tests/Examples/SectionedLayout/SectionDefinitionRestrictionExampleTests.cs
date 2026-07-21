@@ -24,9 +24,9 @@ public class SectionDefinitionRestrictionExampleTests
         var lockpickCommitted = inventory.TryAdd(lockpick, out var lockpickError);
         var appleCommitted = inventory.TryAdd(apple, out var appleError);
 
-        Assert.That(axeCommitted, Is.True, axeError);
-        Assert.That(lockpickCommitted, Is.True, lockpickError);
-        Assert.That(appleCommitted, Is.True, appleError);
+        Assert.That(axeCommitted, Is.True, axeError?.Message);
+        Assert.That(lockpickCommitted, Is.True, lockpickError?.Message);
+        Assert.That(appleCommitted, Is.True);
         Assert.That(ItemAt(inventory, "tools", 0), Is.EqualTo("axe"));
         Assert.That(ItemAt(inventory, "tools", 1), Is.EqualTo("lockpick"));
         Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));

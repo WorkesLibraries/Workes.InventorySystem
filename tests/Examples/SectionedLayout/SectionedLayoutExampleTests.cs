@@ -27,9 +27,9 @@ public class SectionedLayoutExampleTests
             new SectionDefinition<string>("bag", 3));
         var inventory = CreateInventory(layout, new[] { consumable, tool }, apple, rope, coin);
 
-        Assert.That(inventory.TryAdd(apple, out var error, 4, SectionedLayoutContext<string>.Single("hotbar", 0)), Is.True, error);
-        Assert.That(inventory.TryAdd(rope, out error), Is.True, error);
-        Assert.That(inventory.TryAdd(coin, out error, 8, SectionedLayoutContext<string>.Single("bag", 1)), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error, 4, SectionedLayoutContext<string>.Single("hotbar", 0)), Is.True);
+        Assert.That(inventory.TryAdd(rope, out error), Is.True);
+        Assert.That(inventory.TryAdd(coin, out error, 8, SectionedLayoutContext<string>.Single("bag", 1)), Is.True);
 
         WriteOutput("SectionedBackpack.txt", DescribeSections(inventory));
     }
@@ -57,7 +57,7 @@ public class SectionedLayoutExampleTests
         var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
-        Assert.That(committed, Is.True, error);
+        Assert.That(committed, Is.True);
         WriteOutput("MappedSectionedTransaction.txt", DescribeSections(inventory));
     }
 

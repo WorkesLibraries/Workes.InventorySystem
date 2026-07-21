@@ -20,7 +20,7 @@ public class InventoryMetadataMutationTests
 
         var accepted = metadata.TrySet("quality", "fresh", out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
     }
@@ -36,7 +36,7 @@ public class InventoryMetadataMutationTests
 
         var accepted = inventory.Items[0].Metadata.TrySet("quality", "polished", out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         var change = captured!.MetadataChanged.Single();
         Assert.That(change.Instance, Is.SameAs(inventory.Items[0]));
         Assert.That(change.BeforeMetadata, Is.Empty);
@@ -89,7 +89,7 @@ public class InventoryMetadataMutationTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Add("quality", "polished"));
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Add("quality", "polished"));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
@@ -120,7 +120,7 @@ public class InventoryMetadataMutationTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Change("quality", "polished"));
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Change("quality", "polished"));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
         Assert.That(inventory.Items[0].Metadata.IsEmpty, Is.True);
@@ -153,12 +153,12 @@ public class InventoryMetadataMutationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True);
         inventory.CommitTransaction(builder);
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Remove("quality"));
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Remove("quality"));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
@@ -178,7 +178,7 @@ public class InventoryMetadataMutationTests
             new Dictionary<string, object?> { ["rarity"] = "rare" },
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items[0].Metadata.AsReadOnly().ContainsKey("quality"), Is.False);
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("rarity", out var rarity), Is.True);
         Assert.That(rarity, Is.EqualTo("rare"));
@@ -197,12 +197,12 @@ public class InventoryMetadataMutationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True);
         inventory.CommitTransaction(builder);
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Replace(
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Replace(
             new Dictionary<string, object?> { ["rarity"] = "rare" }));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
@@ -227,7 +227,7 @@ public class InventoryMetadataMutationTests
             },
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
         Assert.That(inventory.Items[0].Metadata.TryGet<bool>("inspected", out var inspected), Is.True);
@@ -247,12 +247,12 @@ public class InventoryMetadataMutationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True);
         inventory.CommitTransaction(builder);
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Transform(
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Transform(
             proposed => proposed.Remove("quality")));
 
         Assert.That(ex!.Message, Does.Contain("quality"));
@@ -274,7 +274,7 @@ public class InventoryMetadataMutationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "approved");
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True);
         inventory.CommitTransaction(builder);
 
         var accepted = inventory.Items[0].Metadata.TrySet("quality", "rejected", out var error);
@@ -317,7 +317,7 @@ public class InventoryMetadataMutationTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var ex = Assert.Throws<InvalidOperationException>(() => inventory.Items[0].Metadata.Set("locked", true));
+        var ex = Assert.Throws<InventoryOperationException>(() => inventory.Items[0].Metadata.Set("locked", true));
 
         Assert.That(ex!.Message, Does.Contain("exceed maximum stack size"));
         Assert.That(inventory.Items[0].Metadata.AsReadOnly().ContainsKey("locked"), Is.False);
@@ -365,13 +365,13 @@ public class InventoryMetadataMutationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "fresh");
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True, buildError);
+        Assert.That(builder.TryAdd(gem, 1, null, metadata, out var buildError), Is.True);
         inventory.CommitTransaction(builder);
 
         var accepted = inventory.Items[0].Metadata.TryRemove("quality", out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("quality"));
+        Assert.That(error?.Message, Does.Contain("quality"));
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
     }
@@ -390,7 +390,7 @@ public class InventoryMetadataMutationTests
         var accepted = inventory.Items[0].Metadata.TrySet("locked", true, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("exceed maximum stack size"));
+        Assert.That(error?.Message, Does.Contain("exceed maximum stack size"));
     }
 
     [Test]
@@ -402,7 +402,7 @@ public class InventoryMetadataMutationTests
 
         var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(metadataStack, Is.Not.Null);
         Assert.That(inventory.Items.Sum(item => item.Amount), Is.EqualTo(5));
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 3, 2 }));
@@ -422,7 +422,7 @@ public class InventoryMetadataMutationTests
 
         var accepted = original.TrySplitAndSetMetadata(5, "quality", "polished", out var metadataStack, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(metadataStack, Is.SameAs(original));
         Assert.That(inventory.Items, Has.Count.EqualTo(1));
         Assert.That(original.Metadata.TryGet<string>("quality", out var quality), Is.True);
@@ -469,7 +469,7 @@ public class InventoryMetadataMutationTests
 
         var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out _, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(captured!.Modified, Has.Count.EqualTo(1));
         Assert.That(captured.Added, Has.Count.EqualTo(1));
         Assert.That(captured.MetadataChanged, Is.Empty);

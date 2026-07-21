@@ -65,7 +65,7 @@ public static class InventoryTransfer
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -139,7 +139,7 @@ public static class InventoryTransfer
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (builder == null)
         {
@@ -167,7 +167,7 @@ public static class InventoryTransfer
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -195,7 +195,7 @@ public static class InventoryTransfer
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (builder == null)
         {
@@ -211,7 +211,7 @@ public static class InventoryTransfer
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryCreateTransferPlan(source, builder, target, targetContext, out _, out error);
     }
@@ -221,7 +221,7 @@ public static class InventoryTransfer
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryCreateTransferPlan(source, builder, target, targetContext, out var plan, out error) || plan == null)
             return false;
@@ -248,7 +248,7 @@ public static class InventoryTransfer
         ItemInstance<TKey> secondItem,
         ILayoutContext<TKey>? firstTargetContext,
         ILayoutContext<TKey>? secondTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (firstItem == null)
         {
@@ -287,7 +287,7 @@ public static class InventoryTransfer
         int secondAmount,
         ILayoutContext<TKey>? firstTargetContext,
         ILayoutContext<TKey>? secondTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryValidateCompatibility(first, second, out error))
             return false;
@@ -333,7 +333,7 @@ public static class InventoryTransfer
         Inventory<TKey> second,
         ILayoutContext<TKey>? firstTargetContext,
         ILayoutContext<TKey>? secondTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryValidateCompatibility(first, second, out error))
             return false;
@@ -361,7 +361,7 @@ public static class InventoryTransfer
         Inventory<TKey> source,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryMoveWhere(source, target, _ => true, targetContext, out error);
     }
@@ -374,7 +374,7 @@ public static class InventoryTransfer
         Inventory<TKey> target,
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -405,7 +405,7 @@ public static class InventoryTransfer
         Inventory<TKey> target,
         string tagId,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -429,7 +429,7 @@ public static class InventoryTransfer
         Inventory<TKey> target,
         string[] tagIds,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -478,7 +478,7 @@ public static class InventoryTransfer
         int requestedAmount,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (requestedAmount <= 0)
@@ -495,7 +495,7 @@ public static class InventoryTransfer
         int low = 1;
         int high = Math.Min(requestedAmount, item.Amount);
         int best = 0;
-        string? lastError = null;
+        InventoryFailure? lastError = null;
 
         while (low <= high)
         {
@@ -537,7 +537,7 @@ public static class InventoryTransfer
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (source == null)
@@ -551,7 +551,7 @@ public static class InventoryTransfer
             return false;
         }
 
-        string? lastError = null;
+        InventoryFailure? lastError = null;
         foreach (var item in new List<ItemInstance<TKey>>(source.Items))
         {
             if (!predicate(item))
@@ -574,7 +574,7 @@ public static class InventoryTransfer
         string tagId,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (source == null)
@@ -591,7 +591,7 @@ public static class InventoryTransfer
         return TryMoveMaximumWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out error);
     }
 
-    internal static bool TryValidateCompatibility<TKey>(Inventory<TKey> source, Inventory<TKey> target, out string? error)
+    internal static bool TryValidateCompatibility<TKey>(Inventory<TKey> source, Inventory<TKey> target, out InventoryFailure? error)
     {
         if (source == null)
         {
@@ -624,7 +624,7 @@ public static class InventoryTransfer
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
         out InventoryTransferPlan<TKey>? plan,
-        out string? error)
+        out InventoryFailure? error)
     {
         plan = null;
         if (builder == null)
@@ -709,7 +709,7 @@ public static class InventoryTransfer
         return true;
     }
 
-    private static bool TryCommitPlan<TKey>(InventoryTransferPlan<TKey> plan, out string? error)
+    private static bool TryCommitPlan<TKey>(InventoryTransferPlan<TKey> plan, out InventoryFailure? error)
     {
         error = null;
         if (!plan.Source.CanCommitTransaction(plan.SourceTransaction, out error))
@@ -729,7 +729,7 @@ public static class InventoryTransfer
         InventoryTransaction<TKey> sourceTransaction,
         Inventory<TKey> target,
         InventoryTransaction<TKey> targetTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryValidateCompatibility(source, target, out error))
             return false;
@@ -747,7 +747,7 @@ public static class InventoryTransfer
         InventoryTransaction<TKey> sourceTransaction,
         Inventory<TKey> target,
         InventoryTransaction<TKey> targetTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!CanCommitTargetBound(source, sourceTransaction, target, targetTransaction, out error))
             return false;
@@ -765,7 +765,7 @@ public static class InventoryTransfer
         InventoryTransaction<TKey> firstTransaction,
         Inventory<TKey> second,
         InventoryTransaction<TKey> secondTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!first.TryCommitTransaction(firstTransaction, out error))
             return false;
@@ -782,7 +782,7 @@ public static class InventoryTransfer
         IReadOnlyList<InventoryTransferEntry<TKey>> incoming,
         ILayoutContext<TKey>? incomingContext,
         out InventoryTransaction<TKey>? transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         transaction = null;
         var builder = InventoryTransaction<TKey>.From(inventory);

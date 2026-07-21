@@ -487,7 +487,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>Internal: generates a transaction for adding items. Optional metadata groups by definition+metadata (e.g. 10 apples vs 10 apples[metadata]).</summary>
-    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         transaction = null;
         error = null;
@@ -543,7 +543,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private static InstanceMetadata CloneMetadata(InstanceMetadata source) =>
         source.Clone();
 
-    private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out string? error)
+    private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out InventoryFailure? error)
     {
         if (definition == null)
         {
@@ -570,7 +570,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     internal bool TryResolveRegisteredDefinitionId(
         TKey definitionId,
         out ItemDefinition<TKey>? definition,
-        out string? error)
+        out InventoryFailure? error)
     {
         definition = null;
 
@@ -596,12 +596,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private ItemDefinition<TKey> ResolveRegisteredDefinitionId(TKey definitionId)
     {
         if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out var error) || definition == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
 
         return definition;
     }
 
-    private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out string? error)
+    private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         foreach (var (instance, _) in transaction.Added)
         {
@@ -616,7 +616,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     internal bool TryApplyMetadataMutation(
         InstanceMetadata metadata,
         InstanceMetadata proposedMetadata,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (metadata == null)
         {
@@ -691,7 +691,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     bool IInstanceMetadataOwner.TryApplyMetadataMutation(
         InstanceMetadata metadata,
         InstanceMetadata proposedMetadata,
-        out string? error)
+        out InventoryFailure? error)
     {
         return TryApplyMetadataMutation(metadata, proposedMetadata, out error);
     }
@@ -699,7 +699,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     bool IInventoryMetadataOwner.TryApplyMetadataMutation(
         InventoryMetadata metadata,
         InventoryMetadata proposedMetadata,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!ReferenceEquals(metadata, Metadata))
         {
@@ -734,7 +734,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string key,
         object? value,
         out ItemInstance<TKey>? metadataStack,
-        out string? error)
+        out InventoryFailure? error)
     {
         metadataStack = null;
         if (instance == null)
@@ -798,11 +798,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
         => TryFormulateAdd(definition, amount, context, null, out transaction, out error);
 
     /// <summary>Internal: generates a transaction for removing from a specific instance.</summary>
-    internal bool TryFormulateRemove(ItemInstance<TKey> instance, int amount, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateRemove(ItemInstance<TKey> instance, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         transaction = null;
         error = null;
@@ -836,7 +836,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>Internal: generates a transaction for removing at a storage index.</summary>
-    internal bool TryFormulateRemoveAt(int index, int amount, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateRemoveAt(int index, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         transaction = null;
         error = null;
@@ -870,7 +870,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>Internal: generates a transaction for removing by definition. When ignoreMetadata is false, uses first matching instance's metadata as reference.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         if (ignoreMetadata)
             return TryFormulateRemoveByDefinition(definition, amount, (InstanceMetadata?)null, out transaction, out error);
@@ -890,7 +890,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>Internal: when referenceMetadata is null/empty, any metadata matches; otherwise only instances with structurally equal metadata match.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? referenceMetadata, out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? referenceMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         transaction = null;
         error = null;
@@ -941,7 +941,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryTransaction<TKey> tx,
         ILayoutContext<TKey>? placementContext,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -973,7 +973,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out string? error)
+    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out InventoryFailure? error)
     {
         error = null;
         if (!TryValidateTransactionDefinitions(tx, out error))
@@ -996,7 +996,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="rule">The rule to add or replace.</param>
     /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRule(string id, IRulePolicy<TKey> rule, out string? error)
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, out InventoryFailure? error)
     {
         return TryApplyRuleMutation(
             id,
@@ -1016,7 +1016,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="enabled">Whether the rule participates in validation.</param>
     /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out string? error)
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out InventoryFailure? error)
     {
         return TryApplyRuleMutation(
             id,
@@ -1033,7 +1033,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="id">The rule id.</param>
     /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is removed; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveRule(string id, out string? error)
+    public bool TryRemoveRule(string id, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -1061,7 +1061,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="enabled">The new enabled state.</param>
     /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRuleEnabled(string id, bool enabled, out string? error)
+    public bool TrySetRuleEnabled(string id, bool enabled, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -1096,7 +1096,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="priority">The new priority. Higher values run first.</param>
     /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRulePriority(string id, int priority, out string? error)
+    public bool TrySetRulePriority(string id, int priority, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -1189,7 +1189,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string ruleId,
         InventoryRuleConfigurationChangeKind changeKind,
         Action<RuleContainer<TKey>> mutate,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (mutate == null)
             throw new ArgumentNullException(nameof(mutate));
@@ -1230,7 +1230,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstRules(RuleContainer<TKey> rules, out string? error)
+    private bool ValidateCurrentContentsAgainstRules(RuleContainer<TKey> rules, out InventoryFailure? error)
     {
         var validationInventory = new Inventory<TKey>(
             Manager,
@@ -1268,7 +1268,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetStackResolverParameter(string parameterId, object? value, out string? error)
+    public bool TrySetStackResolverParameter(string parameterId, object? value, out InventoryFailure? error)
         => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
@@ -1283,7 +1283,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!ValidateParameterId(parameterId, out error))
             return false;
@@ -1378,7 +1378,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out string? error)
+    public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out InventoryFailure? error)
         => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
@@ -1393,7 +1393,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!ValidateParameterId(parameterId, out error))
             return false;
@@ -1447,7 +1447,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetLayoutParameter(string parameterId, object? value, out string? error)
+    public bool TrySetLayoutParameter(string parameterId, object? value, out InventoryFailure? error)
         => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
 
     /// <summary>
@@ -1465,7 +1465,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!ValidateParameterId(parameterId, out error))
             return false;
@@ -1541,7 +1541,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             ThrowMutationFailure(error, "Layout parameter change failed.");
     }
 
-    private static bool ValidateParameterId(string parameterId, out string? error)
+    private static bool ValidateParameterId(string parameterId, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(parameterId))
         {
@@ -1558,7 +1558,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryParameterMutationActions action)
         => (actions & action) == action;
 
-    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationActions actions, out string? error)
+    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
     {
         var supported =
             InventoryParameterMutationActions.RepackLayout |
@@ -1575,7 +1575,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private static bool ValidateLayoutMutationActions(InventoryParameterMutationActions actions, out string? error)
+    private static bool ValidateLayoutMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
     {
         var supported = InventoryParameterMutationActions.RepackLayout;
         var unsupported = actions & ~supported;
@@ -1589,7 +1589,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private static bool ValidateCapacityMutationActions(InventoryParameterMutationActions actions, out string? error)
+    private static bool ValidateCapacityMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
     {
         if (actions != InventoryParameterMutationActions.None)
         {
@@ -1601,12 +1601,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool TryResolveMaxStackSize(ItemInstance<TKey> instance, out int maxStack, out string? error)
+    private bool TryResolveMaxStackSize(ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? error)
     {
         return TryResolveMaxStackSize(_stackResolver, instance, out maxStack, out error);
     }
 
-    private bool TryResolveMaxStackSize(IStackResolver<TKey> resolver, ItemInstance<TKey> instance, out int maxStack, out string? error)
+    private bool TryResolveMaxStackSize(IStackResolver<TKey> resolver, ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? error)
     {
         maxStack = 0;
         if (resolver == null)
@@ -1635,7 +1635,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out string? error)
+    private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out InventoryFailure? error)
     {
         foreach (var item in _items)
         {
@@ -1653,7 +1653,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstCapacityPolicy(ICapacityPolicy<TKey> policy, out string? error)
+    private bool ValidateCurrentContentsAgainstCapacityPolicy(ICapacityPolicy<TKey> policy, out InventoryFailure? error)
     {
         var normalized = new NormalizedInventoryTransaction<TKey>(
             new List<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)>(),
@@ -1666,7 +1666,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return false;
     }
 
-    private bool ValidateCurrentContentsAgainstLayout(IInventoryLayout<TKey> layout, out string? error)
+    private bool ValidateCurrentContentsAgainstLayout(IInventoryLayout<TKey> layout, out InventoryFailure? error)
     {
         if (layout.GetType() != _layout.GetType())
         {
@@ -1753,7 +1753,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryParameterMutationActions actions,
         out List<StackMutationEntry>? entries,
         out bool changedShape,
-        out string? error)
+        out InventoryFailure? error)
     {
         entries = CreateCurrentStackMutationEntries();
         changedShape = false;
@@ -1801,7 +1801,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         IStackResolver<TKey> resolver,
         bool splitOversizedStacks,
         out bool changedShape,
-        out string? error)
+        out InventoryFailure? error)
     {
         changedShape = false;
         error = null;
@@ -1853,7 +1853,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         List<StackMutationEntry> entries,
         IStackResolver<TKey> resolver,
         out bool changedShape,
-        out string? error)
+        out InventoryFailure? error)
     {
         changedShape = false;
         error = null;
@@ -1887,7 +1887,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private bool TryCreateStackMutationTransaction(
         IReadOnlyList<StackMutationEntry> entries,
         out InventoryTransaction<TKey>? transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var amountDeltas = new List<(int index, int delta)>();
         var removed = new List<(int index, ItemInstance<TKey> instance)>();
@@ -1965,7 +1965,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         IStackResolver<TKey> stackResolver,
         ICapacityPolicy<TKey> capacityPolicy,
         IInventoryLayout<TKey> layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         var validationInventory = new Inventory<TKey>(
             Manager,
@@ -1997,7 +1997,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         object? value,
         InventoryParameterMutationActions actions,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
             return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out error);
@@ -2016,7 +2016,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             out error);
     }
 
-    private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out string? error)
+    private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
     {
         if (source is not IRepackableInventoryLayout<TKey> repackable)
         {
@@ -2213,7 +2213,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="transaction">The structural transaction when conversion succeeds; otherwise, <see langword="null"/>.</param>
     /// <param name="error">A consumer-facing reason when conversion is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out string? error)
+    public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         transaction = null;
         error = null;
@@ -2294,7 +2294,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         if (transaction.IsApplied)
             throw new InvalidOperationException("Transaction has already been applied.");
         if (!TryCommitTransaction(transaction, out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
     /// <summary>
@@ -2321,7 +2321,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             throw new ArgumentNullException(nameof(builder));
 
         if (!TryCommitTransaction(builder, placementContext, out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
     /// <summary>
@@ -2330,12 +2330,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="transaction">The structural transaction to commit.</param>
     /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out string? error)
+    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         return TryCommitTransaction(transaction, null, out error);
     }
 
-    internal bool CanCommitTransaction(InventoryTransaction<TKey> transaction, out string? error)
+    internal bool CanCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         return TryPrepareTransaction(transaction, null, out _, out error);
     }
@@ -2346,7 +2346,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out string? error)
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out InventoryFailure? error)
     {
         return TryCommitTransaction(builder, null, out error);
     }
@@ -2358,7 +2358,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
     /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out string? error)
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out InventoryFailure? error)
     {
         if (builder == null)
         {
@@ -2382,7 +2382,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public bool TryCommitTransaction(
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? placementContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryPrepareTransaction(transaction, placementContext, out var mappedTransaction, out error) || mappedTransaction == null)
             return false;
@@ -2398,7 +2398,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that would receive the transfer entries.</param>
     /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
-    public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out string? error)
+    public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? error)
     {
         return CanCommitTransfer(builder, target, null, out error);
     }
@@ -2415,7 +2415,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (builder == null)
         {
@@ -2438,7 +2438,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out string? error)
+    public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? error)
     {
         return TryCommitTransfer(builder, target, null, out error);
     }
@@ -2455,7 +2455,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (builder == null)
         {
@@ -2499,7 +2499,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             throw new ArgumentNullException(nameof(target));
 
         if (!TryCommitTransfer(builder, target, targetContext, out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
     /// <summary>
@@ -2510,7 +2510,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryValidateOutgoingTransferItem(item, amount, out error))
             return false;
@@ -2530,7 +2530,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (!TryValidateOutgoingTransferItem(item, amount, out error))
             return false;
@@ -2552,10 +2552,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ILayoutContext<TKey>? targetContext = null)
     {
         if (!TryTransferTo(target, item, amount, targetContext, out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
-    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out string? error)
+    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out InventoryFailure? error)
     {
         if (item == null)
         {
@@ -2596,7 +2596,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <summary>
     /// Attempts to move every item from this source inventory to a target inventory as one all-or-nothing operation.
     /// </summary>
-    public bool TryMoveAllTo(Inventory<TKey> target, ILayoutContext<TKey>? targetContext, out string? error)
+    public bool TryMoveAllTo(Inventory<TKey> target, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
     {
         return TryMoveWhereTo(target, _ => true, targetContext, out error);
     }
@@ -2608,7 +2608,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Inventory<TKey> target,
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (predicate == null)
         {
@@ -2629,7 +2629,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <summary>
     /// Attempts to move every item with a catalog-resolved tag from this source inventory to a target inventory.
     /// </summary>
-    public bool TryMoveByTagTo(Inventory<TKey> target, string tagId, ILayoutContext<TKey>? targetContext, out string? error)
+    public bool TryMoveByTagTo(Inventory<TKey> target, string tagId, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(tagId))
         {
@@ -2643,7 +2643,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <summary>
     /// Attempts to move every item satisfying all catalog-resolved tags from this source inventory to a target inventory.
     /// </summary>
-    public bool TryMoveAllTagsTo(Inventory<TKey> target, string[] tagIds, ILayoutContext<TKey>? targetContext, out string? error)
+    public bool TryMoveAllTagsTo(Inventory<TKey> target, string[] tagIds, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
     {
         if (tagIds == null || tagIds.Length == 0)
         {
@@ -2685,7 +2685,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int requestedAmount,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (requestedAmount <= 0)
@@ -2702,7 +2702,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int low = 1;
         int high = Math.Min(requestedAmount, item.Amount);
         int best = 0;
-        string? lastError = null;
+        InventoryFailure? lastError = null;
 
         while (low <= high)
         {
@@ -2742,7 +2742,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (predicate == null)
@@ -2751,7 +2751,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return false;
         }
 
-        string? lastError = null;
+        InventoryFailure? lastError = null;
         foreach (var item in new List<ItemInstance<TKey>>(Items))
         {
             if (!predicate(item))
@@ -2773,7 +2773,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string tagId,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out string? error)
+        out InventoryFailure? error)
     {
         transferredAmount = 0;
         if (string.IsNullOrWhiteSpace(tagId))
@@ -2794,7 +2794,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> otherItem,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (sourceItem == null)
         {
@@ -2829,7 +2829,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int otherAmount,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         return InventoryTransfer.TrySwap(this, other, sourceItem, sourceAmount, otherItem, otherAmount, sourceTargetContext, otherTargetContext, out error);
     }
@@ -2841,7 +2841,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Inventory<TKey> other,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out string? error)
+        out InventoryFailure? error)
     {
         return InventoryTransfer.TrySwapInventories(this, other, sourceTargetContext, otherTargetContext, out error);
     }
@@ -2975,7 +2975,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(ItemDefinition<TKey> definition, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(ItemDefinition<TKey> definition, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryFormulateAdd(definition, amount, context, out var tx, out error) || tx == null)
             return false;
@@ -2991,7 +2991,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(TKey definitionId, out string? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(TKey definitionId, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
@@ -3032,7 +3032,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemove(ItemInstance<TKey> instance, out string? error, int amount = 1)
+    public bool TryRemove(ItemInstance<TKey> instance, out InventoryFailure? error, int amount = 1)
     {
         if (!TryFormulateRemove(instance, amount, out var tx, out error) || tx == null)
             return false;
@@ -3059,7 +3059,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveAtStorageIndex(int index, out string? error, int amount = 1)
+    public bool TryRemoveAtStorageIndex(int index, out InventoryFailure? error, int amount = 1)
     {
         if (!TryFormulateRemoveAt(index, amount, out var tx, out error) || tx == null)
             return false;
@@ -3087,7 +3087,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         if (!TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out error) || tx == null)
             return false;
@@ -3103,7 +3103,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
@@ -3144,7 +3144,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="contextTo">The destination layout context.</param>
     /// <param name="error">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TryMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         error = null;
 
@@ -3221,7 +3221,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="contextTo">The second layout context.</param>
     /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the swap succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TrySwap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TrySwap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         error = null;
 
@@ -3291,7 +3291,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when the merge move is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">Optional exact amount to move; when omitted, as much as possible is moved.</param>
     /// <returns><see langword="true"/> when the merge move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryMergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error, int? amount = null)
+    public bool TryMergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error, int? amount = null)
     {
         error = null;
 
@@ -3383,7 +3383,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Repack is not sorting and does not use item comparer ordering.
     /// The active layout must implement <see cref="IRepackableInventoryLayout{TKey}"/>.
     /// </remarks>
-    public bool TryRepackLayout(out string? error)
+    public bool TryRepackLayout(out InventoryFailure? error)
     {
         var before = CaptureLayoutContextsByInstance();
         var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
@@ -3417,7 +3417,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
-    public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out string? error)
+    public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out InventoryFailure? error)
     {
         if (comparer == null)
         {
@@ -3446,7 +3446,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
-    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out string? error)
+    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out InventoryFailure? error)
     {
         if (comparison == null)
         {
@@ -3475,7 +3475,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Layouts interpret sort contexts themselves; inventory storage order is not changed.</remarks>
-    public bool TrySortLayout(IInventorySortContext<TKey> sortContext, out string? error)
+    public bool TrySortLayout(IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
     {
         if (sortContext == null)
         {
@@ -3513,9 +3513,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             ThrowMutationFailure(error, "Sort operation failed.");
     }
 
-    private static void ThrowMutationFailure(string? error, string fallbackMessage)
+    private static void ThrowMutationFailure(InventoryFailure? error, string fallbackMessage)
     {
-        throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? fallbackMessage : error);
+        throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(fallbackMessage));
     }
 
     private Dictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? CaptureLayoutContextsForReconciliation()
@@ -3681,17 +3681,17 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         for (int index = _items.Count - 1; index >= 0; index--)
         {
             if (!builder.TryRemoveAtStorageIndex(index, out var removeError, _items[index].Amount))
-                throw new InvalidOperationException(removeError);
+                throw new InventoryOperationException(removeError ?? InventoryFailure.FromMessage(null));
         }
 
         foreach (var (definition, amount, context) in validEntries)
         {
             if (!builder.TryAdd(definition, out var addError, amount, context))
-                throw new InvalidOperationException(addError);
+                throw new InventoryOperationException(addError ?? InventoryFailure.FromMessage(null));
         }
 
         if (!builder.TryBuild(null, out var transaction, out var error) || transaction == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
 
         ApplyPreparedTransaction(transaction, cleared: _items.Count > 0);
     }
@@ -3706,7 +3706,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public InventorySnapshot CaptureSnapshot()
     {
         if (!TryCaptureSnapshot(out var snapshot, out var error) || snapshot == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
         return snapshot;
     }
 
@@ -3716,7 +3716,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="snapshot">The complete snapshot when capture succeeds; otherwise, <see langword="null"/>.</param>
     /// <param name="error">A consumer-facing reason when capture fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when every persisted value and layout state was captured.</returns>
-    public bool TryCaptureSnapshot(out InventorySnapshot? snapshot, out string? error)
+    public bool TryCaptureSnapshot(out InventorySnapshot? snapshot, out InventoryFailure? error)
     {
         return InventorySnapshotCapture.TryCapture(this, out snapshot, out error);
     }

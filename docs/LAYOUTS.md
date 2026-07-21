@@ -510,6 +510,7 @@ inventory.Swap(firstContext, secondContext);
 ```
 
 Use `TryMove(...)` and `TrySwap(...)` for expected placement rejection.
+See [Failure Handling](FAILURES.md) for the structured failure result used by rejected layout operations.
 
 The layout validates:
 
@@ -525,7 +526,7 @@ Move and swap change placement only. They preserve item instances, amounts, meta
 `TryRepackLayout(...)` compacts placement using current visible layout order and normal automatic placement:
 
 ```csharp
-var repacked = inventory.TryRepackLayout(out var error);
+var repacked = inventory.TryRepackLayout(out var failure);
 ```
 
 Throwing form:
@@ -592,7 +593,7 @@ var sorted = inventory.TrySortLayout(
     (left, right) => string.CompareOrdinal(
         left.Definition.Id,
         right.Definition.Id),
-    out var error);
+    out var failure);
 ```
 
 Throwing form:
@@ -759,7 +760,7 @@ There are two placement behaviors:
 
 | Call | Placement behavior |
 |---|---|
-| `TrySetLayoutParameter(parameterId, value, out error)` | Preserves current placements and rejects the change if an occupied context would become invalid. |
+| `TrySetLayoutParameter(parameterId, value, out failure)` | Preserves current placements and rejects the change if an occupied context would become invalid. |
 | The overload with `InventoryParameterMutationActions.RepackLayout` | Creates the proposed layout empty and places entries again in current visible layout order using normal automatic placement. |
 
 For example, consider an eight-slot layout with three occupied positions:
@@ -777,7 +778,7 @@ var changed = inventory.TrySetLayoutParameter(
     "slotCount",
     4,
     InventoryParameterMutationActions.RepackLayout,
-    out var error);
+    out var failure);
 ```
 
 Both direct `TryRepackLayout(...)` and a layout-parameter change using `RepackLayout` preserve item instances and

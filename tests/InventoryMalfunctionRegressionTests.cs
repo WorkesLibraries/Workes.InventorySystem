@@ -99,8 +99,8 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
 
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, out var addError, 5), Is.True, addError);
-        Assert.That(builder.TryRemoveByDefinition(apple, 2, true, out var removeError), Is.True, removeError);
+        Assert.That(builder.TryAdd(apple, out var addError, 5), Is.True);
+        Assert.That(builder.TryRemoveByDefinition(apple, 2, true, out var removeError), Is.True);
 
         Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.Build()));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(3));
@@ -257,7 +257,7 @@ public class InventoryMalfunctionRegressionTests
 
         inventory.TryAdd(apple, out _);
 
-        Assert.That(inventory.TryAdd(berry, out var error, 1, new EntryLayoutContext<string>(1)), Is.True, error);
+        Assert.That(inventory.TryAdd(berry, out var error, 1, new EntryLayoutContext<string>(1)), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, new EntryLayoutContext<string>(1))!.Definition.Id, Is.EqualTo("berry"));
     }
 
@@ -268,7 +268,7 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
 
         Assert.That(inventory.TryAdd(apple, out var error, 1, new EntryLayoutContext<string>(1)), Is.False);
-        Assert.That(error, Is.EqualTo("Target index out of range."));
+        Assert.That(error?.Message, Is.EqualTo("Target index out of range."));
     }
 
     [Test]
@@ -300,7 +300,7 @@ public class InventoryMalfunctionRegressionTests
         inventory.Changed += (_, _) => changedCount++;
 
         Assert.That(inventory.TryMergeMove(new SlotLayoutContext<string>(1), new SlotLayoutContext<string>(0), out var error, amount), Is.False);
-        Assert.That(error, Is.EqualTo("Amount must be greater than zero."));
+        Assert.That(error?.Message, Is.EqualTo("Amount must be greater than zero."));
         Assert.That(changedCount, Is.EqualTo(0));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(5));
         Assert.That(inventory.Items[1].Amount, Is.EqualTo(2));
@@ -315,7 +315,7 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(apple, out _, 2, new SlotLayoutContext<string>(1));
 
         Assert.That(inventory.TryMergeMove(new SlotLayoutContext<string>(1), new SlotLayoutContext<string>(0), out var error, 3), Is.False);
-        Assert.That(error, Is.EqualTo("Not enough quantity to move."));
+        Assert.That(error?.Message, Is.EqualTo("Not enough quantity to move."));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(5));
         Assert.That(inventory.Items[1].Amount, Is.EqualTo(2));
     }
@@ -326,7 +326,7 @@ public class InventoryMalfunctionRegressionTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(rule: new UniqueItemRule<string>(1), definitions: apple).CreateInventory();
 
-        Assert.That(inventory.TryAdd(apple, out var error, 10), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error, 10), Is.True);
     }
 
     [Test]
@@ -340,7 +340,7 @@ public class InventoryMalfunctionRegressionTests
         metaB.Set("quality", "B");
 
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, 1, null, metaA, out var addError), Is.True, addError);
+        Assert.That(builder.TryAdd(apple, 1, null, metaA, out var addError), Is.True);
         inventory.CommitTransaction(builder.Build());
 
         var secondBuilder = InventoryTransaction<string>.From(inventory);

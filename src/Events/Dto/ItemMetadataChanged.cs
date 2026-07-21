@@ -63,10 +63,10 @@ public sealed class ItemMetadataChanged<TKey>
         Index = index;
         _beforeMetadata = new MetadataStore();
         if (!_beforeMetadata.TryReplace(beforeMetadata, out var beforeError))
-            throw new ArgumentException(beforeError, nameof(beforeMetadata));
+            throw new ArgumentException(beforeError?.Message, nameof(beforeMetadata));
         _afterMetadata = new MetadataStore();
         if (!_afterMetadata.TryReplace(afterMetadata, out var afterError))
-            throw new ArgumentException(afterError, nameof(afterMetadata));
+            throw new ArgumentException(afterError?.Message, nameof(afterMetadata));
         LayoutContexts = layoutContexts != null ? layoutContexts.ToList() : new List<ILayoutContext<TKey>>();
     }
 }

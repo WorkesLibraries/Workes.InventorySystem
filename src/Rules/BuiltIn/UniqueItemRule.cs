@@ -31,7 +31,7 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         error = null;
         return true;
@@ -42,7 +42,7 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var instanceCounts = new Dictionary<TKey, (ItemDefinition<TKey> definition, int count)>();
 

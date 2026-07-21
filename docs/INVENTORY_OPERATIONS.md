@@ -114,9 +114,9 @@ Use the instance references returned through `Inventory.Items` or query methods 
 Most expected-to-fail operations use a `Try...` method:
 
 ```csharp
-if (!inventory.TryAdd(apple, out var error, amount: 5))
+if (!inventory.TryAdd(apple, out var failure, amount: 5))
 {
-    // Show or log the consumer-facing rejection reason.
+    Console.WriteLine(failure?.Message);
 }
 ```
 
@@ -144,7 +144,10 @@ The general pattern is:
 | `TryRepackLayout(...)` | `RepackLayout()` |
 | `TrySortLayout(...)` | `SortLayout(...)` |
 
-`Try...` methods return `false` and an error when the proposed operation is rejected. Throwing wrappers raise `InvalidOperationException` with the same domain error.
+`Try...` methods return `false` and an `InventoryFailure` when the proposed operation is rejected. Branch on
+`failure.Kind` or `failure.Code`, and show `failure.Message` to players, logs, or tooling. Throwing wrappers raise
+`InventoryOperationException` with the same domain failure. See [Failure Handling](FAILURES.md) for the complete
+failure model.
 
 ## Add Items
 
@@ -160,7 +163,7 @@ Conditional form:
 ```csharp
 var added = inventory.TryAdd(
     "apple",
-    out var error,
+    out var failure,
     amount: 5);
 ```
 
@@ -205,7 +208,7 @@ Conditional form:
 ```csharp
 var removed = inventory.TryRemove(
     stack,
-    out var error,
+    out var failure,
     amount: 2);
 ```
 
@@ -239,7 +242,7 @@ var removed = inventory.TryRemoveByDefinition(
     "apple",
     amount: 5,
     ignoreMetadata: true,
-    out var error);
+    out var failure);
 ```
 
 `ignoreMetadata` controls which stacks may contribute:
@@ -281,7 +284,7 @@ Definition-ID queries first call the catalog registry's migration-aware resoluti
 definition.
 
 Unknown IDs throw from query APIs. Conditional mutation APIs such as `TryAdd(id, ...)` and
-`TryRemoveByDefinition(id, ...)` return `false` and put the resolution failure in `error`. If passing a literal
+`TryRemoveByDefinition(id, ...)` return `false` and put the resolution failure in `failure`. If passing a literal
 `null`, cast it to the intended type because `ItemDefinition<TKey>` and `TKey` overloads can both be applicable for
 nullable key types.
 
@@ -340,7 +343,7 @@ inventory.Move(from, to);
 Conditional form:
 
 ```csharp
-if (!inventory.TryMove(from, to, out var error))
+if (!inventory.TryMove(from, to, out var failure))
 {
     // The source was empty or the layout rejected the destination.
 }
@@ -436,7 +439,7 @@ Passing `null` or no valid entries replaces a non-empty inventory with empty con
 Repacking rebuilds placement using the current visible layout order and normal automatic placement:
 
 ```csharp
-if (!inventory.TryRepackLayout(out var error))
+if (!inventory.TryRepackLayout(out var failure))
 {
     // The current layout does not support inventory-owned repack,
     // or the proposed placement was rejected.
@@ -476,7 +479,7 @@ var sorted = inventory.TrySortLayout(
     (left, right) => string.CompareOrdinal(
         left.Definition.Id,
         right.Definition.Id),
-    out var error);
+    out var failure);
 ```
 
 Sorting changes layout placement, not `Inventory.Items` storage order.
@@ -555,7 +558,7 @@ Metadata mutation follows the same conditional/throwing pattern as inventory ope
 stack.Metadata.Set("quality", "common");
 stack.Metadata.Change("quality", "polished");
 
-if (!stack.Metadata.TryRemove("quality", out var error))
+if (!stack.Metadata.TryRemove("quality", out var failure))
 {
     // The key was absent or the owning inventory rejected the result.
 }
@@ -639,7 +642,7 @@ var split = stack.TrySplitAndSetMetadata(
     key: "quest-item",
     value: true,
     out var questStack,
-    out var error);
+    out var failure);
 ```
 
 When successful:
@@ -679,11 +682,11 @@ Depending on the operation, validation can include:
 For rejected `Try...` operations:
 
 - the method returns `false`.
-- `error` describes the rejection.
+- `failure` describes the rejection.
 - contents and placement remain unchanged.
 - no committed-change event is fired.
 
-Throwing wrappers preserve the same atomic behavior and then throw `InvalidOperationException`.
+Throwing wrappers preserve the same atomic behavior and then throw `InventoryOperationException`.
 
 Successful compound operations commit as one inventory change rather than exposing partially updated intermediate state.
 

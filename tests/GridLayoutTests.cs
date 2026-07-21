@@ -60,7 +60,7 @@ public class GridLayoutTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(new GridLayout<string>(3, 2), definitions: apple).CreateInventory();
 
-        Assert.That(inventory.TryAdd(apple, out var error, 1, GridLayoutContext<string>.Single(2, 1)), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error, 1, GridLayoutContext<string>.Single(2, 1)), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(2, 1))!.Definition.Id, Is.EqualTo("apple"));
     }
@@ -174,8 +174,8 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(1, 0, 0).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         AssertCell(inventory, 0, 0, "sword");
         AssertCell(inventory, 1, 0, "apple");
@@ -189,7 +189,7 @@ public class GridLayoutTests
         inventory.TryAdd(apple, out _);
 
         Assert.That(inventory.TryAdd(apple, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Not enough empty cells for new instances."));
+        Assert.That(error?.Message, Is.EqualTo("Not enough empty cells for new instances."));
     }
 
     [Test]
@@ -204,7 +204,7 @@ public class GridLayoutTests
         var context = GridLayoutContext<string>.Map().Add(0, 1, 0).Add(1, 1, 0).Build();
 
         Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Duplicate mapped target cell."));
+        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target cell."));
     }
 
     [Test]
@@ -217,7 +217,7 @@ public class GridLayoutTests
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Build();
 
         Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Grid position out of range."));
+        Assert.That(error?.Message, Is.EqualTo("Grid position out of range."));
     }
 
     [Test]
@@ -231,8 +231,8 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _, 2);
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Add(1, 0, 1).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         AssertCell(inventory, 2, 0, "apple");
         AssertCell(inventory, 0, 1, "sword");
@@ -250,8 +250,8 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         AssertCell(inventory, 0, 0, "sword");
     }
@@ -268,7 +268,7 @@ public class GridLayoutTests
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Build();
 
         Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Cell already occupied."));
+        Assert.That(error?.Message, Is.EqualTo("Cell already occupied."));
     }
 
     [Test]
@@ -278,7 +278,7 @@ public class GridLayoutTests
         var inventory = CreateManager(new GridLayout<string>(1, 1), 10, apple).CreateInventory();
         inventory.TryAdd(apple, out _, 5, GridLayoutContext<string>.Single(0, 0));
 
-        Assert.That(inventory.TryAdd(apple, out var error, 2, GridLayoutContext<string>.Single(0, 0)), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error, 2, GridLayoutContext<string>.Single(0, 0)), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Amount, Is.EqualTo(7));
     }
 
@@ -293,7 +293,7 @@ public class GridLayoutTests
         builder.TryAdd(sword, out _);
 
         Assert.That(builder.TryBuild(GridLayoutContext<string>.Single(0, 0), out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Transaction placement context can only target one added entry unless it is a mapped context."));
+        Assert.That(error?.Message, Is.EqualTo("Transaction placement context can only target one added entry unless it is a mapped context."));
     }
 
     [Test]
@@ -310,8 +310,8 @@ public class GridLayoutTests
         builder.TryAdd(gem, 1, null, cracked, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 1, 0).Add(1, 0, 0).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(1, 0))!.Metadata.TryGet<string>("quality", out var polishedQuality);
         inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Metadata.TryGet<string>("quality", out var crackedQuality);
@@ -334,7 +334,7 @@ public class GridLayoutTests
         transfer.TryRemove(source.Find(sword).Single(), 2, out _);
         var context = GridLayoutContext<string>.Map().Add(0, 2, 0).Add(1, 0, 1).Build();
 
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
 
         AssertCell(target, 2, 0, "apple");
         AssertCell(target, 0, 1, "sword");
@@ -353,7 +353,7 @@ public class GridLayoutTests
         var firstContext = GridLayoutContext<string>.Map().Add(0, 2, 1).Build();
         var secondContext = GridLayoutContext<string>.Map().Add(0, 1, 0).Build();
 
-        Assert.That(first.TrySwapWithInventory(second, firstContext, secondContext, out var error), Is.True, error);
+        Assert.That(first.TrySwapWithInventory(second, firstContext, secondContext, out var error), Is.True);
 
         AssertCell(first, 2, 1, "sword");
         AssertCell(second, 1, 0, "apple");
@@ -379,7 +379,7 @@ public class GridLayoutTests
         var context = GridLayoutContext<string>.Map().Add(0, 0, 0).Add(1, 0, 0).Build();
 
         Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Duplicate mapped target cell."));
+        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target cell."));
         Assert.That(source.TotalItemCount, Is.EqualTo(2));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
         Assert.That(sourceEvents, Is.EqualTo(0));
@@ -399,7 +399,7 @@ public class GridLayoutTests
             Assert.That(e.Moved.Single().Instance.Definition.Id, Is.EqualTo("apple"));
         };
 
-        Assert.That(inventory.TryMove(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.True, error);
+        Assert.That(inventory.TryMove(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.True);
 
         Assert.That(changed, Is.EqualTo(1));
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0)), Is.Null);
@@ -418,7 +418,7 @@ public class GridLayoutTests
         inventory.Changed += (_, _) => changed++;
 
         Assert.That(inventory.TryMove(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Target cell is already occupied."));
+        Assert.That(error?.Message, Is.EqualTo("Target cell is already occupied."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -437,7 +437,7 @@ public class GridLayoutTests
             Assert.That(e.Swapped.Single().AfterSwapFromPositionInstance.Definition.Id, Is.EqualTo("sword"));
         };
 
-        Assert.That(inventory.TrySwap(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.True, error);
+        Assert.That(inventory.TrySwap(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.True);
 
         Assert.That(changed, Is.EqualTo(1));
         AssertCell(inventory, 0, 0, "sword");
@@ -454,7 +454,7 @@ public class GridLayoutTests
         inventory.Changed += (_, _) => changed++;
 
         Assert.That(inventory.TrySwap(GridLayoutContext<string>.Single(0, 0), GridLayoutContext<string>.Single(1, 0), out var error), Is.False);
-        Assert.That(error, Is.EqualTo("One or both of the items not found in inventory."));
+        Assert.That(error?.Message, Is.EqualTo("One or both of the items not found in inventory."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -551,7 +551,7 @@ public class GridLayoutTests
         var inventory = CreateManager(new GridLayout<string>(2, 1), definitions: new[] { apple, sword }).CreateInventory();
         inventory.TryAdd(apple, out _, 1, GridLayoutContext<string>.Single(0, 0));
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<InventoryOperationException>(() =>
             inventory.ReplaceContents(new[] { (sword, 1, (ILayoutContext<string>?)GridLayoutContext<string>.Single(9, 0)) }));
 
         AssertCell(inventory, 0, 0, "apple");

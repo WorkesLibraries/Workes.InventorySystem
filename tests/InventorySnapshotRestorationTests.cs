@@ -26,8 +26,8 @@ public class InventorySnapshotRestorationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "rare");
         var add = InventoryTransaction<string>.From(source);
-        Assert.That(add.TryAdd(apple, 4, SlotLayoutContext<string>.Single(3), metadata, out var error), Is.True, error);
-        Assert.That(add.TryAdd(berry, 2, SlotLayoutContext<string>.Single(1), null, out error), Is.True, error);
+        Assert.That(add.TryAdd(apple, 4, SlotLayoutContext<string>.Single(3), metadata, out var error), Is.True);
+        Assert.That(add.TryAdd(berry, 2, SlotLayoutContext<string>.Single(1), null, out error), Is.True);
         source.CommitTransaction(add);
         var snapshot = source.CaptureSnapshot();
 
@@ -237,7 +237,7 @@ public class InventorySnapshotRestorationTests
 
         Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out var result, out var error), Is.False);
         Assert.That(result, Is.Null);
-        Assert.That(error, Does.Contain("Capacity"));
+        Assert.That(error?.Message, Does.Contain("Capacity"));
         Assert.That(target.Items.Single().InstanceId, Is.EqualTo(originalId));
         Assert.That(eventCount, Is.Zero);
     }
@@ -257,10 +257,10 @@ public class InventorySnapshotRestorationTests
         var snapshot = source.CaptureSnapshot();
         Assert.That(target.AssessSnapshot(snapshot).CanRestoreExactly, Is.True);
 
-        Assert.That(target.TrySetCapacityPolicyParameter("maxTotalItemAmount", 2, out var parameterError), Is.True, parameterError);
+        Assert.That(target.TrySetCapacityPolicyParameter("maxTotalItemAmount", 2, out var parameterError), Is.True);
 
         Assert.That(target.TryRestoreSnapshot(snapshot, out _, out var restoreError), Is.False);
-        Assert.That(restoreError, Does.Contain("Capacity"));
+        Assert.That(restoreError?.Message, Does.Contain("Capacity"));
         Assert.That(target.Items, Is.Empty);
     }
 
@@ -289,7 +289,7 @@ public class InventorySnapshotRestorationTests
             source.Add(apple);
             var target = manager.CreateInventory(layout: createLayout());
 
-            Assert.That(target.TryRestoreSnapshot(source.CaptureSnapshot(), out var result, out var error), Is.True, error);
+            Assert.That(target.TryRestoreSnapshot(source.CaptureSnapshot(), out var result, out var error), Is.True);
             Assert.That(result!.Outcome, Is.EqualTo(SnapshotApplicationOutcome.Exact));
             Assert.That(target.TotalItemCount, Is.EqualTo(1));
         }
@@ -386,7 +386,7 @@ public class InventorySnapshotRestorationTests
         var target = targetManager.CreateInventory();
 
         Assert.That(target.TrySalvageSnapshot(snapshot, null, out _, out var strictError), Is.False);
-        Assert.That(strictError, Does.Contain("could not be resolved"));
+        Assert.That(strictError?.Message, Does.Contain("could not be resolved"));
 
         var options = new SnapshotSalvageOptions<string>
         {
@@ -547,7 +547,7 @@ public class InventorySnapshotRestorationTests
         var target = targetManager.CreateInventory(rules: rules);
 
         Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out _, out var error), Is.False);
-        Assert.That(error, Does.Contain("OnlyAllowItems"));
+        Assert.That(error?.Message, Does.Contain("OnlyAllowItems"));
 
         var result = target.SalvageSnapshot(source.CaptureSnapshot());
         Assert.That(result.Losses.Single().Quantity, Is.EqualTo(2));
@@ -615,7 +615,7 @@ public class InventorySnapshotRestorationTests
         public bool TryCapture(
             InventoryLayoutSnapshotCaptureContext<string> context,
             out SnapshotValue? data,
-            out string? error)
+            out InventoryFailure? error)
         {
             var state = (SlotLayoutPersistentData)context.Layout.GetPersistentData();
             var references = new List<object?>();
@@ -642,7 +642,7 @@ public class InventorySnapshotRestorationTests
         public bool TryDecode(
             InventoryLayoutSnapshotDecodeContext<string> context,
             out InventoryLayoutSnapshotCandidate<string>? candidate,
-            out string? error)
+            out InventoryFailure? error)
         {
             candidate = null;
             error = null;
@@ -687,7 +687,7 @@ public class InventorySnapshotRestorationTests
         public bool TryCreateExactLayout(
             InventoryLayoutSnapshotRestoreContext<string> context,
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             layout = null;
             error = null;

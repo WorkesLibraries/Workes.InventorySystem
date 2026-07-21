@@ -71,7 +71,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = new GridLayout<TKey>(Width, Height, PlacementOrder);
         error = null;
@@ -83,7 +83,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
@@ -100,7 +100,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
@@ -146,7 +146,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         out int width,
         out int height,
         out GridPlacementOrder placementOrder,
-        out string? error)
+        out InventoryFailure? error)
     {
         width = Width;
         height = Height;
@@ -282,7 +282,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         error = null;
 
@@ -373,7 +373,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -534,7 +534,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -572,7 +572,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
     {
         error = null;
 
@@ -612,7 +612,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         error = null;
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
@@ -651,7 +651,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         error = null;
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
@@ -686,7 +686,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {

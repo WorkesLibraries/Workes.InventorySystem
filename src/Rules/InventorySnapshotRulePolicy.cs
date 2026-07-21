@@ -22,7 +22,7 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var snapshot = new InventoryRuleSnapshot<TKey>(inventory, transaction);
         return CanApply(inventory, transaction, snapshot, out error);
@@ -34,7 +34,7 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         return CanApplyWithSnapshot(inventory, transaction, snapshot, out error);
     }
@@ -51,5 +51,5 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error);
+        out InventoryFailure? error);
 }

@@ -203,13 +203,13 @@ public class TagFocusedItemUniverseExampleTests
 
         var backpack = CreateManager(catalog).CreateInventory();
         foreach (var definition in definitions)
-            Assert.That(backpack.TryAdd(definition, out var backpackError), Is.True, backpackError);
+            Assert.That(backpack.TryAdd(definition, out var backpackError), Is.True, backpackError?.Message);
 
         var ritualRules = new RuleContainer<string>();
         ritualRules.Add("ritual-knife", new RequireAllTagsRule<string>(GameTags.Equipment.Tools.Knife, GameTags.Materials.Obsidian));
         var ritualInput = CreateManager(catalog, ritualRules).CreateInventory();
 
-        var ritualResults = new List<(ItemDefinition<string> definition, bool accepted, string? error)>
+        var ritualResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
         {
             EvaluateAdd(ritualInput, obsidianKnife),
             EvaluateAdd(ritualInput, steelKnife),
@@ -224,7 +224,7 @@ public class TagFocusedItemUniverseExampleTests
         toolBeltRules.Add("tool", new RequireAnyTagRule<string>(GameTags.Equipment.Tools.Knife, GameTags.Equipment.Tools.Axe));
         var toolBelt = CreateManager(catalog, toolBeltRules).CreateInventory();
 
-        var toolBeltResults = new List<(ItemDefinition<string> definition, bool accepted, string? error)>
+        var toolBeltResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
         {
             EvaluateAdd(toolBelt, obsidianKnife),
             EvaluateAdd(toolBelt, axe),
@@ -294,19 +294,19 @@ public class TagFocusedItemUniverseExampleTests
             Assert.That(catalog.Satisfies(definition, tag), Is.True, $"{definition.Id} should satisfy {tag}.");
     }
 
-    private static (ItemDefinition<string> definition, bool accepted, string? error) EvaluateAdd(
+    private static (ItemDefinition<string> definition, bool accepted, InventoryFailure? error) EvaluateAdd(
         Inventory<string> inventory,
         ItemDefinition<string> definition)
     {
         var accepted = inventory.TryAdd(definition, out var error);
-        return (definition, accepted, error);
+        return (definition, accepted, error?.Message);
     }
 
     private static string WriteExampleOutput(
         ItemCatalog<string> catalog,
         IReadOnlyCollection<ItemDefinition<string>> definitions,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, string? error)> ritualResults,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, string? error)> toolBeltResults,
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> ritualResults,
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> toolBeltResults,
         bool flatSatisfiesTools,
         bool flatSatisfiesEquipment)
     {
@@ -345,10 +345,10 @@ public class TagFocusedItemUniverseExampleTests
             builder.Append(result.definition.Id);
             builder.Append(": ");
             builder.Append(result.accepted ? "accepted" : "rejected");
-            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error))
+            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error?.Message))
             {
                 builder.Append(" (");
-                builder.Append(result.error);
+                builder.Append(result.error.Message);
                 builder.Append(')');
             }
             builder.AppendLine();
@@ -362,10 +362,10 @@ public class TagFocusedItemUniverseExampleTests
             builder.Append(result.definition.Id);
             builder.Append(": ");
             builder.Append(result.accepted ? "accepted" : "rejected");
-            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error))
+            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error?.Message))
             {
                 builder.Append(" (");
-                builder.Append(result.error);
+                builder.Append(result.error.Message);
                 builder.Append(')');
             }
             builder.AppendLine();
@@ -436,6 +436,5 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine();
     }
 }
-
 
 

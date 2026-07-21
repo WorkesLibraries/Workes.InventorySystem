@@ -26,9 +26,9 @@ public class StandardLayoutPolishTests
         var apple = new WeightedDefinition("apple", 2.5);
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 5), apple);
 
-        Assert.That(inventory.TryAdd(apple, out var firstError, 2), Is.True, firstError);
+        Assert.That(inventory.TryAdd(apple, out var firstError, 2), Is.True, firstError?.Message);
         Assert.That(inventory.TryAdd(apple, out var error, 1), Is.False);
-        Assert.That(error, Is.EqualTo("Capacity exceeded."));
+        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
     }
 
     [Test]
@@ -37,7 +37,7 @@ public class StandardLayoutPolishTests
         var feather = new ItemDefinition<string>("feather");
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 0), feather);
 
-        Assert.That(inventory.TryAdd(feather, out var error, 5), Is.True, error);
+        Assert.That(inventory.TryAdd(feather, out var error, 5), Is.True);
     }
 
     [Test]
@@ -47,7 +47,7 @@ public class StandardLayoutPolishTests
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 10, treatMissingWeightAsZero: false), feather);
 
         Assert.That(inventory.TryAdd(feather, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Item weight attribute missing."));
+        Assert.That(error?.Message, Is.EqualTo("Item weight attribute missing."));
     }
 
     [Test]
@@ -68,7 +68,7 @@ public class StandardLayoutPolishTests
 
         var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(inventory.Items[0].Definition.Id, Is.EqualTo("sword"));
         Assert.That(inventory.Items[1].Definition.Id, Is.EqualTo("apple"));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition.Id, Is.EqualTo("apple"));
@@ -88,7 +88,7 @@ public class StandardLayoutPolishTests
             new EquipmentSlot<string>("main-hand", weapon));
         var inventory = CreateInventory(layout, new UnlimitedCapacityPolicy<string>(), new[] { weapon, armor }, sword, helmet);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
@@ -103,7 +103,7 @@ public class StandardLayoutPolishTests
             new[] { weapon },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -116,7 +116,7 @@ public class StandardLayoutPolishTests
             new[] { "gear.weapon.sword" },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -187,7 +187,7 @@ public class StandardLayoutPolishTests
             new UnlimitedCapacityPolicy<string>(),
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -206,7 +206,7 @@ public class StandardLayoutPolishTests
             helmet);
 
         Assert.That(inventory.TryAdd(helmet, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(error?.Message, Is.EqualTo("No compatible equipment slot available."));
     }
 
     [Test]
@@ -233,8 +233,8 @@ public class StandardLayoutPolishTests
             sword,
             specialRing);
 
-        Assert.That(swordInventory.TryAdd(sword, out var swordError), Is.True, swordError);
-        Assert.That(ringInventory.TryAdd(specialRing, out var ringError), Is.True, ringError);
+        Assert.That(swordInventory.TryAdd(sword, out var swordError), Is.True, swordError?.Message);
+        Assert.That(ringInventory.TryAdd(specialRing, out var ringError), Is.True, ringError?.Message);
     }
 
     [Test]
@@ -246,7 +246,7 @@ public class StandardLayoutPolishTests
             new UnlimitedCapacityPolicy<string>(),
             apple);
 
-        Assert.That(inventory.TryAdd(apple, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error), Is.True);
     }
 
     [Test]
@@ -273,12 +273,12 @@ public class StandardLayoutPolishTests
         Assert.That(inventory.TryMove(
             EquipmentLayoutContext<string>.Single("scratch"),
             EquipmentLayoutContext<string>.Single("head"),
-            out var moveError), Is.True, moveError);
+            out var moveError), Is.True);
         Assert.That(inventory.TrySwap(
             EquipmentLayoutContext<string>.Single("main-hand"),
             EquipmentLayoutContext<string>.Single("head"),
             out var swapError), Is.False);
-        Assert.That(swapError, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(swapError?.Message, Is.EqualTo("No compatible equipment slot available."));
     }
 
     [Test]
@@ -294,7 +294,7 @@ public class StandardLayoutPolishTests
             sword);
 
         Assert.That(inventory.TryAdd(sword, out var error, 1, EquipmentLayoutContext<string>.Single("head")), Is.False);
-        Assert.That(error, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(error?.Message, Is.EqualTo("No compatible equipment slot available."));
     }
 
     [Test]
@@ -315,8 +315,8 @@ public class StandardLayoutPolishTests
         builder.TryAdd(helmet, out _, 1);
         var context = EquipmentLayoutContext<string>.Map().Add(0, "main-hand").Add(1, "head").Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("head"))!.Definition.Id, Is.EqualTo("helmet"));
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
@@ -333,7 +333,7 @@ public class StandardLayoutPolishTests
         IReadOnlyList<ILayoutContext<string>>? addedContexts = null;
         inventory.Changed += (_, args) => addedContexts = args.Added[0].LayoutContexts;
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
 
         Assert.That(addedContexts, Is.Not.Null);
         Assert.That(addedContexts!, Has.Count.EqualTo(2));
@@ -354,7 +354,7 @@ public class StandardLayoutPolishTests
         inventory.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 0));
 
         Assert.That(inventory.TryAdd(crate, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.False);
-        Assert.That(error, Is.EqualTo("Grid cells already occupied."));
+        Assert.That(error?.Message, Is.EqualTo("Grid cells already occupied."));
     }
 
     [Test]
@@ -370,7 +370,7 @@ public class StandardLayoutPolishTests
         inventory.TryAdd(wide, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
         inventory.TryAdd(apple, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 1));
 
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(0, 0))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(1, 0))!.Definition.Id, Is.EqualTo("wide"));

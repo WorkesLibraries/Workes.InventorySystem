@@ -31,7 +31,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TryRepackLayout(out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(potion));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2))!.Definition, Is.SameAs(sword));
@@ -54,7 +54,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TryRepackLayout(out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.RequiresFullRefresh, Is.False);
         Assert.That(captured.ConfigurationChanged, Is.Empty);
@@ -84,7 +84,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TryRepackLayout(out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(events, Is.EqualTo(0));
     }
 
@@ -95,7 +95,7 @@ public class InventoryLayoutRepackTests
         var inventory = CreateInventory(new UnsupportedLayout(), coin);
         inventory.Add(coin);
 
-        var exception = Assert.Throws<InvalidOperationException>(() => inventory.RepackLayout());
+        var exception = Assert.Throws<InventoryOperationException>(() => inventory.RepackLayout());
 
         Assert.That(exception!.Message, Does.Contain("does not support inventory-owned repack"));
     }
@@ -112,7 +112,7 @@ public class InventoryLayoutRepackTests
         var accepted = inventory.TryRepackLayout(out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("Current layout type 'UnsupportedLayout' does not support inventory-owned repack."));
+        Assert.That(error?.Message, Does.Contain("Current layout type 'UnsupportedLayout' does not support inventory-owned repack."));
         Assert.That(events, Is.EqualTo(0));
     }
 
@@ -130,7 +130,7 @@ public class InventoryLayoutRepackTests
         var accepted = inventory.TryRepackLayout(out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("EntryLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(error?.Message, Does.Contain("EntryLayout").And.Contain("does not support inventory-owned repack"));
         Assert.That(inventory.Layout, Is.SameAs(originalLayout));
         Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
         Assert.That(events, Is.EqualTo(0));
@@ -154,7 +154,7 @@ public class InventoryLayoutRepackTests
         var accepted = inventory.TryRepackLayout(out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("EquipmentLayout").And.Contain("does not support inventory-owned repack"));
+        Assert.That(error?.Message, Does.Contain("EquipmentLayout").And.Contain("does not support inventory-owned repack"));
         Assert.That(inventory.Layout, Is.SameAs(originalLayout));
         Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("first")), Is.Null);
@@ -176,7 +176,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TryRepackLayout(out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 0))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(0, 1))!.Definition, Is.SameAs(potion));
         Assert.That(inventory.Layout.GetItemAt(inventory, GridLayoutContext<string>.Single(1, 0))!.Definition, Is.SameAs(sword));
@@ -196,7 +196,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TryRepackLayout(out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Layout, Is.TypeOf<CustomRepackableLayout>());
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(sword));
@@ -222,7 +222,7 @@ public class InventoryLayoutRepackTests
             InventoryParameterMutationActions.RepackLayout,
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Layout, Is.TypeOf<CustomRepackableLayout>());
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 6, 4 }));
         Assert.That(captured, Is.Not.Null);
@@ -239,7 +239,7 @@ public class InventoryLayoutRepackTests
 
         var accepted = inventory.TrySetLayoutParameter("capacity", 4, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((CustomRepackableLayout)inventory.Layout).Capacity, Is.EqualTo(4));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2)), Is.SameAs(inventory.Items[0]));
     }
@@ -262,7 +262,7 @@ public class InventoryLayoutRepackTests
             InventoryParameterMutationActions.RepackLayout,
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items, Is.EqualTo(originalItems));
         Assert.That(((CustomRepackableLayout)inventory.Layout).Capacity, Is.EqualTo(2));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition, Is.SameAs(apple));
@@ -289,7 +289,7 @@ public class InventoryLayoutRepackTests
         var accepted = inventory.TryRepackLayout(out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Is.EqualTo("Custom repack rejected."));
+        Assert.That(error?.Message, Is.EqualTo("Custom repack rejected."));
         Assert.That(inventory.Layout, Is.SameAs(originalLayout));
         Assert.That(inventory.Items.Single(), Is.SameAs(originalItem));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(2)), Is.SameAs(originalItem));
@@ -316,7 +316,7 @@ public class InventoryLayoutRepackTests
             out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Is.Not.Null.And.Not.Empty);
+        Assert.That(error?.Message, Is.Not.Null.And.Not.Empty);
         Assert.That(inventory.Layout, Is.SameAs(originalLayout));
         Assert.That(inventory.Items, Is.EqualTo(originalItems));
         Assert.That(events, Is.EqualTo(0));
@@ -382,7 +382,7 @@ public class InventoryLayoutRepackTests
         public IEnumerable<int> GetMergeCandidates(Inventory<string> inventory, ItemInstance<string> prototype, ILayoutContext<string>? context)
             => _indices;
 
-        public bool CanSatisfyPlacement(Inventory<string> inventory, InventoryTransaction<string> transaction, out string? error)
+        public bool CanSatisfyPlacement(Inventory<string> inventory, InventoryTransaction<string> transaction, out InventoryFailure? error)
         {
             error = null;
             return true;
@@ -393,32 +393,32 @@ public class InventoryLayoutRepackTests
             InventoryTransaction<string> transaction,
             ILayoutContext<string>? context,
             out InventoryTransaction<string>? mappedTransaction,
-            out string? error)
+            out InventoryFailure? error)
         {
             mappedTransaction = transaction;
             error = null;
             return true;
         }
 
-        public bool CanAcceptNewItem(Inventory<string> inventory, ItemInstance<string> instance, ILayoutContext<string>? context, out string? error)
+        public bool CanAcceptNewItem(Inventory<string> inventory, ItemInstance<string> instance, ILayoutContext<string>? context, out InventoryFailure? error)
         {
             error = null;
             return true;
         }
 
-        public bool TryMove(Inventory<string> inventory, ILayoutContext<string> contextFrom, ILayoutContext<string> contextTo, out string? error)
+        public bool TryMove(Inventory<string> inventory, ILayoutContext<string> contextFrom, ILayoutContext<string> contextTo, out InventoryFailure? error)
         {
             error = "Unsupported.";
             return false;
         }
 
-        public bool TrySwap(Inventory<string> inventory, ILayoutContext<string> contextFrom, ILayoutContext<string> contextTo, out string? error)
+        public bool TrySwap(Inventory<string> inventory, ILayoutContext<string> contextFrom, ILayoutContext<string> contextTo, out InventoryFailure? error)
         {
             error = "Unsupported.";
             return false;
         }
 
-        public bool TrySort(Inventory<string> inventory, IInventorySortContext<string> sortContext, out string? error)
+        public bool TrySort(Inventory<string> inventory, IInventorySortContext<string> sortContext, out InventoryFailure? error)
         {
             error = "Unsupported.";
             return false;
@@ -490,7 +490,7 @@ public class InventoryLayoutRepackTests
 
         public bool TryCreateEmptyRepackLayout(
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             if (_rejectRepack)
             {
@@ -510,7 +510,7 @@ public class InventoryLayoutRepackTests
             string parameterId,
             object? value,
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             layout = null;
             if (_rejectRepack)
@@ -534,7 +534,7 @@ public class InventoryLayoutRepackTests
             string parameterId,
             object? value,
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             layout = null;
             if (!TryResolveCapacity(parameterId, value, out int capacity, out error))
@@ -558,7 +558,7 @@ public class InventoryLayoutRepackTests
             string parameterId,
             object? value,
             out int capacity,
-            out string? error)
+            out InventoryFailure? error)
         {
             capacity = 0;
             if (parameterId != "capacity")
@@ -610,7 +610,7 @@ public class InventoryLayoutRepackTests
         public bool CanSatisfyPlacement(
             Inventory<string> inventory,
             InventoryTransaction<string> transaction,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.CanSatisfyPlacement(inventory, transaction, out error);
 
         public bool TryApplyPlacementContext(
@@ -618,34 +618,34 @@ public class InventoryLayoutRepackTests
             InventoryTransaction<string> transaction,
             ILayoutContext<string>? context,
             out InventoryTransaction<string>? mappedTransaction,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TryApplyPlacementContext(inventory, transaction, context, out mappedTransaction, out error);
 
         public bool CanAcceptNewItem(
             Inventory<string> inventory,
             ItemInstance<string> instance,
             ILayoutContext<string>? context,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.CanAcceptNewItem(inventory, instance, context, out error);
 
         public bool TryMove(
             Inventory<string> inventory,
             ILayoutContext<string> contextFrom,
             ILayoutContext<string> contextTo,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TryMove(inventory, contextFrom, contextTo, out error);
 
         public bool TrySwap(
             Inventory<string> inventory,
             ILayoutContext<string> contextFrom,
             ILayoutContext<string> contextTo,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TrySwap(inventory, contextFrom, contextTo, out error);
 
         public bool TrySort(
             Inventory<string> inventory,
             IInventorySortContext<string> sortContext,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TrySort(inventory, sortContext, out error);
 
         public void OnItemAdded(Inventory<string> inventory, int index, ILayoutContext<string>? context)

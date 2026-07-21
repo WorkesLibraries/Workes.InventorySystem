@@ -21,6 +21,8 @@ This file records notable changes to `Workes.InventorySystem`.
 - Layout repacking is now capability-based. `EntryLayout<TKey>` no longer supports a guaranteed no-op repack, and
   `EquipmentLayout<TKey>` no longer permits semantically meaningful equipment positions to be reassigned by repacking.
   Custom layouts must implement `IRepackableInventoryLayout<TKey>` to opt in.
+- Public expected-failure contracts now return `out InventoryFailure? failure` instead of `out string? error`. Consumer
+  logic should branch on `failure.Kind` or stable `failure.Code` and use `failure.Message` only for display.
 
 ### Added
 
@@ -56,6 +58,9 @@ This file records notable changes to `Workes.InventorySystem`.
 - Added `ItemCatalog<TKey>(bool areTagsNamespaced)` and `TagCatalog(bool areTagsNamespaced)` constructors for explicit
   namespaced or non-namespaced tag-mode selection. Parameterless construction retains the existing compatibility
   workflow.
+- Added `InventoryFailure`, `InventoryFailureKind`, `InventoryFailureCodes`, `InventorySystemException`, and
+  `InventoryOperationException` for structured expected-failure reporting and project-owned expected-success
+  exceptions.
 
 ### Changed
 
@@ -70,6 +75,9 @@ This file records notable changes to `Workes.InventorySystem`.
 - Metadata arrays and lists now use value-snapshot ownership at every input, candidate, event, persistence, and read
   boundary. `InstanceMetadata` also supports typed `Update<T>(...)` and `TryUpdate<T>(...)`.
 - `InventoryConfigurationChanged<TKey>` now uses `ConfigurationId` for both component parameter IDs and rule IDs.
+- Throwing operation wrappers now throw project-owned inventory exceptions carrying the same structured
+  `InventoryFailure` returned by the corresponding `Try...` method. Programmer misuse still uses standard argument or
+  state exceptions.
 
 ### Deprecated
 
@@ -85,12 +93,14 @@ This file records notable changes to `Workes.InventorySystem`.
   instances.
 - Reflow, sort, repack, direct-move, and swap events now report affected movement and contexts consistently.
 - `InstanceMetadata.TryTransform(...)` now reports rejected transformation errors through its conditional result
-  instead of leaking an `InvalidOperationException`.
+  instead of leaking an `InventoryOperationException`.
 
 ### Documentation
 
 - Replaced the monolithic README manual with a concise landing page, a beginner-first quick start, focused guides for
   each major subsystem, and a complete extension-authoring guide.
+- Added a dedicated failure-handling guide covering `InventoryFailure`, failure categories and codes, project-owned
+  exceptions, migration from string errors, and extension-authored failures.
 
 ### Internal
 

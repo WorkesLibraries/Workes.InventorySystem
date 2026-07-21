@@ -21,7 +21,7 @@ public class GridLayoutExampleTests
 
         var placed = inventory.TryAdd(apple, out var error, 5, GridLayoutContext<string>.Single(2, 1));
 
-        Assert.That(placed, Is.True, error);
+        Assert.That(placed, Is.True);
         WriteOutput("ManualGridPlacement.txt", DescribeGrid(inventory, 3, 2));
     }
 
@@ -63,7 +63,7 @@ public class GridLayoutExampleTests
         var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
-        Assert.That(committed, Is.True, error);
+        Assert.That(committed, Is.True);
         WriteOutput("MappedGridTransaction.txt", DescribeGrid(inventory, 3, 2));
     }
 
@@ -85,7 +85,7 @@ public class GridLayoutExampleTests
             .Add(1, 2, 1)
             .Build();
 
-        Assert.That(source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
 
         WriteOutput("MappedGridTransfer.txt", DescribeGrid(target, 3, 2));
     }

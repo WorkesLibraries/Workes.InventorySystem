@@ -85,7 +85,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = new SectionedLayout<TKey>(CloneSections());
         error = null;
@@ -97,7 +97,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
@@ -114,7 +114,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error)
+        out InventoryFailure? error)
     {
         layout = null;
         if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
@@ -167,7 +167,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out List<SectionDefinition<TKey>>? sections,
-        out string? error)
+        out InventoryFailure? error)
     {
         sections = null;
         if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
@@ -329,7 +329,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         error = null;
         foreach (var (index, _) in transaction.AmountDeltas)
@@ -421,7 +421,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -506,7 +506,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
     {
         if (context is SectionedLayoutContext<TKey> sectionContext && !sectionContext.IsMapped)
         {
@@ -548,7 +548,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
@@ -592,7 +592,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
@@ -634,7 +634,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
@@ -860,7 +860,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;

@@ -8,7 +8,7 @@ namespace Workes.InventorySystem.Rules;
 /// <remarks>
 /// This is an extension contract for custom rules. Application code should add
 /// or change rules through <see cref="RuleContainer{TKey}"/> during setup or
-/// inventory-owned rule mutation methods such as <see cref="Inventory{TKey}.TrySetRule(string, IRulePolicy{TKey}, out string?)"/>.
+/// inventory-owned rule mutation methods such as <see cref="Inventory{TKey}.TrySetRule(string, IRulePolicy{TKey}, out InventoryFailure?)"/>.
 /// Inventory transaction methods invoke rules as part of validation.
 /// </remarks>
 public interface IRulePolicy<TKey>
@@ -33,5 +33,5 @@ public interface IRulePolicy<TKey>
     bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error);
+        out InventoryFailure? error);
 }

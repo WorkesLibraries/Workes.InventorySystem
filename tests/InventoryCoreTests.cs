@@ -104,7 +104,7 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(apple, out var error, 3), Is.True, error);
+        Assert.That(inventory.TryAdd(apple, out var error, 3), Is.True);
         var instance = inventory.Items.Single();
         instance.Metadata.Set("quality", "fresh");
 
@@ -129,8 +129,8 @@ public class InventoryCoreTests
         var inventory = manager.CreateInventory();
         var builder = InventoryTransaction<string>.From(inventory);
 
-        Assert.That(builder.TryAdd(apple, out var buildError, 2), Is.True, buildError);
-        Assert.That(inventory.TryCommitTransaction(builder.Build(), out var commitError), Is.True, commitError);
+        Assert.That(builder.TryAdd(apple, out var buildError, 2), Is.True);
+        Assert.That(inventory.TryCommitTransaction(builder.Build(), out var commitError), Is.True);
 
         var instance = inventory.Items.Single();
         Assert.That(instance.Definition, Is.SameAs(apple));
@@ -323,7 +323,7 @@ public class InventoryCoreTests
         var result = inventory.TryMove(fromContext, toContext, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Item not found in inventory."));
+        Assert.That(error?.Message, Is.EqualTo("Item not found in inventory."));
         Assert.That(changedCount, Is.EqualTo(0));
     }
 
@@ -391,7 +391,7 @@ public class InventoryCoreTests
         var result = inventory.TrySwap(slot0, slot1, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("One or both of the items not found in inventory."));
+        Assert.That(error?.Message, Is.EqualTo("One or both of the items not found in inventory."));
         Assert.That(changedCount, Is.EqualTo(0));
     }
 
@@ -471,7 +471,7 @@ public class InventoryCoreTests
         var result = inventory.TryMergeMove(fromContext, toContext, out var error, amount: 2);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Not enough room in target stack to move the requested amount."));
+        Assert.That(error?.Message, Is.EqualTo("Not enough room in target stack to move the requested amount."));
         Assert.That(changedCount, Is.EqualTo(0));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(9));
         Assert.That(inventory.Items[1].Amount, Is.EqualTo(2));
@@ -499,7 +499,7 @@ public class InventoryCoreTests
         var result = inventory.TryMergeMove(fromContext, toContext, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Items are not stack compatible."));
+        Assert.That(error?.Message, Is.EqualTo("Items are not stack compatible."));
     }
 
     [Test]
@@ -530,7 +530,7 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => inventory.Add(apple, amount: 2));
+        var exception = Assert.Throws<InventoryOperationException>(() => inventory.Add(apple, amount: 2));
 
         Assert.That(exception!.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
@@ -545,7 +545,7 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.Throws<InvalidOperationException>(() => inventory.RemoveByDefinition(apple, amount: 1, ignoreMetadata: true));
+        Assert.Throws<InventoryOperationException>(() => inventory.RemoveByDefinition(apple, amount: 1, ignoreMetadata: true));
     }
 
     [Test]
@@ -559,7 +559,7 @@ public class InventoryCoreTests
 
         inventory.Add(apple, context: new SlotLayoutContext<string>(1));
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<InventoryOperationException>(() =>
             inventory.Move(new SlotLayoutContext<string>(0), new SlotLayoutContext<string>(1)));
 
         Assert.That(exception!.Message, Is.EqualTo("Item not found in inventory."));

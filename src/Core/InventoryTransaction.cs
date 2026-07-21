@@ -91,7 +91,7 @@ public class InventoryTransaction<TKey>
     /// <exception cref="InvalidOperationException">This transaction has already been applied.</exception>
     /// <remarks>
     /// Custom layouts can use this method from
-    /// <see cref="IInventoryLayout{TKey}.TryApplyPlacementContext(Inventory{TKey}, InventoryTransaction{TKey}, ILayoutContext{TKey}?, out InventoryTransaction{TKey}?, out string?)"/>
+    /// <see cref="IInventoryLayout{TKey}.TryApplyPlacementContext(Inventory{TKey}, InventoryTransaction{TKey}, ILayoutContext{TKey}?, out InventoryTransaction{TKey}?, out InventoryFailure?)"/>
     /// after validating a transaction-level placement context. It intentionally does not allow layouts to replace the
     /// transaction's structural item changes.
     /// </remarks>

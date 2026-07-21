@@ -19,21 +19,21 @@ public class InstanceMetadataTests
         metadata.Set("valid", new List<object?> { 1, new[] { "a", null } });
 
         Assert.That(metadata.TryAdd("object", new object(), out var objectError), Is.False);
-        Assert.That(objectError, Does.Contain("Literal System.Object"));
+        Assert.That(objectError?.Message, Does.Contain("Literal System.Object"));
         Assert.That(metadata.TrySet("dictionary", new Dictionary<string, int>(), out var dictionaryError), Is.False);
-        Assert.That(dictionaryError, Does.Contain("not a supported portable snapshot value"));
+        Assert.That(dictionaryError?.Message, Does.Contain("not a supported portable snapshot value"));
         Assert.That(metadata.TryChange("valid", DayOfWeek.Monday, out var enumError), Is.False);
-        Assert.That(enumError, Does.Contain("unsupported"));
+        Assert.That(enumError?.Message, Does.Contain("unsupported"));
         Assert.That(
             metadata.TryReplace(
                 new Dictionary<string, object?> { ["valid"] = 1, ["bad"] = new int[1, 1] },
                 out var replaceError),
             Is.False);
-        Assert.That(replaceError, Does.Contain("one-dimensional"));
+        Assert.That(replaceError?.Message, Does.Contain("one-dimensional"));
         Assert.That(
             metadata.TryTransform(values => values.Set("bad", new object()), out var transformError),
             Is.False);
-        Assert.That(transformError, Does.Contain("Literal System.Object"));
+        Assert.That(transformError?.Message, Does.Contain("Literal System.Object"));
 
         Assert.That(metadata.AsReadOnly().Keys, Is.EqualTo(new[] { "valid" }));
     }
@@ -54,7 +54,7 @@ public class InstanceMetadataTests
         var metadata = new InstanceMetadata();
         metadata.Add("quality", "fresh");
 
-        Assert.Throws<InvalidOperationException>(() => metadata.Add("quality", "stale"));
+        Assert.Throws<InventoryOperationException>(() => metadata.Add("quality", "stale"));
 
         Assert.That(metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
@@ -77,7 +77,7 @@ public class InstanceMetadataTests
     {
         var metadata = new InstanceMetadata();
 
-        Assert.Throws<InvalidOperationException>(() => metadata.Change("quality", "fresh"));
+        Assert.Throws<InventoryOperationException>(() => metadata.Change("quality", "fresh"));
 
         Assert.That(metadata.IsEmpty, Is.True);
     }
@@ -87,7 +87,7 @@ public class InstanceMetadataTests
     {
         var metadata = new InstanceMetadata();
 
-        Assert.Throws<InvalidOperationException>(() => metadata.Remove("quality"));
+        Assert.Throws<InventoryOperationException>(() => metadata.Remove("quality"));
     }
 
     [Test]
@@ -224,7 +224,7 @@ public class InstanceMetadataTests
         inventory.CommitTransaction(builder.Build());
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True, error);
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True);
         var entry = transfer.Entries.Single();
         inventory.Items[0].Metadata.Set("quality", "stale");
 
@@ -242,7 +242,7 @@ public class InstanceMetadataTests
         inventory.TryAdd(apple, out _, 1);
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True, error);
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True);
         var entry = transfer.Entries.Single();
 
         Assert.That(entry.Metadata, Is.Null);
@@ -257,7 +257,7 @@ public class InstanceMetadataTests
         var sourceInstance = inventory.Items[0];
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(sourceInstance, 1, out var error), Is.True, error);
+        Assert.That(transfer.TryRemove(sourceInstance, 1, out var error), Is.True);
         var entry = transfer.Entries.Single();
 
         Assert.That(entry.SourceInstance, Is.SameAs(sourceInstance));

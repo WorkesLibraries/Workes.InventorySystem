@@ -29,7 +29,7 @@ public class MaxUniqueItemsRule<TKey> : InventorySnapshotRulePolicy<TKey>
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         var uniqueCount = snapshot.UniqueDefinitionCount;
         if (uniqueCount > _maxUniqueDefinitions)

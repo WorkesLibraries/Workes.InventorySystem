@@ -41,7 +41,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
+    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -64,7 +64,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
+    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -88,7 +88,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
         string parameterId,
         object? value,
         out ICapacityPolicy<TKey>? policy,
-        out string? error)
+        out InventoryFailure? error)
     {
         policy = null;
         if (parameterId != "maxTotalItemAmount")

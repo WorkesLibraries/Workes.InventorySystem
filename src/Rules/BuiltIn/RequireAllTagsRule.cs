@@ -44,7 +44,7 @@ public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var requiredTagsDescription = string.Join(", ", _tagIds);
         foreach (var (definition, _, _) in transaction.Added)

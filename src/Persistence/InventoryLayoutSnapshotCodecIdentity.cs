@@ -9,7 +9,7 @@ internal static class InventoryLayoutSnapshotCodecIdentity
     private static readonly Dictionary<Type, string> s_kindsByCodec = new();
     private static readonly Dictionary<string, Type> s_codecsByKind = new(StringComparer.Ordinal);
 
-    internal static bool TryAssociate(Type closedCodecType, string layoutKind, out string? error)
+    internal static bool TryAssociate(Type closedCodecType, string layoutKind, out InventoryFailure? error)
     {
         Type codecIdentity = closedCodecType.IsGenericType
             ? closedCodecType.GetGenericTypeDefinition()

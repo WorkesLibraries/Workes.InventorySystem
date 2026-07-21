@@ -142,7 +142,7 @@ var inventory = manager.CreateInventory();
 inventory.Add(registeredApple, amount: 5);
 
 var detachedApple = new ItemDefinition<string>("apple");
-var accepted = inventory.TryAdd(detachedApple, out var error);
+var accepted = inventory.TryAdd(detachedApple, out var failure);
 
 // accepted is false because detachedApple is not the registered object.
 ```
@@ -229,7 +229,8 @@ Normal operations include:
 
 The inventory exposes both conditional and expected-success styles:
 
-- `Try...` methods return `false` with an error when rejection is an expected branch.
+- `Try...` methods return `false` with an `InventoryFailure` when rejection is an expected branch. See
+  [Failure Handling](FAILURES.md).
 - Throwing wrappers such as `Add(...)` are convenient when the operation is expected to succeed.
 
 Rejected operations leave observable inventory state unchanged and do not emit committed-change events. Successful operations commit the validated result and then notify through `Inventory<TKey>.Changed`.

@@ -19,5 +19,5 @@ public interface IRepackableInventoryLayout<TKey> : IInventoryLayout<TKey>
     /// <returns><see langword="true"/> when an empty repack target was created; otherwise, <see langword="false"/>.</returns>
     bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out string? error);
+        out InventoryFailure? error);
 }

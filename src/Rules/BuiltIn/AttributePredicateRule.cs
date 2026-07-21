@@ -47,7 +47,7 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         foreach (var (definition, _, _) in transaction.Added)
         {

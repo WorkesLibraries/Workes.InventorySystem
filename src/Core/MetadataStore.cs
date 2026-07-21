@@ -12,6 +12,14 @@ internal sealed class MetadataMutationException : InvalidOperationException
     public MetadataMutationException(string message) : base(message)
     {
     }
+
+    public MetadataMutationException(InventoryFailure failure)
+        : base((failure ?? throw new ArgumentNullException(nameof(failure))).Message)
+    {
+        Failure = failure;
+    }
+
+    public InventoryFailure? Failure { get; }
 }
 
 internal sealed class MetadataStore
@@ -23,7 +31,7 @@ internal sealed class MetadataStore
     public bool ContainsKey(string key) =>
         _data != null && _data.ContainsKey(key);
 
-    public bool TryAdd(string key, object? value, out string? error)
+    public bool TryAdd(string key, object? value, out InventoryFailure? error)
     {
         if (!TryValidateKey(key, out error))
             return false;
@@ -42,7 +50,7 @@ internal sealed class MetadataStore
         return true;
     }
 
-    public bool TrySet(string key, object? value, out string? error)
+    public bool TrySet(string key, object? value, out InventoryFailure? error)
     {
         if (!TryValidateKey(key, out error))
             return false;
@@ -56,7 +64,7 @@ internal sealed class MetadataStore
         return true;
     }
 
-    public bool TryChange(string key, object? value, out string? error)
+    public bool TryChange(string key, object? value, out InventoryFailure? error)
     {
         if (!TryValidateKey(key, out error))
             return false;
@@ -68,7 +76,7 @@ internal sealed class MetadataStore
         return TrySet(key, value, out error);
     }
 
-    public bool TryRemove(string key, out string? error)
+    public bool TryRemove(string key, out InventoryFailure? error)
     {
         if (!TryValidateKey(key, out error))
             return false;
@@ -83,7 +91,7 @@ internal sealed class MetadataStore
         return true;
     }
 
-    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out string? error)
+    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out InventoryFailure? error)
     {
         if (values == null || values.Count == 0)
         {
@@ -138,7 +146,7 @@ internal sealed class MetadataStore
         foreach (var pair in _data)
         {
             if (!TryCloneValue(pair.Value, out var detached, out var error))
-                throw new InvalidOperationException(error);
+                throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
             result.Add(pair.Key, detached);
         }
         return result;
@@ -156,7 +164,7 @@ internal sealed class MetadataStore
         if (source == null)
             throw new ArgumentNullException(nameof(source));
         if (!TryReplace(source._data, out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
     public bool StructuralEquals(MetadataStore other)
@@ -213,7 +221,7 @@ internal sealed class MetadataStore
     private Dictionary<string, object?> Data =>
         _data ??= new Dictionary<string, object?>(StringComparer.Ordinal);
 
-    private static bool TryValidateKey(string key, out string? error)
+    private static bool TryValidateKey(string key, out InventoryFailure? error)
     {
         if (string.IsNullOrWhiteSpace(key))
         {
@@ -224,7 +232,7 @@ internal sealed class MetadataStore
         return true;
     }
 
-    private static bool TryCloneValue(object? value, out object? clone, out string? error)
+    private static bool TryCloneValue(object? value, out object? clone, out InventoryFailure? error)
     {
         clone = null;
         if (!IsSupportedMetadataValue(
@@ -244,7 +252,7 @@ internal sealed class MetadataStore
     private static bool IsSupportedMetadataValue(
         object? value,
         HashSet<object> path,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (value == null)
         {

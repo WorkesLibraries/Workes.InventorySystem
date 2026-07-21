@@ -74,7 +74,8 @@ Console.WriteLine(inventory.Find("coin").Count); // 3 stacks: 10, 10, 5
 ```
 
 Use throwing methods such as `Add(...)` when success is expected. Use their `Try...` counterparts when rejection is a
-normal application branch; rejected operations leave the inventory unchanged.
+normal application branch; rejected operations leave the inventory unchanged and report an `InventoryFailure` with a
+stable `Kind`, stable `Code`, and human-readable `Message`.
 
 See the [Quick Start](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/QUICK_START.md) for the
 complete first-use walkthrough.
@@ -126,6 +127,7 @@ Focused guides:
 - [Policies And Rules](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/POLICIES_AND_RULES.md)
 - [Transactions And Transfers](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/TRANSACTIONS_AND_TRANSFERS.md)
 - [Events And UI Integration](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/EVENTS_AND_UI.md)
+- [Failure Handling](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/FAILURES.md)
 - [Persistence](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/PERSISTENCE.md)
 - [Extending The Inventory System](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/EXTENDING.md)
 

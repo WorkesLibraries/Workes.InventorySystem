@@ -21,7 +21,7 @@ public class LayoutContextExampleTests
 
         var placed = inventory.TryAdd(apple, out var error, 5, SlotLayoutContext<string>.Single(3));
 
-        Assert.That(placed, Is.True, error);
+        Assert.That(placed, Is.True);
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(3))!.Amount, Is.EqualTo(5));
         WriteOutput("ManualSingleSlotPlacement.txt", DescribeSlots(inventory, 5));
     }
@@ -43,7 +43,7 @@ public class LayoutContextExampleTests
         var built = builder.TryBuild(context, out var transaction, out var error);
         var committed = built && inventory.TryCommitTransaction(transaction!, out error);
 
-        Assert.That(committed, Is.True, error);
+        Assert.That(committed, Is.True);
         WriteOutput("MappedMultiAddTransaction.txt", DescribeSlots(inventory, 5));
     }
 

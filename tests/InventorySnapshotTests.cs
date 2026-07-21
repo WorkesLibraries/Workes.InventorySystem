@@ -31,14 +31,14 @@ public class InventorySnapshotTests
         Assert.That(
             builder.TryAdd(apple, 2, SlotLayoutContext<string>.Single(2), metadata, out var addError),
             Is.True,
-            addError);
+            addError?.Message);
         inventory.CommitTransaction(builder.Build());
 
         var snapshot = inventory.CaptureSnapshot();
         var json = JsonSerializer.Serialize(snapshot);
         var jsonRoundTrip = JsonSerializer.Deserialize<InventorySnapshot>(json);
 
-        Assert.That(InventorySnapshotValidator.TryValidate(jsonRoundTrip, out var jsonError), Is.True, jsonError);
+        Assert.That(InventorySnapshotValidator.TryValidate(jsonRoundTrip, out var jsonError), Is.True, jsonError?.Message);
         Assert.That(jsonRoundTrip!.Entries.Single().EntryId, Is.EqualTo("e0"));
         Assert.That(jsonRoundTrip.Metadata.Select(value => value.Name), Is.EqualTo(new[] { "ownerId", "upgrades" }));
 
@@ -48,7 +48,7 @@ public class InventorySnapshotTests
         stream.Position = 0;
         var xmlRoundTrip = (InventorySnapshot)serializer.Deserialize(stream)!;
 
-        Assert.That(InventorySnapshotValidator.TryValidate(xmlRoundTrip, out var xmlError), Is.True, xmlError);
+        Assert.That(InventorySnapshotValidator.TryValidate(xmlRoundTrip, out var xmlError), Is.True, xmlError?.Message);
         Assert.That(xmlRoundTrip.Layout.Kind, Is.EqualTo("workes.inventory.layout.slot"));
         Assert.That(xmlRoundTrip.Entries.Single().Metadata.Single().Name, Is.EqualTo("nested"));
         Assert.That(xmlRoundTrip.Metadata.Select(value => value.Name), Is.EqualTo(new[] { "ownerId", "upgrades" }));
@@ -160,14 +160,14 @@ public class InventorySnapshotTests
         var metadata = new InstanceMetadata();
         metadata.Set("values", values);
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, 1, null, metadata, out var addError), Is.True, addError);
+        Assert.That(builder.TryAdd(apple, 1, null, metadata, out var addError), Is.True);
         inventory.CommitTransaction(builder.Build());
 
         var snapshot = inventory.CaptureSnapshot();
         values.Add(3);
 
         var encodedValues = snapshot.Entries.Single().Metadata.Single().Value;
-        Assert.That(InventorySnapshotCodecs.TryDecode(encodedValues, out List<int> captured, out var error), Is.True, error);
+        Assert.That(InventorySnapshotCodecs.TryDecode(encodedValues, out List<int> captured, out var error), Is.True);
         Assert.That(captured, Is.EqualTo(new[] { 1, 2 }));
 
         snapshot.Entries[0].Amount = 99;
@@ -187,12 +187,12 @@ public class InventorySnapshotTests
 
         var snapshot = inventory.CaptureSnapshot();
         var slots = snapshot.Layout.Data.Properties.Single(property => property.Name == "slots").Value;
-        Assert.That(InventorySnapshotCodecs.TryDecode(slots, out List<object?> references, out var error), Is.True, error);
+        Assert.That(InventorySnapshotCodecs.TryDecode(slots, out List<object?> references, out var error), Is.True);
         Assert.That(references, Is.EqualTo(new object?[] { null, "e1", null, "e0" }));
 
         snapshot.Entries.Reverse();
-        Assert.That(InventorySnapshotValidator.TryValidate(snapshot, out error), Is.True, error);
-        Assert.That(InventorySnapshotCodecs.TryDecode(slots, out references, out error), Is.True, error);
+        Assert.That(InventorySnapshotValidator.TryValidate(snapshot, out error), Is.True);
+        Assert.That(InventorySnapshotCodecs.TryDecode(slots, out references, out error), Is.True);
         Assert.That(references, Is.EqualTo(new object?[] { null, "e1", null, "e0" }));
     }
 
@@ -223,7 +223,7 @@ public class InventorySnapshotTests
             var snapshot = CreateInventory(layouts[i]).CaptureSnapshot();
             Assert.That(snapshot.Layout.Kind, Is.EqualTo(kinds[i]));
             Assert.That(snapshot.Layout.DataVersion, Is.EqualTo(1));
-            Assert.That(InventorySnapshotValidator.TryValidate(snapshot, out var error), Is.True, error);
+            Assert.That(InventorySnapshotValidator.TryValidate(snapshot, out var error), Is.True);
         }
     }
 
@@ -270,14 +270,14 @@ public class InventorySnapshotTests
             unsupportedKeyInventory.TryCaptureSnapshot(out var missingKeySnapshot, out var keyError),
             Is.False);
         Assert.That(missingKeySnapshot, Is.Null);
-        Assert.That(keyError, Does.Contain("must declare InventorySnapshotKeyCodecAttribute"));
+        Assert.That(keyError?.Message, Does.Contain("must declare InventorySnapshotKeyCodecAttribute"));
 
         var metadataInventory = CreateInventory(new EntryLayout<string>(), new ItemDefinition<string>("item"));
         metadataInventory.Add(metadataInventory.Catalog.Registry.Resolve("item"));
         Assert.That(
             metadataInventory.Items.Single().Metadata.TrySet("state", UnsupportedEnum.First, out var enumError),
             Is.False);
-        Assert.That(enumError, Does.Contain("unsupported"));
+        Assert.That(enumError?.Message, Does.Contain("unsupported"));
     }
 
     [Test]
@@ -289,14 +289,14 @@ public class InventorySnapshotTests
         var cyclic = new List<object?>();
         cyclic.Add(cyclic);
         Assert.That(inventory.Items.Single().Metadata.TrySet("cycle", cyclic, out var cycleError), Is.False);
-        Assert.That(cycleError, Does.Contain("cycle"));
+        Assert.That(cycleError?.Message, Does.Contain("cycle"));
 
         var malformed = new ItemDefinition<MalformedValue>(new MalformedValue());
         var malformedInventory = CreateInventory(new EntryLayout<MalformedValue>(), malformed);
         malformedInventory.Add(malformed);
 
         Assert.That(malformedInventory.TryCaptureSnapshot(out _, out var malformedError), Is.False);
-        Assert.That(malformedError, Does.Contain("produced invalid data"));
+        Assert.That(malformedError?.Message, Does.Contain("produced invalid data"));
     }
 
     [Test]
@@ -306,7 +306,7 @@ public class InventorySnapshotTests
 
         Assert.That(inventory.TryCaptureSnapshot(out var snapshot, out var error), Is.False);
         Assert.That(snapshot, Is.Null);
-        Assert.That(error, Does.Contain("could not exactly restore"));
+        Assert.That(error?.Message, Does.Contain("could not exactly restore"));
     }
 
     [Test]
@@ -315,11 +315,11 @@ public class InventorySnapshotTests
         var encoded = InventorySnapshotCodecs.Encode(42);
         encoded.CodecVersion = 99;
         Assert.That(InventorySnapshotCodecs.TryDecode(encoded, out int _, out var versionError), Is.False);
-        Assert.That(versionError, Does.Contain("version 99"));
+        Assert.That(versionError?.Message, Does.Contain("version 99"));
 
         var malformed = new InventorySnapshot { FormatVersion = 99 };
         Assert.That(InventorySnapshotValidator.TryValidate(malformed, out var formatError), Is.False);
-        Assert.That(formatError, Does.Contain("unsupported"));
+        Assert.That(formatError?.Message, Does.Contain("unsupported"));
 
         malformed = new InventorySnapshot
         {
@@ -344,12 +344,12 @@ public class InventorySnapshotTests
                 Data = SnapshotValue.Object()
             }
         };
-        Assert.That(InventorySnapshotValidator.TryValidate(malformed, out var codecError), Is.True, codecError);
+        Assert.That(InventorySnapshotValidator.TryValidate(malformed, out var codecError), Is.True, codecError?.Message);
 
         var valid = CreateInventory(new SlotLayout<string>(1)).CaptureSnapshot();
         var slots = valid.Layout.Data.Properties.Single(property => property.Name == "slots").Value;
         slots.Data.Items[0] = InventorySnapshotCodecs.Encode("missing-entry");
-        Assert.That(InventorySnapshotValidator.TryValidate(valid, out var referenceError), Is.True, referenceError);
+        Assert.That(InventorySnapshotValidator.TryValidate(valid, out var referenceError), Is.True, referenceError?.Message);
         Assert.That(
             new SlotLayout<string>(1).SnapshotCodec.TryDecode(
                 new InventoryLayoutSnapshotDecodeContext<string>(
@@ -358,7 +358,7 @@ public class InventorySnapshotTests
                 out _,
                 out referenceError),
             Is.False);
-        Assert.That(referenceError, Does.Contain("unknown entry id"));
+        Assert.That(referenceError?.Message, Does.Contain("unknown entry id"));
     }
 
     [Test]
@@ -397,7 +397,7 @@ public class InventorySnapshotTests
                     out _,
                     out var error),
             Is.False);
-        Assert.That(error, Does.Contain("malformed shape"));
+        Assert.That(error?.Message, Does.Contain("malformed shape"));
     }
 
     [Test]
@@ -449,7 +449,7 @@ public class InventorySnapshotTests
                 out string decodedId,
                 out var error),
             Is.True,
-            error);
+            error?.Message);
         Assert.That(targetCatalog.Registry.Resolve(decodedId), Is.SameAs(replacement));
     }
 
@@ -478,9 +478,9 @@ public class InventorySnapshotTests
 
     private static T RoundTrip<T>(T value)
     {
-        Assert.That(InventorySnapshotCodecs.TryEncode(value, out var encoded, out var encodeError), Is.True, encodeError);
+        Assert.That(InventorySnapshotCodecs.TryEncode(value, out var encoded, out var encodeError), Is.True, encodeError?.Message);
         Assert.That(encoded, Is.Not.Null);
-        Assert.That(InventorySnapshotCodecs.TryDecode(encoded!, out T decoded, out var decodeError), Is.True, decodeError);
+        Assert.That(InventorySnapshotCodecs.TryDecode(encoded!, out T decoded, out var decodeError), Is.True);
         return decoded;
     }
 
@@ -503,7 +503,7 @@ public class InventorySnapshotTests
                 out TKey decoded,
                 out var error),
             Is.True,
-            error);
+            error?.Message);
         Assert.That(decoded, Is.EqualTo(key));
     }
 
@@ -566,14 +566,14 @@ public class InventorySnapshotTests
         public string FormatId => "tests.custom-key";
         public int CurrentVersion => 1;
 
-        public bool TryEncode(CustomKey value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(CustomKey value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             encoded = SnapshotValue.String(value.Value);
             error = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out CustomKey value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out CustomKey value, out InventoryFailure? error)
         {
             value = null!;
             if (version != 1 || encoded.Kind != SnapshotValueKind.String || encoded.StringValue == null)
@@ -618,7 +618,7 @@ public class InventorySnapshotTests
         public bool TryCapture(
             InventoryLayoutSnapshotCaptureContext<string> context,
             out SnapshotValue? data,
-            out string? error)
+            out InventoryFailure? error)
         {
             var layout = (CustomSlotLayout)context.Layout;
             var persistent = (SlotLayoutPersistentData)layout.GetPersistentData();
@@ -649,7 +649,7 @@ public class InventorySnapshotTests
         public bool TryDecode(
             InventoryLayoutSnapshotDecodeContext<string> context,
             out InventoryLayoutSnapshotCandidate<string>? candidate,
-            out string? error)
+            out InventoryFailure? error)
         {
             candidate = null;
             error = null;
@@ -701,7 +701,7 @@ public class InventorySnapshotTests
         public bool TryCreateExactLayout(
             InventoryLayoutSnapshotRestoreContext<string> context,
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             layout = null;
             error = null;
@@ -751,7 +751,7 @@ public class InventorySnapshotTests
         public bool TryCapture(
             InventoryLayoutSnapshotCaptureContext<string> context,
             out SnapshotValue? data,
-            out string? error)
+            out InventoryFailure? error)
         {
             data = SnapshotValue.Object();
             error = null;
@@ -761,7 +761,7 @@ public class InventorySnapshotTests
         public bool TryDecode(
             InventoryLayoutSnapshotDecodeContext<string> context,
             out InventoryLayoutSnapshotCandidate<string>? candidate,
-            out string? error)
+            out InventoryFailure? error)
         {
             candidate = new InventoryLayoutSnapshotCandidate<string>(
                 LayoutKind,
@@ -775,7 +775,7 @@ public class InventorySnapshotTests
         public bool TryCreateExactLayout(
             InventoryLayoutSnapshotRestoreContext<string> context,
             out IInventoryLayout<string>? layout,
-            out string? error)
+            out InventoryFailure? error)
         {
             layout = null;
             error = "Exact restoration is intentionally unsupported.";
@@ -798,14 +798,14 @@ public class InventorySnapshotTests
         public string FormatId => "tests.malformed-value";
         public int CurrentVersion => 1;
 
-        public bool TryEncode(MalformedValue value, out SnapshotValue? encoded, out string? error)
+        public bool TryEncode(MalformedValue value, out SnapshotValue? encoded, out InventoryFailure? error)
         {
             encoded = SnapshotValue.String(null!);
             error = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out MalformedValue value, out string? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out MalformedValue value, out InventoryFailure? error)
         {
             value = new MalformedValue();
             error = null;

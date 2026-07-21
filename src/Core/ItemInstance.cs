@@ -75,7 +75,7 @@ public class ItemInstance<TKey>
         string key,
         object? value,
         out ItemInstance<TKey>? metadataStack,
-        out string? error)
+        out InventoryFailure? error)
     {
         metadataStack = null;
         if (Owner == null)
@@ -99,7 +99,7 @@ public class ItemInstance<TKey>
     public ItemInstance<TKey> SplitAndSetMetadata(int amount, string key, object? value)
     {
         if (!TrySplitAndSetMetadata(amount, key, value, out var metadataStack, out var error) || metadataStack == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
 
         return metadataStack;
     }

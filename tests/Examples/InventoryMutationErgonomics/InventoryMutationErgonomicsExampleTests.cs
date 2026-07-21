@@ -46,7 +46,7 @@ public class InventoryMutationErgonomicsExampleTests
         operations.AppendLine($"Try add coin x20 over capacity: {(overCapacityAccepted ? "committed" : $"rejected ({overCapacityError})")}");
 
         Assert.That(overCapacityAccepted, Is.False);
-        Assert.That(overCapacityError, Is.EqualTo("Capacity exceeded."));
+        Assert.That(overCapacityError?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(22));
         Assert.That(inventory.Items.Single(i => i.Definition == coin).Amount, Is.EqualTo(20));
         Assert.That(inventory.Items.Single(i => i.Definition == potion).Amount, Is.EqualTo(2));

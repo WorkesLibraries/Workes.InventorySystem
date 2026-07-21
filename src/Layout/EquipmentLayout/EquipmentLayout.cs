@@ -143,7 +143,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out string? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
     {
         error = null;
         foreach (var (index, _) in transaction.AmountDeltas)
@@ -235,7 +235,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;
@@ -296,7 +296,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         for (int i = 0; i < transaction.Added.Count; i++)
         {
             var (instance, existingContext) = transaction.Added[i];
-            if (equipmentContext.AddedEntrySlots.TryGetValue(i, out string? mappedSlot))
+            if (equipmentContext.AddedEntrySlots.TryGetValue(i, out var mappedSlot))
             {
                 var mappedContext = EquipmentLayoutContext<TKey>.Single(mappedSlot);
                 if (existingContext is EquipmentLayoutContext<TKey> existingEquipmentContext &&
@@ -326,7 +326,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out string? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
     {
         if (context is EquipmentLayoutContext<TKey> equipmentContext && !equipmentContext.IsMapped)
         {
@@ -368,7 +368,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
@@ -411,7 +411,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out string? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
@@ -452,7 +452,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out string? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
     {
         error = "Layout does not support sorting.";
         return false;
@@ -612,7 +612,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         mappedTransaction = null;
         error = null;

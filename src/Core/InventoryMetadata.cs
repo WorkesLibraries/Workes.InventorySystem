@@ -8,7 +8,7 @@ internal interface IInventoryMetadataOwner
     bool TryApplyMetadataMutation(
         InventoryMetadata metadata,
         InventoryMetadata proposedMetadata,
-        out string? error);
+        out InventoryFailure? error);
 }
 
 /// <summary>
@@ -21,7 +21,7 @@ internal interface IInventoryMetadataOwner
 /// </remarks>
 public sealed class InventoryMetadata
 {
-    private delegate bool Mutation(InventoryMetadata proposed, out string? error);
+    private delegate bool Mutation(InventoryMetadata proposed, out InventoryFailure? error);
 
     private readonly MetadataStore _store;
     private IInventoryMetadataOwner? _owner;
@@ -45,9 +45,9 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TryAdd(key, value, out var error), error);
 
     /// <summary>Attempts to add a metadata value when the key is absent.</summary>
-    public bool TryAdd(string key, object? value, out string? error) =>
+    public bool TryAdd(string key, object? value, out InventoryFailure? error) =>
         TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 proposed._store.TryAdd(key, value, out mutationError),
             out error);
 
@@ -56,9 +56,9 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TrySet(key, value, out var error), error);
 
     /// <summary>Attempts to store or replace a metadata value.</summary>
-    public bool TrySet(string key, object? value, out string? error) =>
+    public bool TrySet(string key, object? value, out InventoryFailure? error) =>
         TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 proposed._store.TrySet(key, value, out mutationError),
             out error);
 
@@ -67,9 +67,9 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TryChange(key, value, out var error), error);
 
     /// <summary>Attempts to replace an existing metadata value.</summary>
-    public bool TryChange(string key, object? value, out string? error) =>
+    public bool TryChange(string key, object? value, out InventoryFailure? error) =>
         TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 proposed._store.TryChange(key, value, out mutationError),
             out error);
 
@@ -79,13 +79,13 @@ public sealed class InventoryMetadata
 
     /// <summary>Attempts to derive and commit a replacement for an existing typed metadata value.</summary>
     /// <remarks>Unexpected exceptions from <paramref name="updater"/> propagate without changing metadata.</remarks>
-    public bool TryUpdate<T>(string key, Func<T, T> updater, out string? error)
+    public bool TryUpdate<T>(string key, Func<T, T> updater, out InventoryFailure? error)
     {
         if (updater == null)
             throw new ArgumentNullException(nameof(updater));
 
         return TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
             {
                 if (!proposed._store.ContainsKey(key))
                 {
@@ -112,9 +112,9 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TryRemove(key, out var error), error);
 
     /// <summary>Attempts to remove an existing metadata value.</summary>
-    public bool TryRemove(string key, out string? error) =>
+    public bool TryRemove(string key, out InventoryFailure? error) =>
         TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 proposed._store.TryRemove(key, out mutationError),
             out error);
 
@@ -123,7 +123,7 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TryClear(out var error), error);
 
     /// <summary>Attempts to remove every metadata value.</summary>
-    public bool TryClear(out string? error)
+    public bool TryClear(out InventoryFailure? error)
     {
         if (IsEmpty)
         {
@@ -138,9 +138,9 @@ public sealed class InventoryMetadata
         ThrowIfRejected(TryReplace(values, out var error), error);
 
     /// <summary>Attempts to replace the complete metadata dictionary.</summary>
-    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out string? error) =>
+    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out InventoryFailure? error) =>
         TryMutate(
-            (InventoryMetadata proposed, out string? mutationError) =>
+            (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 proposed._store.TryReplace(values, out mutationError),
             out error);
 
@@ -150,14 +150,14 @@ public sealed class InventoryMetadata
 
     /// <summary>Attempts to transform and commit a detached proposed metadata copy.</summary>
     /// <remarks>Unexpected exceptions from <paramref name="transform"/> propagate without changing metadata.</remarks>
-    public bool TryTransform(Action<InventoryMetadata> transform, out string? error)
+    public bool TryTransform(Action<InventoryMetadata> transform, out InventoryFailure? error)
     {
         if (transform == null)
             throw new ArgumentNullException(nameof(transform));
         try
         {
             return TryMutate(
-                (InventoryMetadata proposed, out string? mutationError) =>
+                (InventoryMetadata proposed, out InventoryFailure? mutationError) =>
                 {
                     proposed._captureMutationErrors = true;
                     try
@@ -207,7 +207,7 @@ public sealed class InventoryMetadata
     internal void ReplaceDirect(InventoryMetadata source) =>
         _store.ReplaceFrom(source._store);
 
-    private bool TryMutate(Mutation mutation, out string? error)
+    private bool TryMutate(Mutation mutation, out InventoryFailure? error)
     {
         var proposed = Clone();
         if (!mutation(proposed, out error))
@@ -226,14 +226,13 @@ public sealed class InventoryMetadata
         return true;
     }
 
-    private void ThrowIfRejected(bool accepted, string? error)
+    private void ThrowIfRejected(bool accepted, InventoryFailure? error)
     {
         if (!accepted)
         {
-            string message = error ?? "Metadata mutation was rejected.";
             if (_captureMutationErrors)
-                throw new MetadataMutationException(message);
-            throw new InvalidOperationException(message);
+                throw new MetadataMutationException(error ?? InventoryFailure.FromMessage("Metadata mutation was rejected.", InventoryFailureKind.Metadata));
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage("Metadata mutation was rejected.", InventoryFailureKind.Metadata));
         }
     }
 }

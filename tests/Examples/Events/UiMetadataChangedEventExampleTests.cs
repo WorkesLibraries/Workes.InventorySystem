@@ -50,9 +50,9 @@ public class UiMetadataChangedEventExampleTests
         };
 
         var gemStack = inventory.Items.Single();
-        Assert.That(gemStack.Metadata.TrySet("quality", "polished", out var error), Is.True, error);
-        Assert.That(gemStack.Metadata.TrySet("owner", "player", out error), Is.True, error);
-        Assert.That(gemStack.TrySplitAndSetMetadata(1, "quest-item", true, out var questGem, out error), Is.True, error);
+        Assert.That(gemStack.Metadata.TrySet("quality", "polished", out var error), Is.True);
+        Assert.That(gemStack.Metadata.TrySet("owner", "player", out error), Is.True);
+        Assert.That(gemStack.TrySplitAndSetMetadata(1, "quest-item", true, out var questGem, out error), Is.True);
 
         Assert.That(questGem, Is.Not.Null);
         Assert.That(uiUpdates, Does.Contain("slot 0 metadata changed: quality = polished"));

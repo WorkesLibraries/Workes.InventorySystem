@@ -2,14 +2,15 @@ using System;
 namespace Workes.InventorySystem.Core;
 
 /// <summary>
-/// Represents an error found while validating an item definition against its schema.
+/// Represents a domain validation failure found while validating an item definition against its schema.
 /// </summary>
-public class DefinitionValidationException : Exception
+public class DefinitionValidationException : InventorySystemException
 {
     /// <summary>
     /// Creates a definition validation exception.
     /// </summary>
     public DefinitionValidationException()
+        : this("Definition validation failed.")
     {
     }
 
@@ -18,7 +19,16 @@ public class DefinitionValidationException : Exception
     /// </summary>
     /// <param name="message">The validation error message.</param>
     public DefinitionValidationException(string message)
-        : base(message)
+        : this(InventoryFailure.FromMessage(message, InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid))
+    {
+    }
+
+    /// <summary>
+    /// Creates a definition validation exception with a structured failure.
+    /// </summary>
+    /// <param name="failure">The structured definition validation failure.</param>
+    public DefinitionValidationException(InventoryFailure failure)
+        : base(failure)
     {
     }
 
@@ -28,7 +38,7 @@ public class DefinitionValidationException : Exception
     /// <param name="message">The validation error message.</param>
     /// <param name="innerException">The exception that caused this validation exception.</param>
     public DefinitionValidationException(string message, Exception innerException)
-        : base(message, innerException)
+        : base(InventoryFailure.FromMessage(message, InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid), innerException)
     {
     }
 }

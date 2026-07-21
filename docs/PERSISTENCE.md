@@ -29,13 +29,15 @@ Use the conditional form when a custom key or layout codec may reject capture:
 ```csharp
 if (!inventory.TryCaptureSnapshot(
         out var snapshot,
-        out var error))
+        out var failure))
 {
-    Log(error);
+    Log(failure);
 }
 ```
 
 Capture either returns one complete snapshot or no snapshot. It never mutates the inventory.
+See [Failure Handling](FAILURES.md) for the structured failure model used by capture, assessment, restoration,
+reconciliation, and salvage APIs.
 
 ## Snapshot Contents
 
@@ -116,11 +118,11 @@ public sealed class ItemKeyCodec :
     public bool TryEncode(
         ItemKey value,
         out SnapshotValue? encoded,
-        out string? error)
+        out InventoryFailure? failure)
     {
         encoded =
             SnapshotValue.String(value.Value);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -128,20 +130,24 @@ public sealed class ItemKeyCodec :
         SnapshotValue encoded,
         int version,
         out ItemKey value,
-        out string? error)
+        out InventoryFailure? failure)
     {
         if (version != 1 ||
             encoded.Kind != SnapshotValueKind.String ||
             encoded.StringValue == null)
         {
             value = default!;
-            error = "Unsupported item-key data.";
+            failure = InventoryFailure.Create(
+                InventoryFailureKind.Snapshot,
+                InventoryFailureCodes.SnapshotCodecRejected,
+                "Unsupported item-key data.",
+                component: nameof(ItemKeyCodec));
             return false;
         }
 
         value =
             new ItemKey(encoded.StringValue);
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -329,9 +335,9 @@ After external deserialization, structural validation is available:
 ```csharp
 if (!InventorySnapshotValidator.TryValidate(
         restoredDto,
-        out var error))
+        out var failure))
 {
-    RejectSave(error);
+    RejectSave(failure);
 }
 ```
 

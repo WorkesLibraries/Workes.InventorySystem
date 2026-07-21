@@ -10,7 +10,7 @@ public class UnlimitedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 {
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out string? error)
+    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error)
     {
         error = null;
         return true;
@@ -18,7 +18,7 @@ public class UnlimitedCapacityPolicy<TKey> : ICapacityPolicy<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out string? error)
+    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error)
     {
         error = null;
         return true;

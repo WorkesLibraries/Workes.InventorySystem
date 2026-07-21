@@ -30,8 +30,8 @@ public class TransactionBuilderCommitExampleTests
 
         var inventory = manager.CreateInventory();
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, out var error, 3), Is.True, error);
-        Assert.That(builder.TryAdd(sword, out error), Is.True, error);
+        Assert.That(builder.TryAdd(apple, out var error, 3), Is.True);
+        Assert.That(builder.TryAdd(sword, out error), Is.True);
 
         var placement = SlotLayoutContext<string>.Map()
             .Add(0, 1)
@@ -39,7 +39,7 @@ public class TransactionBuilderCommitExampleTests
             .Build();
         var committed = inventory.TryCommitTransaction(builder, placement, out error);
 
-        Assert.That(committed, Is.True, error);
+        Assert.That(committed, Is.True);
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(3))!.Definition, Is.SameAs(sword));
 

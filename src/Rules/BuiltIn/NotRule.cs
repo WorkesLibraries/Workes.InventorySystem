@@ -29,7 +29,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (_inner is IInventorySnapshotRulePolicy<TKey>)
         {
@@ -54,7 +54,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error)
+        out InventoryFailure? error)
     {
         var snapshotInner = _inner as IInventorySnapshotRulePolicy<TKey>;
         var allowed = snapshotInner != null
@@ -76,7 +76,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         var allowed = _inner is IInventoryStructuralRulePolicy<TKey> structuralRule
             ? structuralRule.CanApply(inventory, transaction, out _)

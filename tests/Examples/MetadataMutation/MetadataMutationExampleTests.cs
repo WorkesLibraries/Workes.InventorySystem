@@ -53,9 +53,9 @@ public class MetadataMutationExampleTests
         bool removeRequiredQuality = questStack!.Metadata.TryRemove("quality", out var removeRequiredQualityError);
         operations.AppendLine($"Try remove required quality metadata: {FormatResult(removeRequiredQuality, removeRequiredQualityError)}");
 
-        Assert.That(changeQuality, Is.True, changeQualityError);
-        Assert.That(splitQuestStack, Is.True, splitQuestStackError);
-        Assert.That(ruleAdded, Is.True, ruleError);
+        Assert.That(changeQuality, Is.True, changeQualityError?.Message);
+        Assert.That(splitQuestStack, Is.True, splitQuestStackError?.Message);
+        Assert.That(ruleAdded, Is.True, ruleError?.Message);
         Assert.That(removeRequiredQuality, Is.False);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EquivalentTo(new[] { 3, 2 }));
@@ -69,7 +69,7 @@ public class MetadataMutationExampleTests
         TestContext.Out.WriteLine($"Metadata mutation example written to: {outputPath}");
     }
 
-    private static string FormatResult(bool accepted, string? error)
+    private static string FormatResult(bool accepted, InventoryFailure? error)
     {
         return accepted ? "committed" : $"rejected ({error})";
     }

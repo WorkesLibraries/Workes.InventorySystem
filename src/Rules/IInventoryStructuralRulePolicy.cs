@@ -23,5 +23,5 @@ public interface IInventoryStructuralRulePolicy<TKey>
     bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out string? error);
+        out InventoryFailure? error);
 }

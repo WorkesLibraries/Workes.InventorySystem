@@ -12,7 +12,7 @@ public static class InventorySnapshotValidator
     /// <summary>
     /// Validates format version, entry identity, concrete value shapes, and layout envelope data.
     /// </summary>
-    public static bool TryValidate(InventorySnapshot? snapshot, out string? error)
+    public static bool TryValidate(InventorySnapshot? snapshot, out InventoryFailure? error)
     {
         if (snapshot == null)
         {
@@ -74,7 +74,7 @@ public static class InventorySnapshotValidator
     private static bool TryValidateNamedValues(
         List<SnapshotNamedValue>? values,
         string role,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (values == null)
         {

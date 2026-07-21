@@ -39,9 +39,9 @@ public class LayoutContextTransactionTests
         var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
 
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, out var error, 2), Is.True, error);
+        Assert.That(builder.TryAdd(apple, out var error, 2), Is.True);
 
-        Assert.That(inventory.TryCommitTransaction(builder.Build(), out error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(builder.Build(), out error), Is.True);
         Assert.That(inventory.Count(apple), Is.EqualTo(2));
     }
 
@@ -73,8 +73,8 @@ public class LayoutContextTransactionTests
             definitions: new[] { apple, sword }).CreateInventory();
         inventory.Add(apple, amount: 2);
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryRemove(inventory.Items[0], out var error), Is.True, error);
-        Assert.That(builder.TryAdd(sword, out error), Is.True, error);
+        Assert.That(builder.TryRemove(inventory.Items[0], out var error), Is.True);
+        Assert.That(builder.TryAdd(sword, out error), Is.True);
         var transaction = builder.Build();
         var mappedContext = SlotLayoutContext<string>.Single(3);
 
@@ -97,13 +97,13 @@ public class LayoutContextTransactionTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(new EntryLayout<string>(), definitions: apple).CreateInventory();
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, out var error), Is.True, error);
+        Assert.That(builder.TryAdd(apple, out var error), Is.True);
         var transaction = builder.Build();
 
         Assert.Throws<ArgumentException>(() =>
             transaction.WithAddedEntryContexts(Array.Empty<ILayoutContext<string>?>()));
 
-        Assert.That(inventory.TryCommitTransaction(transaction, out error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(transaction, out error), Is.True);
         Assert.Throws<InvalidOperationException>(() =>
             transaction.WithAddedEntryContexts(new ILayoutContext<string>?[] { null }));
     }
@@ -118,7 +118,7 @@ public class LayoutContextTransactionTests
         InventoryChangedEventArgs<string>? moveEvent = null;
         moveInventory.Changed += (_, args) => moveEvent = args;
 
-        Assert.That(moveInventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error), Is.True, error);
+        Assert.That(moveInventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error), Is.True);
         Assert.That(moveEvent, Is.Not.Null);
         Assert.That(moveEvent!.Moved.Count, Is.EqualTo(1));
         Assert.That(moveEvent.Swapped, Is.Empty);
@@ -129,7 +129,7 @@ public class LayoutContextTransactionTests
         InventoryChangedEventArgs<string>? swapEvent = null;
         swapInventory.Changed += (_, args) => swapEvent = args;
 
-        Assert.That(swapInventory.TrySwap(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out error), Is.True, error);
+        Assert.That(swapInventory.TrySwap(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out error), Is.True);
         Assert.That(swapEvent, Is.Not.Null);
         Assert.That(swapEvent!.Swapped.Count, Is.EqualTo(1));
         Assert.That(swapEvent.Moved, Is.Empty);
@@ -143,7 +143,7 @@ public class LayoutContextTransactionTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _);
 
-        Assert.That(builder.TryBuild(SlotLayoutContext<string>.Single(1), out var transaction, out var error), Is.True, error);
+        Assert.That(builder.TryBuild(SlotLayoutContext<string>.Single(1), out var transaction, out var error), Is.True);
         Assert.That(transaction!.Added.Single().context, Is.TypeOf<SlotLayoutContext<string>>());
         Assert.That(((SlotLayoutContext<string>)transaction.Added.Single().context!).SlotIndex, Is.EqualTo(1));
     }
@@ -156,7 +156,7 @@ public class LayoutContextTransactionTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 3);
 
-        Assert.That(inventory.TryCommitTransaction(builder, out var error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(builder, out var error), Is.True);
 
         Assert.That(inventory.Count(apple), Is.EqualTo(3));
     }
@@ -169,7 +169,7 @@ public class LayoutContextTransactionTests
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _);
 
-        Assert.That(inventory.TryCommitTransaction(builder, SlotLayoutContext<string>.Single(1), out var error), Is.True, error);
+        Assert.That(inventory.TryCommitTransaction(builder, SlotLayoutContext<string>.Single(1), out var error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
     }
@@ -226,7 +226,7 @@ public class LayoutContextTransactionTests
         var result = builder.TryBuild(context, out _, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Duplicate mapped target slot."));
+        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target slot."));
     }
 
     [Test]
@@ -241,7 +241,7 @@ public class LayoutContextTransactionTests
         var result = builder.TryBuild(context, out _, out var error);
 
         Assert.That(result, Is.False);
-        Assert.That(error, Is.EqualTo("Slot index out of range."));
+        Assert.That(error?.Message, Is.EqualTo("Slot index out of range."));
     }
 
     [Test]
@@ -255,8 +255,8 @@ public class LayoutContextTransactionTests
         builder.TryAdd(sword, out _, 2);
         var context = SlotLayoutContext<string>.Map().Add(0, 3).Add(1, 4).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(3))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(4))!.Definition.Id, Is.EqualTo("sword"));
@@ -274,8 +274,8 @@ public class LayoutContextTransactionTests
         builder.TryAdd(sword, out _, 1);
         var context = SlotLayoutContext<string>.Map().Add(0, 0).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Definition.Id, Is.EqualTo("sword"));
     }
@@ -292,7 +292,7 @@ public class LayoutContextTransactionTests
         var context = SlotLayoutContext<string>.Map().Add(0, 0).Build();
 
         Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Slot already occupied."));
+        Assert.That(error?.Message, Is.EqualTo("Slot already occupied."));
     }
 
     [Test]
@@ -309,8 +309,8 @@ public class LayoutContextTransactionTests
         builder.TryAdd(gem, 1, null, cracked, out _);
         var context = SlotLayoutContext<string>.Map().Add(0, 1).Add(1, 0).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(1))!.Metadata.TryGet<string>("quality", out var polishedQuality);
         inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Metadata.TryGet<string>("quality", out var crackedQuality);
@@ -333,8 +333,8 @@ public class LayoutContextTransactionTests
         builder.TryAdd(sword, out _);
         var context = EntryLayoutContext<string>.Map().Insert(0, 1).Insert(1, 1).Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True, error);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True, error);
+        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EntryLayoutContext<string>.Single(0))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(inventory.Layout.GetItemAt(inventory, EntryLayoutContext<string>.Single(1))!.Definition.Id, Is.EqualTo("carrot"));
@@ -352,7 +352,7 @@ public class LayoutContextTransactionTests
         var context = EntryLayoutContext<string>.Map().Insert(0, 2).Build();
 
         Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Target index out of range."));
+        Assert.That(error?.Message, Is.EqualTo("Target index out of range."));
     }
 
     [Test]
@@ -366,7 +366,7 @@ public class LayoutContextTransactionTests
 
         var result = inventory.TryAdd(apple, out var error, 2, SlotLayoutContext<string>.Single(0));
 
-        Assert.That(result, Is.True, error);
+        Assert.That(result, Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, SlotLayoutContext<string>.Single(0))!.Amount, Is.EqualTo(7));
         Assert.That(changed, Is.EqualTo(1));
     }
@@ -386,7 +386,7 @@ public class LayoutContextTransactionTests
         transfer.TryRemove(source.Find(sword).Single(), 2, out _);
         var context = SlotLayoutContext<string>.Map().Add(0, 3).Add(1, 4).Build();
 
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
 
         Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(3))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(4))!.Definition.Id, Is.EqualTo("sword"));
@@ -413,7 +413,7 @@ public class LayoutContextTransactionTests
             .Build();
 
         Assert.That(context.IsMapped, Is.True);
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
         Assert.That(source.Items, Is.Empty);
         Assert.That(target.Layout.GetItemAt(target, SectionedLayoutContext<string>.Single("bag", 0))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(target.Layout.GetItemAt(target, SectionedLayoutContext<string>.Single("hotbar", 1))!.Definition.Id, Is.EqualTo("sword"));
@@ -439,7 +439,7 @@ public class LayoutContextTransactionTests
         var context = SlotLayoutContext<string>.Map().Add(0, 0).Add(1, 0).Build();
 
         Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Duplicate mapped target slot."));
+        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target slot."));
         Assert.That(source.TotalItemCount, Is.EqualTo(2));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
         Assert.That(sourceEvents, Is.EqualTo(0));
@@ -461,12 +461,12 @@ public class LayoutContextTransactionTests
         rejected.TryRemove(source.Items[1], 1, out _);
 
         Assert.That(rejected.Source.TryCommitTransfer(rejected, target, SlotLayoutContext<string>.Single(0), out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Transaction placement context can only target one added entry unless it is a mapped context."));
+        Assert.That(error?.Message, Is.EqualTo("Transaction placement context can only target one added entry unless it is a mapped context."));
 
         var accepted = InventoryTransfer.From(source);
         accepted.TryRemove(source.Items[0], 1, out _);
         accepted.TryRemove(source.Items[1], 1, out _);
-        Assert.That(accepted.Source.TryCommitTransfer(accepted, target, targetContext: null, out error), Is.True, error);
+        Assert.That(accepted.Source.TryCommitTransfer(accepted, target, targetContext: null, out error), Is.True);
     }
 
     [Test]
@@ -482,7 +482,7 @@ public class LayoutContextTransactionTests
         var firstContext = SlotLayoutContext<string>.Map().Add(0, 2).Build();
         var secondContext = SlotLayoutContext<string>.Map().Add(0, 1).Build();
 
-        Assert.That(first.TrySwapWithInventory(second, firstContext, secondContext, out var error), Is.True, error);
+        Assert.That(first.TrySwapWithInventory(second, firstContext, secondContext, out var error), Is.True);
 
         Assert.That(first.Layout.GetItemAt(first, SlotLayoutContext<string>.Single(2))!.Definition.Id, Is.EqualTo("sword"));
         Assert.That(second.Layout.GetItemAt(second, SlotLayoutContext<string>.Single(1))!.Definition.Id, Is.EqualTo("apple"));

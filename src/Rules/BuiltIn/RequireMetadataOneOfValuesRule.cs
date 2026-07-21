@@ -41,7 +41,7 @@ public class RequireMetadataOneOfValuesRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         foreach (var (_, metadata, _) in transaction.Added)
         {

@@ -44,7 +44,7 @@ public class InventoryRegisteredDefinitionTests
         var accepted = inventory.TryAdd(detached, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("not registered"));
+        Assert.That(error?.Message, Does.Contain("not registered"));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
         Assert.That(events, Is.EqualTo(0));
     }
@@ -56,7 +56,7 @@ public class InventoryRegisteredDefinitionTests
         var inventory = manager.CreateInventory();
         var detached = new ItemDefinition<string>("family_heirloom");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => inventory.Add(detached));
+        var exception = Assert.Throws<InventoryOperationException>(() => inventory.Add(detached));
 
         Assert.That(exception!.Message, Does.Contain("not registered"));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
@@ -73,7 +73,7 @@ public class InventoryRegisteredDefinitionTests
         var accepted = inventory.TryAdd(detachedSameId, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("not the registered definition instance"));
+        Assert.That(error?.Message, Does.Contain("not the registered definition instance"));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
     }
 
@@ -86,7 +86,7 @@ public class InventoryRegisteredDefinitionTests
 
         var accepted = inventory.TryAdd(registered, out var error, amount: 2);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Count(registered), Is.EqualTo(2));
         Assert.That(inventory.Items.Single().Definition, Is.SameAs(registered));
     }
@@ -102,7 +102,7 @@ public class InventoryRegisteredDefinitionTests
         var accepted = builder.TryAdd(detached, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("not registered"));
+        Assert.That(error?.Message, Does.Contain("not registered"));
         Assert.That(builder.IsEmpty, Is.True);
     }
 
@@ -118,7 +118,7 @@ public class InventoryRegisteredDefinitionTests
         var accepted = builder.TryAdd(detachedSameId, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("not the registered definition instance"));
+        Assert.That(error?.Message, Does.Contain("not the registered definition instance"));
         Assert.That(builder.IsEmpty, Is.True);
     }
 
@@ -136,7 +136,7 @@ public class InventoryRegisteredDefinitionTests
 
         Assert.That(accepted, Is.False);
         Assert.That(transaction, Is.Null);
-        Assert.That(error, Does.Contain("not registered"));
+        Assert.That(error?.Message, Does.Contain("not registered"));
     }
 
     [Test]
@@ -150,7 +150,7 @@ public class InventoryRegisteredDefinitionTests
 
         var accepted = source.TryTransferTo(target, source.Items[0], 1, targetContext: null, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(target.Items.Single().Definition, Is.SameAs(apple));
     }
 
@@ -164,7 +164,7 @@ public class InventoryRegisteredDefinitionTests
 
         var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(metadataStack, Is.Not.Null);
         Assert.That(inventory.Items.All(item => ReferenceEquals(item.Definition, gem)), Is.True);
     }
@@ -184,7 +184,7 @@ public class InventoryRegisteredDefinitionTests
             InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items, Has.Count.EqualTo(2));
         Assert.That(inventory.Items.All(item => ReferenceEquals(item.Definition, coin)), Is.True);
     }

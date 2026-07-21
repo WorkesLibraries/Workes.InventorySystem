@@ -9,7 +9,7 @@ namespace Workes.InventorySystem.Layout;
 /// <typeparam name="TKey">The item definition identifier type used by the inventory.</typeparam>
 /// <remarks>
 /// This is an extension contract. Normal runtime layout tuning should go through
-/// <see cref="Inventory{TKey}.TrySetLayoutParameter(string, object?, out string?)"/>
+/// <see cref="Inventory{TKey}.TrySetLayoutParameter(string, object?, out InventoryFailure?)"/>
 /// so the inventory can validate current contents before committing the change.
 /// This contract preserves current placement. Layouts that also support rebuilding
 /// placement after a parameter change implement <see cref="IParameterizedRepackableInventoryLayout{TKey}"/>.
@@ -35,5 +35,5 @@ public interface IParameterizedInventoryLayout<TKey> : IInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error);
+        out InventoryFailure? error);
 }

@@ -14,6 +14,8 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     /// <inheritdoc />
     public string Id { get; }
 
+    internal IRulePolicy<TKey> Inner => _inner;
+
     /// <summary>
     /// Creates an identified rule wrapper.
     /// </summary>
@@ -34,7 +36,7 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         return _inner.CanApply(inventory, transaction, out error);
     }
@@ -44,7 +46,7 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         if (_inner is IInventoryStructuralRulePolicy<TKey> structuralRule)
             return structuralRule.CanApply(inventory, transaction, out error);

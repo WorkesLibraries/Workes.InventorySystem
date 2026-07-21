@@ -92,7 +92,7 @@ public sealed class MultipliedAttributeStackResolver<TKey> : IParameterizedStack
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out string? error)
+        out InventoryFailure? error)
     {
         resolver = null;
         if (parameterId == "multiplier")

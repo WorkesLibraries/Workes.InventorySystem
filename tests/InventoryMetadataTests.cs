@@ -20,15 +20,15 @@ public class InventoryMetadataTests
     {
         var metadata = new InventoryMetadata();
 
-        Assert.That(metadata.TryAdd("level", 1, out var error), Is.True, error);
+        Assert.That(metadata.TryAdd("level", 1, out var error), Is.True);
         Assert.That(metadata.TryAdd("level", 2, out error), Is.False);
-        Assert.Throws<InvalidOperationException>(() => metadata.Add("level", 2));
-        Assert.That(metadata.TryUpdate<int>("level", value => value + 1, out error), Is.True, error);
+        Assert.Throws<InventoryOperationException>(() => metadata.Add("level", 2));
+        Assert.That(metadata.TryUpdate<int>("level", value => value + 1, out error), Is.True);
         Assert.That(metadata.TryGet<int>("level", out var level), Is.True);
         Assert.That(level, Is.EqualTo(2));
         Assert.That(metadata.TryUpdate<string>("level", value => value, out error), Is.False);
         Assert.That(metadata.TryUpdate<int>("missing", value => value, out error), Is.False);
-        Assert.That(metadata.TrySet("nothing", null, out error), Is.True, error);
+        Assert.That(metadata.TrySet("nothing", null, out error), Is.True);
         Assert.That(metadata.TryGet<string?>("nothing", out var nothing), Is.True);
         Assert.That(nothing, Is.Null);
         Assert.That(metadata.TryGet<int>("nothing", out _), Is.False);
@@ -70,9 +70,9 @@ public class InventoryMetadataTests
         cycle.Add(cycle);
 
         Assert.That(metadata.TrySet("unsupported", dictionary, out var error), Is.False);
-        Assert.That(error, Does.Contain("not a supported portable snapshot value"));
+        Assert.That(error?.Message, Does.Contain("not a supported portable snapshot value"));
         Assert.That(metadata.TrySet("cycle", cycle, out error), Is.False);
-        Assert.That(error, Does.Contain("cycle"));
+        Assert.That(error?.Message, Does.Contain("cycle"));
         Assert.That(metadata.TryGet<int>("kept", out var kept), Is.True);
         Assert.That(kept, Is.EqualTo(1));
         Assert.That(metadata.TryReplace(
@@ -188,11 +188,11 @@ public class InventoryMetadataTests
         inventory.Add(item, 5);
 
         Assert.That(inventory.Metadata.TrySet("maxStack", 2, out var stackError), Is.False);
-        Assert.That(stackError, Does.Contain("max stack size"));
+        Assert.That(stackError?.Message, Does.Contain("max stack size"));
         Assert.That(inventory.Metadata.TrySet("blockCapacity", true, out var capacityError), Is.False);
-        Assert.That(capacityError, Does.Contain("capacity"));
+        Assert.That(capacityError?.Message, Does.Contain("capacity"));
         Assert.That(inventory.Metadata.TrySet("blockRule", true, out var ruleError), Is.False);
-        Assert.That(ruleError, Does.Contain("rule"));
+        Assert.That(ruleError?.Message, Does.Contain("rule"));
         Assert.That(inventory.Metadata.IsEmpty, Is.True);
     }
 
@@ -219,7 +219,7 @@ public class InventoryMetadataTests
         public bool CanApply(
             Inventory<string> inventory,
             NormalizedInventoryTransaction<string> normalizedTransaction,
-            out string? error)
+            out InventoryFailure? error)
         {
             if (inventory.Metadata.TryGet<bool>("blockCapacity", out var blocked) && blocked)
             {
@@ -233,7 +233,7 @@ public class InventoryMetadataTests
         public bool CanAdd(
             Inventory<string> inventory,
             ItemInstance<string> instance,
-            out string? error)
+            out InventoryFailure? error)
         {
             if (inventory.Metadata.TryGet<bool>("blockCapacity", out var blocked) && blocked)
             {
@@ -252,7 +252,7 @@ public class InventoryMetadataTests
         public bool CanApply(
             Inventory<string> inventory,
             NormalizedInventoryTransaction<string> transaction,
-            out string? error)
+            out InventoryFailure? error)
         {
             if (inventory.Metadata.TryGet<bool>("blockRule", out var blocked) && blocked)
             {

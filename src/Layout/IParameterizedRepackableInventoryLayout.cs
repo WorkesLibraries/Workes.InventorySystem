@@ -24,5 +24,5 @@ public interface IParameterizedRepackableInventoryLayout<TKey> :
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out string? error);
+        out InventoryFailure? error);
 }

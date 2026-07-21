@@ -25,7 +25,7 @@ public sealed class InventoryTransferBuilder<TKey>
 
         public ILayoutContext<TKey>? TargetContext { get; }
 
-        public abstract bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error);
+        public abstract bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out InventoryFailure? error);
     }
 
     private sealed class ItemRemoveOperation : PlannedOperation
@@ -40,7 +40,7 @@ public sealed class InventoryTransferBuilder<TKey>
             _amount = amount;
         }
 
-        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out InventoryFailure? error) =>
             sourceBuilder.TryRemove(_item, out error, _amount);
     }
 
@@ -56,7 +56,7 @@ public sealed class InventoryTransferBuilder<TKey>
             _amount = amount;
         }
 
-        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out InventoryFailure? error) =>
             sourceBuilder.TryRemoveAtStorageIndex(_index, out error, _amount);
     }
 
@@ -74,7 +74,7 @@ public sealed class InventoryTransferBuilder<TKey>
             _ignoreMetadata = ignoreMetadata;
         }
 
-        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out InventoryFailure? error) =>
             sourceBuilder.TryRemoveByDefinition(_definition, _amount, _ignoreMetadata, out error);
     }
 
@@ -120,7 +120,7 @@ public sealed class InventoryTransferBuilder<TKey>
         if (_operations.Count > 0)
             throw new InvalidOperationException("Target must be bound before staging transfer removals.");
         if (!InventoryTransfer.TryValidateCompatibility(Source, target, out var error))
-            throw new InvalidOperationException(error);
+            throw new InvalidOperationException(error?.Message ?? "Transfer target is incompatible.");
 
         return new InventoryTransferBuilder<TKey>(Source, target);
     }
@@ -151,7 +151,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemove(ItemInstance<TKey> item, int amount, out string? error)
+    public bool TryRemove(ItemInstance<TKey> item, int amount, out InventoryFailure? error)
     {
         if (amount <= 0)
         {
@@ -171,7 +171,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="error">A consumer-facing reason when the removal or target addition is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
-    public bool TryRemove(ItemInstance<TKey> item, int amount, ILayoutContext<TKey>? targetContext, out string? error)
+    public bool TryRemove(ItemInstance<TKey> item, int amount, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
     {
         EnsureTargetBoundForContext();
         if (amount <= 0)
@@ -190,7 +190,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveAtStorageIndex(int index, int amount, out string? error)
+    public bool TryRemoveAtStorageIndex(int index, int amount, out InventoryFailure? error)
     {
         if (amount <= 0)
         {
@@ -210,7 +210,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="error">A consumer-facing reason when the removal or target addition is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
-    public bool TryRemoveAtStorageIndex(int index, int amount, ILayoutContext<TKey>? targetContext, out string? error)
+    public bool TryRemoveAtStorageIndex(int index, int amount, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
     {
         EnsureTargetBoundForContext();
         if (amount <= 0)
@@ -230,7 +230,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         if (amount <= 0)
         {
@@ -249,7 +249,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
     /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out string? error)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? error)
     {
         if (amount <= 0)
         {
@@ -269,7 +269,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can commit; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
-    public bool CanCommit(out string? error)
+    public bool CanCommit(out InventoryFailure? error)
     {
         EnsureTargetBoundForCommit();
         if (!TryBuildTargetBoundTransactions(out var sourceTransaction, out var targetTransaction, out error))
@@ -284,7 +284,7 @@ public sealed class InventoryTransferBuilder<TKey>
     /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer commits; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
-    public bool TryCommit(out string? error)
+    public bool TryCommit(out InventoryFailure? error)
     {
         EnsureTargetBoundForCommit();
         if (!TryBuildTargetBoundTransactions(out var sourceTransaction, out var targetTransaction, out error))
@@ -298,18 +298,18 @@ public sealed class InventoryTransferBuilder<TKey>
     public void Commit()
     {
         if (!TryCommit(out var error))
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
     }
 
     internal InventoryTransaction<TKey> BuildSourceTransaction()
     {
         if (!TryBuildSourceTransaction(out var transaction, out var error) || transaction == null)
-            throw new InvalidOperationException(error);
+            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
 
         return transaction;
     }
 
-    internal bool TryBuildSourceTransaction(out InventoryTransaction<TKey>? transaction, out string? error)
+    internal bool TryBuildSourceTransaction(out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
     {
         return TryReplay(_operations, buildTarget: false, out transaction, out _, out error);
     }
@@ -317,7 +317,7 @@ public sealed class InventoryTransferBuilder<TKey>
     internal bool TryBuildTargetBoundTransactions(
         out InventoryTransaction<TKey>? sourceTransaction,
         out InventoryTransaction<TKey>? targetTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         EnsureTargetBoundForCommit();
         return TryReplay(_operations, buildTarget: true, out sourceTransaction, out targetTransaction, out error);
@@ -360,7 +360,7 @@ public sealed class InventoryTransferBuilder<TKey>
         return metadata.Clone();
     }
 
-    private bool TryStage(PlannedOperation operation, out string? error)
+    private bool TryStage(PlannedOperation operation, out InventoryFailure? error)
     {
         var proposed = new List<PlannedOperation>(_operations) { operation };
         if (!TryReplay(proposed, buildTarget: IsTargetBound, out _, out _, out error))
@@ -376,7 +376,7 @@ public sealed class InventoryTransferBuilder<TKey>
         bool buildTarget,
         out InventoryTransaction<TKey>? sourceTransaction,
         out InventoryTransaction<TKey>? targetTransaction,
-        out string? error)
+        out InventoryFailure? error)
     {
         sourceTransaction = null;
         targetTransaction = null;

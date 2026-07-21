@@ -24,7 +24,7 @@ public class FunctionalCompletionRegressionTests
         provider.Footprints["crate"] = new GridFootprint(3, 3);
 
         Assert.That(inventory.TrySortLayout(MultiCellGridSortContext<string>.Compact(), out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Not enough empty grid space for sorted layout."));
+        Assert.That(error?.Message, Is.EqualTo("Not enough empty grid space for sorted layout."));
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("apple"));
         Assert.That(Cell(inventory, 1, 0), Is.EqualTo("crate"));
     }
@@ -68,7 +68,7 @@ public class FunctionalCompletionRegressionTests
             .Add(1, 4, 2, GridAnchor.BottomRight)
             .Build();
 
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True, error);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
 
         Assert.That(Cell(target, 1, 0), Is.EqualTo("table"));
         Assert.That(Cell(target, 2, 0), Is.EqualTo("table"));
@@ -84,7 +84,7 @@ public class FunctionalCompletionRegressionTests
         provider.Footprints["table"] = new GridFootprint(2, 2);
         var inventory = CreateInventory(new MultiCellGridLayout<string>(4, 4, provider), table);
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 2, GridAnchor.BottomLeft)), Is.True, error);
+        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 2, GridAnchor.BottomLeft)), Is.True);
 
         Assert.That(Cell(inventory, 1, 1), Is.EqualTo("table"));
         Assert.That(Cell(inventory, 2, 2), Is.EqualTo("table"));
@@ -127,7 +127,7 @@ public class FunctionalCompletionRegressionTests
         inventory.TryAdd(sword, out _);
 
         Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.False);
-        Assert.That(error, Is.EqualTo("Layout does not support sorting."));
+        Assert.That(error?.Message, Is.EqualTo("Layout does not support sorting."));
     }
 
     [Test]
@@ -160,7 +160,7 @@ public class FunctionalCompletionRegressionTests
         inventory.TryAdd(sword, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 1));
         inventory.TryAdd(apple, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
 
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True, error);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True);
 
         Assert.That(Cell(inventory, 0, 0), Is.EqualTo("apple"));
         Assert.That(Cell(inventory, 0, 1), Is.EqualTo("sword"));

@@ -74,7 +74,7 @@ public class MultipliedAttributeStackingExampleTests
             InventoryParameterMutationActions.SplitOversizedStacks,
             out var tuneError);
 
-        Assert.That(tuned, Is.True, tuneError);
+        Assert.That(tuned, Is.True, tuneError?.Message);
         Assert.That(((MultipliedAttributeStackResolver<string>)warehouse.StackResolver).Multiplier, Is.EqualTo(2));
         Assert.That(StackAmounts(warehouse, coin), Is.EqualTo(new[] { 20, 3 }));
         Assert.That(StackAmounts(warehouse, gem), Is.EqualTo(new[] { 4, 3 }));

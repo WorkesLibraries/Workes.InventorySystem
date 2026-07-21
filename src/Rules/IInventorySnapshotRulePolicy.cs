@@ -24,5 +24,5 @@ public interface IInventorySnapshotRulePolicy<TKey>
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out string? error);
+        out InventoryFailure? error);
 }

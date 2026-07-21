@@ -107,11 +107,11 @@ public class InventoryLayoutReflowTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, args) => captured = args;
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryRemove(berryInstance, out var removeError), Is.True, removeError);
+        Assert.That(builder.TryRemove(berryInstance, out var removeError), Is.True);
         Assert.That(
             builder.TryAdd(date, out var addError, context: EntryLayoutContext<string>.Single(1)),
             Is.True,
-            addError);
+            addError?.Message);
 
         inventory.CommitTransaction(builder);
 
@@ -166,7 +166,7 @@ public class InventoryLayoutReflowTests
             InventoryParameterMutationActions.CompressCompatibleStacks,
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.Removed.Single().Instance, Is.SameAs(removedCoin));
         AssertMovement(captured, gemInstance, 2, 1);
@@ -326,7 +326,7 @@ public class InventoryLayoutReflowTests
 
         var accepted = item.Metadata.TrySet("quality", "fresh", out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(events, Is.EqualTo(0));
     }
 
@@ -431,7 +431,7 @@ public class InventoryLayoutReflowTests
         public InventoryLayoutReconciliationResult<string> ReconcileAfterInventoryMutation(Inventory<string> inventory)
         {
             if (!_inner.TrySort(inventory, new ItemSortContext<string>(_comparer), out var error))
-                throw new InvalidOperationException(error);
+                throw new InventoryOperationException(error ?? InventoryFailure.FromMessage("Sort failed."));
 
             var contexts = _additionalAffectedIndex.HasValue
                 ? new[] { EntryLayoutContext<string>.Single(_additionalAffectedIndex.Value) }
@@ -465,7 +465,7 @@ public class InventoryLayoutReflowTests
         public bool CanSatisfyPlacement(
             Inventory<string> inventory,
             InventoryTransaction<string> transaction,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.CanSatisfyPlacement(inventory, transaction, out error);
 
         public bool TryApplyPlacementContext(
@@ -473,34 +473,34 @@ public class InventoryLayoutReflowTests
             InventoryTransaction<string> transaction,
             ILayoutContext<string>? context,
             out InventoryTransaction<string>? mappedTransaction,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TryApplyPlacementContext(inventory, transaction, context, out mappedTransaction, out error);
 
         public bool CanAcceptNewItem(
             Inventory<string> inventory,
             ItemInstance<string> instance,
             ILayoutContext<string>? context,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.CanAcceptNewItem(inventory, instance, context, out error);
 
         public bool TryMove(
             Inventory<string> inventory,
             ILayoutContext<string> contextFrom,
             ILayoutContext<string> contextTo,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TryMove(inventory, contextFrom, contextTo, out error);
 
         public bool TrySwap(
             Inventory<string> inventory,
             ILayoutContext<string> contextFrom,
             ILayoutContext<string> contextTo,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TrySwap(inventory, contextFrom, contextTo, out error);
 
         public bool TrySort(
             Inventory<string> inventory,
             IInventorySortContext<string> sortContext,
-            out string? error)
+            out InventoryFailure? error)
             => _inner.TrySort(inventory, sortContext, out error);
 
         public void OnItemAdded(Inventory<string> inventory, int index, ILayoutContext<string>? context)

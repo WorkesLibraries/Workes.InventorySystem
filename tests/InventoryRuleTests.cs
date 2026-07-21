@@ -106,7 +106,7 @@ public class InventoryRuleTests
         ItemDefinition<string> definition,
         InstanceMetadata? metadata,
         int amount,
-        out string? error)
+        out InventoryFailure? error)
     {
         error = null;
         var added = new List<(ItemDefinition<string> definition, InstanceMetadata? metadata, int amount)>

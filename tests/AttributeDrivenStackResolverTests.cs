@@ -127,7 +127,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "maxStack", 20, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((ConditionalMaxStackResolver<string>)replacement!).MaxStack, Is.EqualTo(20));
     }
 
@@ -138,7 +138,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "missingAttributeIsStackable", true, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((ConditionalMaxStackResolver<string>)replacement!).MissingAttributeIsStackable, Is.True);
     }
 
@@ -198,7 +198,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "missingAttributeMaxStack", 4, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((AttributeMaxStackResolver<string>)replacement!).MissingAttributeMaxStack, Is.EqualTo(4));
     }
 
@@ -209,7 +209,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "missingAttributeMaxStack", null, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((AttributeMaxStackResolver<string>)replacement!).MissingAttributeMaxStack, Is.Null);
     }
 
@@ -222,7 +222,7 @@ public class AttributeDrivenStackResolverTests
         var accepted = inventory.TryAdd(note, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("missing stack-size attribute"));
+        Assert.That(error?.Message, Does.Contain("missing stack-size attribute"));
     }
 
     [Test]
@@ -231,7 +231,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new AttributeMaxStackResolver<string>(MaxStack), note);
 
-        Assert.Throws<InvalidOperationException>(() => inventory.Add(note));
+        Assert.Throws<InventoryOperationException>(() => inventory.Add(note));
     }
 
     [Test]
@@ -242,7 +242,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = inventory.TryAdd(coin, out var error, amount: 8);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 3, 3, 2 }));
     }
 
@@ -256,7 +256,7 @@ public class AttributeDrivenStackResolverTests
         var accepted = inventory.TrySetStackResolverParameter("missingAttributeMaxStack", null, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("missing stack-size attribute"));
+        Assert.That(error?.Message, Does.Contain("missing stack-size attribute"));
         Assert.That(((AttributeMaxStackResolver<string>)inventory.StackResolver).MissingAttributeMaxStack, Is.EqualTo(10));
     }
 
@@ -352,7 +352,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "multiplier", 2.5, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         var multiplied = (MultipliedAttributeStackResolver<string>)replacement!;
         Assert.That(multiplied.Multiplier, Is.EqualTo(2.5));
         Assert.That(multiplied.MissingAttributeBaseStack, Is.EqualTo(2));
@@ -365,7 +365,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "missingAttributeBaseStack", 4, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((MultipliedAttributeStackResolver<string>)replacement!).MissingAttributeBaseStack, Is.EqualTo(4));
     }
 
@@ -376,7 +376,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = resolver.TryCreateWithParameter(null!, "missingAttributeBaseStack", null, out var replacement, out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((MultipliedAttributeStackResolver<string>)replacement!).MissingAttributeBaseStack, Is.Null);
     }
 
@@ -389,7 +389,7 @@ public class AttributeDrivenStackResolverTests
 
         Assert.That(accepted, Is.False);
         Assert.That(replacement, Is.Null);
-        Assert.That(error, Does.Contain("not supported"));
+        Assert.That(error?.Message, Does.Contain("not supported"));
     }
 
     [Test]
@@ -398,11 +398,11 @@ public class AttributeDrivenStackResolverTests
         var resolver = new MultipliedAttributeStackResolver<string>(StackRatio, 2);
 
         Assert.That(resolver.TryCreateWithParameter(null!, "multiplier", 0.0, out _, out var zeroError), Is.False);
-        Assert.That(zeroError, Does.Contain("greater than zero"));
+        Assert.That(zeroError?.Message, Does.Contain("greater than zero"));
         Assert.That(resolver.TryCreateWithParameter(null!, "multiplier", double.NaN, out _, out var finiteError), Is.False);
-        Assert.That(finiteError, Does.Contain("finite"));
+        Assert.That(finiteError?.Message, Does.Contain("finite"));
         Assert.That(resolver.TryCreateWithParameter(null!, "multiplier", 2, out _, out var typeError), Is.False);
-        Assert.That(typeError, Does.Contain("Double"));
+        Assert.That(typeError?.Message, Does.Contain("Double"));
     }
 
     [Test]
@@ -413,7 +413,7 @@ public class AttributeDrivenStackResolverTests
 
         var accepted = inventory.TryAdd(coin, out var error, amount: 14);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 6, 6, 2 }));
     }
 
@@ -426,7 +426,7 @@ public class AttributeDrivenStackResolverTests
         var accepted = inventory.TryAdd(note, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("missing stack-ratio attribute"));
+        Assert.That(error?.Message, Does.Contain("missing stack-ratio attribute"));
     }
 
     [Test]
@@ -435,7 +435,7 @@ public class AttributeDrivenStackResolverTests
         var note = new ItemDefinition<string>("note");
         var inventory = CreateInventory(new MultipliedAttributeStackResolver<string>(StackRatio, 2), note);
 
-        Assert.Throws<InvalidOperationException>(() => inventory.Add(note));
+        Assert.Throws<InventoryOperationException>(() => inventory.Add(note));
     }
 
     [Test]
@@ -448,7 +448,7 @@ public class AttributeDrivenStackResolverTests
         var accepted = inventory.TrySetStackResolverParameter("multiplier", 0.5, out var error);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error, Does.Contain("exceed max stack size"));
+        Assert.That(error?.Message, Does.Contain("exceed max stack size"));
         Assert.That(((MultipliedAttributeStackResolver<string>)inventory.StackResolver).Multiplier, Is.EqualTo(1));
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 10 }));
     }
@@ -466,7 +466,7 @@ public class AttributeDrivenStackResolverTests
             InventoryParameterMutationActions.SplitOversizedStacks,
             out var error);
 
-        Assert.That(accepted, Is.True, error);
+        Assert.That(accepted, Is.True);
         Assert.That(((MultipliedAttributeStackResolver<string>)inventory.StackResolver).Multiplier, Is.EqualTo(0.5));
         Assert.That(inventory.Items.Select(item => item.Amount), Is.EqualTo(new[] { 5, 5 }));
     }
@@ -497,7 +497,7 @@ public class AttributeDrivenStackResolverTests
     {
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(1000), definition);
 
-        Assert.That(inventory.TryAdd(definition, out var error), Is.True, error);
+        Assert.That(inventory.TryAdd(definition, out var error), Is.True);
         return inventory.Items.Single();
     }
 }

@@ -140,7 +140,8 @@ Rules express semantic, structural, and final-state constraints that do not belo
 
 `RuleContainer<TKey>` stores rules under stable IDs. Enabled rules run in descending priority order; rules with equal
 priority retain insertion order. Validation stops at the first rejection and includes the failing rule ID and type in
-the error.
+the failure. See [Failure Handling](FAILURES.md) for how callers branch on `InventoryFailure.Kind` and
+`InventoryFailure.Code`.
 
 ### Built-In Rules
 
@@ -213,11 +214,11 @@ Runtime rule changes go through the inventory:
 
 | API | Behavior |
 |---|---|
-| `TrySetRule(id, rule, out error)` | Adds or replaces a rule, preserving an existing entry's priority and enabled state. |
-| `TrySetRule(id, rule, priority, enabled, out error)` | Adds or replaces with explicit priority and enabled state. |
-| `TryRemoveRule(id, out error)` | Removes a rule. |
-| `TrySetRuleEnabled(id, enabled, out error)` | Enables or disables a rule. |
-| `TrySetRulePriority(id, priority, out error)` | Changes evaluation priority. |
+| `TrySetRule(id, rule, out failure)` | Adds or replaces a rule, preserving an existing entry's priority and enabled state. |
+| `TrySetRule(id, rule, priority, enabled, out failure)` | Adds or replaces with explicit priority and enabled state. |
+| `TryRemoveRule(id, out failure)` | Removes a rule. |
+| `TrySetRuleEnabled(id, enabled, out failure)` | Enables or disables a rule. |
+| `TrySetRulePriority(id, priority, out failure)` | Changes evaluation priority. |
 | `SetRule`, `RemoveRule`, `SetRuleEnabled`, `SetRulePriority` | Throwing wrappers for expected-success flows. |
 
 Before committing, the inventory:
@@ -236,7 +237,7 @@ var questOnly =
 if (!inventory.TrySetRule(
         "quest-only",
         questOnly,
-        out var error))
+        out var failure))
 {
     // Existing contents violate the proposed rule.
     // The previous rule set remains active.
@@ -294,7 +295,7 @@ Validate parameter ID and action flags
 
 Rejected changes preserve the component, stack shape, contents, and layout and emit no event. Throwing wrappers
 `SetStackResolverParameter(...)`, `SetCapacityPolicyParameter(...)`, and `SetLayoutParameter(...)` preserve the same
-atomic behavior and throw `InvalidOperationException` on rejection.
+atomic behavior and throw `InventoryOperationException` on rejection.
 
 ## Preserve-Only Is The Default
 
@@ -332,7 +333,7 @@ var changed = inventory.TrySetStackResolverParameter(
     "maxStack",
     4,
     InventoryParameterMutationActions.SplitOversizedStacks,
-    out var error);
+    out var failure);
 ```
 
 A stack of `10` becomes `4, 4, 2`. Split chunks preserve metadata. Split-only keeps existing placements where possible
@@ -348,7 +349,7 @@ var changed = inventory.TrySetStackResolverParameter(
     "maxStack",
     25,
     InventoryParameterMutationActions.CompressCompatibleStacks,
-    out var error);
+    out var failure);
 ```
 
 Four stacks of `10` can become `25, 15`. Compression preserves the relative position of incompatible entries and never
@@ -366,7 +367,7 @@ var changed = inventory.TrySetLayoutParameter(
     "slotCount",
     3,
     InventoryParameterMutationActions.RepackLayout,
-    out var error);
+    out var failure);
 ```
 
 Repack reads entries in current visible layout order and uses the proposed layout's normal automatic-placement behavior.
@@ -467,7 +468,7 @@ inventory.TrySetLayoutParameter(
     "section:bag.slotCount",
     6,
     InventoryParameterMutationActions.RepackLayout,
-    out var error);
+    out var failure);
 ```
 
 ## Events And Refresh
