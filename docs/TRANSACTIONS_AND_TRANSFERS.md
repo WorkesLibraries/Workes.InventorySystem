@@ -416,6 +416,35 @@ Direct contexts are exact. If an amount cannot fit through the supplied context,
 of silently placing overflow elsewhere. Split large source stacks into several explicit removals when target stack
 limits or layout shape require several target positions.
 
+When source and target stack limits differ, ask the target inventory for the current limit before planning those
+explicit removals:
+
+```csharp
+var sourceStack =
+    backpack.Find("arrow").Single();
+
+int targetStackSize =
+    quiver.GetMaxStackSize(sourceStack);
+
+for (int remaining = sourceStack.Amount; remaining > 0;)
+{
+    int move =
+        Math.Min(remaining, targetStackSize);
+
+    transfer.TryRemove(
+        sourceStack,
+        move,
+        nextTargetSlot(),
+        out var failure);
+
+    remaining -= move;
+}
+```
+
+Use the metadata-aware `GetMaxStackSize(...)` overloads when the target's stack resolver depends on item metadata. This
+keeps target-bound transfer placement explicit: helpers can tell you the current stack size, while the builder still
+requires you to provide the exact contexts you care about.
+
 Definition-based target-bound removals use automatic target placement:
 
 ```csharp

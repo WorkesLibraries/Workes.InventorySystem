@@ -158,6 +158,160 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public IReadOnlyDictionary<string, IRulePolicy<TKey>> Rules => _rules.Rules;
 
     /// <summary>
+    /// Gets the maximum stack size for the registered item definition without per-instance metadata.
+    /// </summary>
+    /// <param name="definition">The registered definition to evaluate.</param>
+    /// <returns>The maximum amount one compatible stack may contain.</returns>
+    /// <exception cref="InventoryOperationException">The definition is not registered, or stack-size resolution fails.</exception>
+    public int GetMaxStackSize(ItemDefinition<TKey> definition)
+    {
+        if (!TryGetMaxStackSize(definition, out var maxStack, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
+
+        return maxStack;
+    }
+
+    /// <summary>
+    /// Gets the maximum stack size for the definition resolved from a current or migrated definition id.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <returns>The maximum amount one compatible stack may contain.</returns>
+    /// <exception cref="InventoryOperationException">The definition id cannot be resolved, or stack-size resolution fails.</exception>
+    public int GetMaxStackSize(TKey definitionId)
+    {
+        if (!TryGetMaxStackSize(definitionId, out var maxStack, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
+
+        return maxStack;
+    }
+
+    /// <summary>
+    /// Gets the maximum stack size for a registered definition and proposed per-instance metadata.
+    /// </summary>
+    /// <param name="definition">The registered definition to evaluate.</param>
+    /// <param name="metadata">Optional proposed per-instance metadata.</param>
+    /// <returns>The maximum amount one compatible stack may contain.</returns>
+    /// <exception cref="InventoryOperationException">The definition is not registered, metadata is invalid, or stack-size resolution fails.</exception>
+    public int GetMaxStackSize(ItemDefinition<TKey> definition, InstanceMetadata? metadata)
+    {
+        if (!TryGetMaxStackSize(definition, metadata, out var maxStack, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
+
+        return maxStack;
+    }
+
+    /// <summary>
+    /// Gets the maximum stack size for a resolved definition id and proposed per-instance metadata.
+    /// </summary>
+    /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
+    /// <param name="metadata">Optional proposed per-instance metadata.</param>
+    /// <returns>The maximum amount one compatible stack may contain.</returns>
+    /// <exception cref="InventoryOperationException">The definition id cannot be resolved, metadata is invalid, or stack-size resolution fails.</exception>
+    public int GetMaxStackSize(TKey definitionId, InstanceMetadata? metadata)
+    {
+        if (!TryGetMaxStackSize(definitionId, metadata, out var maxStack, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
+
+        return maxStack;
+    }
+
+    /// <summary>
+    /// Gets the maximum stack size for an item instance or prototype, including its metadata.
+    /// </summary>
+    /// <param name="item">The item instance or prototype to evaluate.</param>
+    /// <returns>The maximum amount one compatible stack may contain.</returns>
+    /// <exception cref="InventoryOperationException">The instance definition is not registered, or stack-size resolution fails.</exception>
+    public int GetMaxStackSize(ItemInstance<TKey> item)
+    {
+        if (!TryGetMaxStackSize(item, out var maxStack, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
+
+        return maxStack;
+    }
+
+    /// <summary>
+    /// Attempts to get the maximum stack size for the registered item definition without per-instance metadata.
+    /// </summary>
+    public bool TryGetMaxStackSize(
+        ItemDefinition<TKey> definition,
+        out int maxStack,
+        out InventoryFailure? failure) =>
+        TryGetMaxStackSize(definition, metadata: null, out maxStack, out failure);
+
+    /// <summary>
+    /// Attempts to get the maximum stack size for the definition resolved from a current or migrated definition id.
+    /// </summary>
+    public bool TryGetMaxStackSize(
+        TKey definitionId,
+        out int maxStack,
+        out InventoryFailure? failure)
+    {
+        maxStack = 0;
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
+            return false;
+
+        return TryGetMaxStackSize(definition, metadata: null, out maxStack, out failure);
+    }
+
+    /// <summary>
+    /// Attempts to get the maximum stack size for a registered definition and proposed per-instance metadata.
+    /// </summary>
+    public bool TryGetMaxStackSize(
+        ItemDefinition<TKey> definition,
+        InstanceMetadata? metadata,
+        out int maxStack,
+        out InventoryFailure? failure)
+    {
+        maxStack = 0;
+        if (!TryValidateRegisteredDefinition(definition, out failure))
+            return false;
+
+        var prototypeMetadata = metadata != null && !metadata.IsEmpty
+            ? CloneMetadata(metadata)
+            : null;
+        var prototype = new ItemInstance<TKey>(definition, amount: 1, prototypeMetadata);
+        return TryResolveMaxStackSize(prototype, out maxStack, out failure);
+    }
+
+    /// <summary>
+    /// Attempts to get the maximum stack size for a resolved definition id and proposed per-instance metadata.
+    /// </summary>
+    public bool TryGetMaxStackSize(
+        TKey definitionId,
+        InstanceMetadata? metadata,
+        out int maxStack,
+        out InventoryFailure? failure)
+    {
+        maxStack = 0;
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
+            return false;
+
+        return TryGetMaxStackSize(definition, metadata, out maxStack, out failure);
+    }
+
+    /// <summary>
+    /// Attempts to get the maximum stack size for an item instance or prototype, including its metadata.
+    /// </summary>
+    public bool TryGetMaxStackSize(
+        ItemInstance<TKey> item,
+        out int maxStack,
+        out InventoryFailure? failure)
+    {
+        maxStack = 0;
+        if (item == null)
+        {
+            failure = InventoryFailures.Validation("Item instance cannot be null.");
+            return false;
+        }
+
+        return TryGetMaxStackSize(
+            item.Definition,
+            item.Metadata.IsEmpty ? null : item.Metadata,
+            out maxStack,
+            out failure);
+    }
+
+    /// <summary>
     /// Counts the total amount of items that use the exact item definition instance.
     /// </summary>
     /// <param name="definition">The item definition instance to count.</param>

@@ -2,7 +2,7 @@
 
 This file records notable changes to `Workes.InventorySystem`.
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-07-21
 
 ### Breaking Changes
 
@@ -52,6 +52,8 @@ This file records notable changes to `Workes.InventorySystem`.
   without replacing transaction structure.
 - Added target binding to `InventoryTransferBuilder<TKey>` through `InventoryTransfer.From(source).To(target)`,
   including per-removal direct target contexts, staged target validation, and source-safe commit revalidation.
+- Added `GetMaxStackSize(...)` and `TryGetMaxStackSize(...)` overloads for querying an inventory's current stack limit
+  by registered definition, definition ID, metadata-aware prototype, or existing item instance.
 - Added inventory-owned layout query wrappers such as `GetLayoutPositionCount()`,
   `GetAddressableLayoutContexts()`, `GetItemAt(context)`, `GetLayoutContextsForStorageIndex(...)`, and
   `GetLayoutContextsForItem(...)` so application code no longer needs to pass an inventory back into its own layout for
@@ -106,13 +108,15 @@ This file records notable changes to `Workes.InventorySystem`.
   each major subsystem, and a complete extension-authoring guide.
 - Added a dedicated failure-handling guide covering `InventoryFailure`, failure categories and codes, project-owned
   exceptions, migration from string errors, and extension-authored failures.
+- Clarified how extension authors should use custom namespaced failure codes, fixed failure categories, component/source
+  metadata, nested causes, and project-owned exceptions.
 
 ### Internal
 
 - Consolidated candidate validation under inventory-owned simulation and added extensive regression coverage for
   snapshots, restoration modes, repacking, layout reflow, events, and custom extension contracts.
 
-## [1.0.1]
+## [1.0.1] - 2026-06-25
 
 ### Fixed
 

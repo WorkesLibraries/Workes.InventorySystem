@@ -7,8 +7,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
       <PackageId>Workes.InventorySystem</PackageId>
-      <Version>1.0.1</Version>
-      <PackageReleaseNotes>Fixed README and commit pointer.</PackageReleaseNotes>
+      <Version>2.0.0</Version>
+      <PackageReleaseNotes>2.0.0 introduces portable inventory snapshots with exact, reconciliation, and salvage restoration; inventory-owned metadata; structured InventoryFailure reporting and project-owned exceptions; target-bound transfer planning; layout reconciliation and repack contracts; max-stack queries; and focused documentation. Legacy Serialize/Deserialize APIs remain obsolete compatibility APIs.</PackageReleaseNotes>
       <PackageReadmeFile>README.md</PackageReadmeFile>
 
       <Authors>Workes</Authors>
@@ -30,5 +30,6 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\CHANGELOG.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

@@ -303,7 +303,6 @@ Use this split:
 - avoid custom exception hierarchies for normal gameplay, layout, capacity, stacking, or codec rejection.
 - use stable, namespaced custom codes for extension-owned behavior.
 - keep messages useful to humans, but avoid branching on them.
-- create failures explicitly; assigning a plain string to `InventoryFailure` is not supported.
 - keep validation side-effect free; rejected proposals must leave active inventory state unchanged.
 
 ## Migration From String Errors

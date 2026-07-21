@@ -109,6 +109,46 @@ Instances are created by:
 
 Use the instance references returned through `Inventory.Items` or query methods when an operation targets a particular stack.
 
+## Query Stack Limits
+
+Use `GetMaxStackSize(...)` or `TryGetMaxStackSize(...)` when application code needs to plan stack-sensitive UI,
+transfers, or migrations without attempting an add first:
+
+```csharp
+int maxApples =
+    inventory.GetMaxStackSize("apple");
+
+if (!inventory.TryGetMaxStackSize(
+        apple,
+        out var maxStack,
+        out var failure))
+{
+    ShowStackLimitError(failure);
+}
+```
+
+The query runs through the inventory's current stack resolver and catalog registry. Definition-ID overloads resolve
+current or migrated IDs, so `inventory.GetMaxStackSize("old-apple")` reports the canonical replacement's current stack
+limit when a registry migration exists.
+
+When stack size depends on per-instance metadata, use an overload that supplies that metadata or an existing stack:
+
+```csharp
+var metadata =
+    new InstanceMetadata();
+metadata.Set("tier", "bulk");
+
+int maxBulkStack =
+    inventory.GetMaxStackSize(apple, metadata);
+
+int maxExistingStack =
+    inventory.GetMaxStackSize(inventory.Items[0]);
+```
+
+The simple `TKey` overload remains useful for games whose stack sizing depends only on the definition, definition
+attributes, inventory metadata, or other inventory-level configuration. If a custom resolver uses item metadata,
+calling the simple overload is a deliberate query for the metadata-free prototype.
+
 ## Try Methods And Throwing Wrappers
 
 Most expected-to-fail operations use a `Try...` method:
@@ -707,6 +747,7 @@ Successful compound operations commit as one inventory change rather than exposi
 | Sort visual placement | `TrySortLayout(...)` / `SortLayout(...)` |
 | Find stacks | `Find(...)`, `FindByTag(...)`, `FindWhere(...)` |
 | Count amounts | `Count(...)`, `CountByTag(...)`, `Contains(...)` |
+| Query current stack limits | `TryGetMaxStackSize(...)` / `GetMaxStackSize(...)` |
 | Mutate one stack’s runtime data | `ItemInstance.Metadata` |
 | Mutate metadata on part of a stack | `TrySplitAndSetMetadata(...)` / `SplitAndSetMetadata(...)` |
 | Assess a portable save | `AssessSnapshot(...)` |

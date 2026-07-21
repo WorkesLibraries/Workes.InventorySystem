@@ -99,6 +99,20 @@ The nullable fallback values control missing-attribute behavior:
 Missing resolver attributes do not by themselves fail catalog freeze unless the definition's schema independently
 requires them.
 
+### Querying Current Stack Limits
+
+Application code can ask an inventory for the stack limit currently produced by its resolver:
+
+```csharp
+int maxPotionStack =
+    inventory.GetMaxStackSize("potion");
+```
+
+`TryGetMaxStackSize(...)` and `GetMaxStackSize(...)` have overloads for registered definitions, current or migrated
+definition IDs, existing item instances, and definition-plus-metadata prototypes. Use the metadata-aware overloads when
+a custom resolver reads per-instance metadata. The simple ID overload is still appropriate when stack size depends only
+on definition attributes, inventory metadata, or other inventory-level configuration.
+
 ## Capacity Policies
 
 Capacity policies validate inventory-wide, non-spatial resources. They do not decide whether a layout has a free slot or
