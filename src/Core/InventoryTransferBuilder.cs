@@ -294,7 +294,8 @@ public sealed class InventoryTransferBuilder<TKey>
     }
 
     /// <summary>Commits this target-bound transfer or throws when it is rejected.</summary>
-    /// <exception cref="InvalidOperationException">This builder is not target-bound, or the transfer is rejected.</exception>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
+    /// <exception cref="InventoryOperationException">The transfer is rejected.</exception>
     public void Commit()
     {
         if (!TryCommit(out var failure))

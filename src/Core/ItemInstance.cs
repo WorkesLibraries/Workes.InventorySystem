@@ -94,7 +94,7 @@ public class ItemInstance<TKey>
     /// <param name="key">The metadata key to add or replace.</param>
     /// <param name="value">The metadata value.</param>
     /// <returns>The stack that received the metadata.</returns>
-    /// <exception cref="InvalidOperationException">The split or metadata mutation is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The split or metadata mutation is rejected.</exception>
     /// <remarks>This operation is routed through the owning inventory.</remarks>
     public ItemInstance<TKey> SplitAndSetMetadata(int amount, string key, object? value)
     {

@@ -1129,7 +1129,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="rule">The rule to add or replace.</param>
-    /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
+    /// <exception cref="InventoryOperationException">The proposed rule set rejects current inventory contents.</exception>
     public void SetRule(string id, IRulePolicy<TKey> rule)
     {
         if (!TrySetRule(id, rule, out var failure))
@@ -1143,7 +1143,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="rule">The rule to add or replace.</param>
     /// <param name="priority">The rule priority. Higher values run first.</param>
     /// <param name="enabled">Whether the rule participates in validation.</param>
-    /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
+    /// <exception cref="InventoryOperationException">The proposed rule set rejects current inventory contents.</exception>
     public void SetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled)
     {
         if (!TrySetRule(id, rule, priority, enabled, out var failure))
@@ -1154,7 +1154,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Removes an inventory rule by id, throwing when the rule change is rejected.
     /// </summary>
     /// <param name="id">The rule id.</param>
-    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    /// <exception cref="InventoryOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void RemoveRule(string id)
     {
         if (!TryRemoveRule(id, out var failure))
@@ -1166,7 +1166,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="enabled">The new enabled state.</param>
-    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    /// <exception cref="InventoryOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void SetRuleEnabled(string id, bool enabled)
     {
         if (!TrySetRuleEnabled(id, enabled, out var failure))
@@ -1178,7 +1178,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="priority">The new priority. Higher values run first.</param>
-    /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
+    /// <exception cref="InventoryOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void SetRulePriority(string id, int priority)
     {
         if (!TrySetRulePriority(id, priority, out var failure))
@@ -1354,7 +1354,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value)
         => SetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None);
 
@@ -1364,7 +1364,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="actions">Actions controlling stack splitting, stack compression, and layout repack.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
         if (!TrySetStackResolverParameter(parameterId, value, actions, out var failure))
@@ -1423,7 +1423,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value)
         => SetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None);
 
@@ -1433,7 +1433,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="actions">Mutation actions. Capacity parameter changes reject any action other than <see cref="InventoryParameterMutationActions.None"/>.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
         if (!TrySetCapacityPolicyParameter(parameterId, value, actions, out var failure))
@@ -1524,7 +1524,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value)
         => SetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None);
 
@@ -1534,7 +1534,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="actions">Actions controlling layout repack. Layout parameter changes reject stack mutation actions.</param>
-    /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
         if (!TrySetLayoutParameter(parameterId, value, actions, out var failure))
@@ -2302,7 +2302,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The built transaction is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The built transaction is rejected.</exception>
     public void CommitTransaction(InventoryTransactionBuilder<TKey> builder)
     {
         CommitTransaction(builder, null);
@@ -2314,7 +2314,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The built transaction is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The built transaction is rejected.</exception>
     public void CommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext)
     {
         if (builder == null)
@@ -2477,7 +2477,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="builder">The transfer builder created from this inventory.</param>
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The transfer is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The transfer is rejected.</exception>
     public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target)
     {
         CommitTransfer(builder, target, null);
@@ -2490,7 +2490,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The transfer is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The transfer is rejected.</exception>
     public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, ILayoutContext<TKey>? targetContext)
     {
         if (builder == null)
@@ -3005,7 +3005,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definition">The item definition to add.</param>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
-    /// <exception cref="InvalidOperationException">The add operation is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The add operation is rejected by validation, rules, capacity, or layout.</exception>
     public void Add(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryAdd(definition, out var failure, amount, context))
@@ -3018,7 +3018,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
-    /// <exception cref="InvalidOperationException">The id cannot be resolved, or the add is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The id cannot be resolved, or the add is rejected by validation, rules, capacity, or layout.</exception>
     public void Add(TKey definitionId, int amount = 1, ILayoutContext<TKey>? context = null)
     {
         if (!TryAdd(definitionId, out var failure, amount, context))
@@ -3045,7 +3045,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="instance">The item instance to remove from.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void Remove(ItemInstance<TKey> instance, int amount = 1)
     {
         if (!TryRemove(instance, out var failure, amount))
@@ -3072,7 +3072,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="index">The storage index to remove from.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveAtStorageIndex(int index, int amount = 1)
     {
         if (!TryRemoveAtStorageIndex(index, out var failure, amount))
@@ -3117,7 +3117,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definition">The item definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
-    /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
     {
         if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure))
@@ -3130,7 +3130,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
-    /// <exception cref="InvalidOperationException">The id cannot be resolved, or the removal is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The id cannot be resolved, or the removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata)
     {
         if (!TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure))
@@ -3207,7 +3207,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="contextFrom">The source layout context.</param>
     /// <param name="contextTo">The destination layout context.</param>
-    /// <exception cref="InvalidOperationException">The move is rejected by validation or layout.</exception>
+    /// <exception cref="InventoryOperationException">The move is rejected by validation or layout.</exception>
     public void Move(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
     {
         if (!TryMove(contextFrom, contextTo, out var failure))
@@ -3276,7 +3276,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="contextFrom">The first layout context.</param>
     /// <param name="contextTo">The second layout context.</param>
-    /// <exception cref="InvalidOperationException">The swap is rejected by validation or layout.</exception>
+    /// <exception cref="InventoryOperationException">The swap is rejected by validation or layout.</exception>
     public void Swap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
     {
         if (!TrySwap(contextFrom, contextTo, out var failure))
@@ -3366,7 +3366,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="contextFrom">The source stack layout context.</param>
     /// <param name="contextTo">The destination stack layout context.</param>
     /// <param name="amount">Optional exact amount to move; when omitted, as much as possible is moved.</param>
-    /// <exception cref="InvalidOperationException">The merge move is rejected by validation, rules, capacity, or layout.</exception>
+    /// <exception cref="InventoryOperationException">The merge move is rejected by validation, rules, capacity, or layout.</exception>
     public void MergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, int? amount = null)
     {
         if (!TryMergeMove(contextFrom, contextTo, out var failure, amount))
@@ -3403,7 +3403,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <summary>
     /// Rebuilds current layout placement in current layout order using normal auto-placement, or throws when repack is rejected.
     /// </summary>
-    /// <exception cref="InvalidOperationException">The repack operation is rejected.</exception>
+    /// <exception cref="InventoryOperationException">The repack operation is rejected.</exception>
     public void RepackLayout()
     {
         if (!TryRepackLayout(out var failure))
@@ -3432,7 +3432,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Sorts the current layout with an item comparer or throws when sorting is rejected.
     /// </summary>
     /// <param name="comparer">The item comparer used to order placed items.</param>
-    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    /// <exception cref="InventoryOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(IComparer<ItemInstance<TKey>> comparer)
     {
         if (!TrySortLayout(comparer, out var failure))
@@ -3461,7 +3461,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Sorts the current layout with an item comparison or throws when sorting is rejected.
     /// </summary>
     /// <param name="comparison">The item comparison used to order placed items.</param>
-    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    /// <exception cref="InventoryOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(Comparison<ItemInstance<TKey>> comparison)
     {
         if (!TrySortLayout(comparison, out var failure))
@@ -3506,7 +3506,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Sorts the current layout with layout-specific sorting instructions or throws when sorting is rejected.
     /// </summary>
     /// <param name="sortContext">The sort context interpreted by the current layout.</param>
-    /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
+    /// <exception cref="InventoryOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(IInventorySortContext<TKey> sortContext)
     {
         if (!TrySortLayout(sortContext, out var failure))
@@ -3659,7 +3659,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <remarks>
     /// Invalid entries with a <see langword="null"/> definition or non-positive amount are ignored.
     /// A successful replacement fires at most one <see cref="Changed"/> event. If validation fails,
-    /// the original inventory remains unchanged and an <see cref="InvalidOperationException"/> is thrown.
+    /// the original inventory remains unchanged and an <see cref="InventoryOperationException"/> is thrown.
     /// </remarks>
     public void ReplaceContents(IEnumerable<(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context)>? entries)
     {
@@ -3700,7 +3700,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Captures a portable, deeply detached inventory snapshot.
     /// </summary>
     /// <returns>The captured non-generic snapshot.</returns>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="InventoryOperationException">
     /// A key, value, or custom layout cannot be represented by the registered snapshot codecs.
     /// </exception>
     public InventorySnapshot CaptureSnapshot()
