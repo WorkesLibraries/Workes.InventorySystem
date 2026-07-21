@@ -2335,6 +2335,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return TryCommitTransaction(transaction, null, out error);
     }
 
+    internal bool CanCommitTransaction(InventoryTransaction<TKey> transaction, out string? error)
+    {
+        return TryPrepareTransaction(transaction, null, out _, out error);
+    }
+
     /// <summary>
     /// Attempts to build and commit a transaction builder.
     /// </summary>

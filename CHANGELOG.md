@@ -43,6 +43,8 @@ This file records notable changes to `Workes.InventorySystem`.
   each snapshot-application workflow.
 - Added `InventoryTransaction<TKey>.WithAddedEntryContexts(...)` so custom layouts can map contexts for added entries
   without replacing transaction structure.
+- Added target binding to `InventoryTransferBuilder<TKey>` through `InventoryTransfer.From(source).To(target)`,
+  including per-removal direct target contexts, staged target validation, and source-safe commit revalidation.
 - Added inventory-owned layout query wrappers such as `GetLayoutPositionCount()`,
   `GetAddressableLayoutContexts()`, `GetItemAt(context)`, `GetLayoutContextsForStorageIndex(...)`, and
   `GetLayoutContextsForItem(...)` so application code no longer needs to pass an inventory back into its own layout for

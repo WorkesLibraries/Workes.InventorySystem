@@ -591,7 +591,7 @@ public static class InventoryTransfer
         return TryMoveMaximumWhere(source, target, item => source.Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out error);
     }
 
-    private static bool TryValidateCompatibility<TKey>(Inventory<TKey> source, Inventory<TKey> target, out string? error)
+    internal static bool TryValidateCompatibility<TKey>(Inventory<TKey> source, Inventory<TKey> target, out string? error)
     {
         if (source == null)
         {
@@ -637,10 +637,47 @@ public static class InventoryTransfer
             error = "Transfer builder does not belong to this inventory.";
             return false;
         }
+        if (builder.IsTargetBound)
+        {
+            if (!ReferenceEquals(builder.Target, target))
+            {
+                error = "Target-bound transfer builder belongs to a different target inventory.";
+                return false;
+            }
+            if (targetContext != null)
+            {
+                error = "Target-bound transfer builder already contains target placement.";
+                return false;
+            }
+            if (!builder.TryBuildTargetBoundTransactions(out var boundSourceTransaction, out var boundTargetTransaction, out error) ||
+                boundSourceTransaction == null ||
+                boundTargetTransaction == null)
+            {
+                return false;
+            }
+
+            var boundEntries = InventoryTransferBuilder<TKey>.BuildEntries(boundSourceTransaction);
+            if (boundEntries.Count == 0)
+            {
+                error = "Transfer contains no items.";
+                return false;
+            }
+
+            plan = new InventoryTransferPlan<TKey>(
+                builder.Source,
+                target,
+                boundSourceTransaction,
+                boundTargetTransaction,
+                boundEntries);
+            error = null;
+            return true;
+        }
+
         if (!TryValidateCompatibility(source, target, out error))
             return false;
 
-        var sourceTransaction = builder.BuildSourceTransaction();
+        if (!builder.TryBuildSourceTransaction(out var sourceTransaction, out error) || sourceTransaction == null)
+            return false;
         var entries = InventoryTransferBuilder<TKey>.BuildEntries(sourceTransaction);
         if (entries.Count == 0)
         {
@@ -675,11 +712,51 @@ public static class InventoryTransfer
     private static bool TryCommitPlan<TKey>(InventoryTransferPlan<TKey> plan, out string? error)
     {
         error = null;
+        if (!plan.Source.CanCommitTransaction(plan.SourceTransaction, out error))
+            return false;
+        if (!plan.Target.CanCommitTransaction(plan.TargetTransaction, out error))
+            return false;
         if (!plan.Source.TryCommitTransaction(plan.SourceTransaction, out error))
             return false;
         if (!plan.Target.TryCommitTransaction(plan.TargetTransaction, out error))
             return false;
 
+        return true;
+    }
+
+    internal static bool CanCommitTargetBound<TKey>(
+        Inventory<TKey> source,
+        InventoryTransaction<TKey> sourceTransaction,
+        Inventory<TKey> target,
+        InventoryTransaction<TKey> targetTransaction,
+        out string? error)
+    {
+        if (!TryValidateCompatibility(source, target, out error))
+            return false;
+        if (!source.CanCommitTransaction(sourceTransaction, out error))
+            return false;
+        if (!target.CanCommitTransaction(targetTransaction, out error))
+            return false;
+
+        error = null;
+        return true;
+    }
+
+    internal static bool TryCommitTargetBound<TKey>(
+        Inventory<TKey> source,
+        InventoryTransaction<TKey> sourceTransaction,
+        Inventory<TKey> target,
+        InventoryTransaction<TKey> targetTransaction,
+        out string? error)
+    {
+        if (!CanCommitTargetBound(source, sourceTransaction, target, targetTransaction, out error))
+            return false;
+        if (!source.TryCommitTransaction(sourceTransaction, out error))
+            return false;
+        if (!target.TryCommitTransaction(targetTransaction, out error))
+            return false;
+
+        error = null;
         return true;
     }
 

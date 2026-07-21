@@ -1,24 +1,92 @@
 using System;
 using System.Collections.Generic;
+using Workes.InventorySystem.Layout;
 
 namespace Workes.InventorySystem.Core;
 
 /// <summary>
-/// Builds an outgoing-only cross-inventory transfer from a source inventory.
+/// Builds a cross-inventory transfer from a source inventory.
 /// </summary>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 /// <remarks>
-/// Successful remove operations update only the builder simulation. Commit the staged transfer through the source
-/// inventory with <see cref="Inventory{TKey}.TryCommitTransfer(InventoryTransferBuilder{TKey}, Inventory{TKey}, out string?)"/>.
+/// Builders created with <see cref="InventoryTransfer.From{TKey}(Inventory{TKey})"/> stage outgoing removals only.
+/// Builders created through <see cref="To"/> also validate target additions while staging.
 /// </remarks>
 public sealed class InventoryTransferBuilder<TKey>
 {
-    private readonly InventoryTransactionBuilder<TKey> _builder;
+    private readonly List<PlannedOperation> _operations = new();
+
+    private abstract class PlannedOperation
+    {
+        protected PlannedOperation(ILayoutContext<TKey>? targetContext)
+        {
+            TargetContext = targetContext;
+        }
+
+        public ILayoutContext<TKey>? TargetContext { get; }
+
+        public abstract bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error);
+    }
+
+    private sealed class ItemRemoveOperation : PlannedOperation
+    {
+        private readonly ItemInstance<TKey> _item;
+        private readonly int _amount;
+
+        public ItemRemoveOperation(ItemInstance<TKey> item, int amount, ILayoutContext<TKey>? targetContext)
+            : base(targetContext)
+        {
+            _item = item;
+            _amount = amount;
+        }
+
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+            sourceBuilder.TryRemove(_item, out error, _amount);
+    }
+
+    private sealed class StorageIndexRemoveOperation : PlannedOperation
+    {
+        private readonly int _index;
+        private readonly int _amount;
+
+        public StorageIndexRemoveOperation(int index, int amount, ILayoutContext<TKey>? targetContext)
+            : base(targetContext)
+        {
+            _index = index;
+            _amount = amount;
+        }
+
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+            sourceBuilder.TryRemoveAtStorageIndex(_index, out error, _amount);
+    }
+
+    private sealed class DefinitionRemoveOperation : PlannedOperation
+    {
+        private readonly ItemDefinition<TKey> _definition;
+        private readonly int _amount;
+        private readonly bool _ignoreMetadata;
+
+        public DefinitionRemoveOperation(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
+            : base(targetContext: null)
+        {
+            _definition = definition;
+            _amount = amount;
+            _ignoreMetadata = ignoreMetadata;
+        }
+
+        public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out string? error) =>
+            sourceBuilder.TryRemoveByDefinition(_definition, _amount, _ignoreMetadata, out error);
+    }
 
     internal InventoryTransferBuilder(Inventory<TKey> source)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
-        _builder = InventoryTransaction<TKey>.From(source);
+    }
+
+    private InventoryTransferBuilder(Inventory<TKey> source, Inventory<TKey> target)
+        : this(source)
+    {
+        Target = target;
     }
 
     /// <summary>
@@ -27,14 +95,54 @@ public sealed class InventoryTransferBuilder<TKey>
     public Inventory<TKey> Source { get; }
 
     /// <summary>
+    /// Gets the target inventory when this builder is target-bound; otherwise, <see langword="null"/>.
+    /// </summary>
+    public Inventory<TKey>? Target { get; }
+
+    /// <summary>
+    /// Gets whether this builder validates target additions while staging removals.
+    /// </summary>
+    public bool IsTargetBound => Target != null;
+
+    /// <summary>
+    /// Creates a target-bound transfer builder that validates source removals and target additions while staging.
+    /// </summary>
+    /// <param name="target">The inventory that should receive staged entries.</param>
+    /// <returns>A transfer builder for this source and <paramref name="target"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The builder is already modified, already target-bound, or cannot target <paramref name="target"/>.</exception>
+    public InventoryTransferBuilder<TKey> To(Inventory<TKey> target)
+    {
+        if (target == null)
+            throw new ArgumentNullException(nameof(target));
+        if (IsTargetBound)
+            throw new InvalidOperationException("Transfer builder is already target-bound.");
+        if (_operations.Count > 0)
+            throw new InvalidOperationException("Target must be bound before staging transfer removals.");
+        if (!InventoryTransfer.TryValidateCompatibility(Source, target, out var error))
+            throw new InvalidOperationException(error);
+
+        return new InventoryTransferBuilder<TKey>(Source, target);
+    }
+
+    /// <summary>
     /// Gets whether the builder contains no outgoing items.
     /// </summary>
-    public bool IsEmpty => Entries.Count == 0;
+    public bool IsEmpty => _operations.Count == 0;
 
     /// <summary>
     /// Gets a snapshot of the outgoing entries currently planned by this builder.
     /// </summary>
-    public IReadOnlyList<InventoryTransferEntry<TKey>> Entries => BuildEntries(BuildSourceTransaction());
+    public IReadOnlyList<InventoryTransferEntry<TKey>> Entries
+    {
+        get
+        {
+            if (!TryBuildSourceTransaction(out var transaction, out _) || transaction == null)
+                return Array.Empty<InventoryTransferEntry<TKey>>();
+
+            return BuildEntries(transaction);
+        }
+    }
 
     /// <summary>
     /// Plans to remove an amount from a source item instance for transfer.
@@ -51,7 +159,28 @@ public sealed class InventoryTransferBuilder<TKey>
             return false;
         }
 
-        return _builder.TryRemove(item, out error, amount);
+        return TryStage(new ItemRemoveOperation(item, amount, targetContext: null), out error);
+    }
+
+    /// <summary>
+    /// Plans to remove an amount from a source item instance and place it through a direct target context.
+    /// </summary>
+    /// <param name="item">The source item instance to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="targetContext">The direct target layout context for this incoming entry.</param>
+    /// <param name="error">A consumer-facing reason when the removal or target addition is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
+    public bool TryRemove(ItemInstance<TKey> item, int amount, ILayoutContext<TKey>? targetContext, out string? error)
+    {
+        EnsureTargetBoundForContext();
+        if (amount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+
+        return TryStage(new ItemRemoveOperation(item, amount, targetContext), out error);
     }
 
     /// <summary>
@@ -69,7 +198,28 @@ public sealed class InventoryTransferBuilder<TKey>
             return false;
         }
 
-        return _builder.TryRemoveAtStorageIndex(index, out error, amount);
+        return TryStage(new StorageIndexRemoveOperation(index, amount, targetContext: null), out error);
+    }
+
+    /// <summary>
+    /// Plans to remove an amount from the source item at a storage index and place it through a direct target context.
+    /// </summary>
+    /// <param name="index">The source storage index to remove from.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <param name="targetContext">The direct target layout context for this incoming entry.</param>
+    /// <param name="error">A consumer-facing reason when the removal or target addition is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
+    public bool TryRemoveAtStorageIndex(int index, int amount, ILayoutContext<TKey>? targetContext, out string? error)
+    {
+        EnsureTargetBoundForContext();
+        if (amount <= 0)
+        {
+            error = "Amount must be greater than zero.";
+            return false;
+        }
+
+        return TryStage(new StorageIndexRemoveOperation(index, amount, targetContext), out error);
     }
 
     /// <summary>
@@ -88,7 +238,7 @@ public sealed class InventoryTransferBuilder<TKey>
             return false;
         }
 
-        return _builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+        return TryStage(new DefinitionRemoveOperation(definition, amount, ignoreMetadata), out error);
     }
 
     /// <summary>
@@ -110,12 +260,67 @@ public sealed class InventoryTransferBuilder<TKey>
         if (!Source.TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
             return false;
 
-        return _builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+    }
+
+    /// <summary>
+    /// Evaluates whether this target-bound transfer can still commit against the current live inventories.
+    /// </summary>
+    /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transfer can commit; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
+    public bool CanCommit(out string? error)
+    {
+        EnsureTargetBoundForCommit();
+        if (!TryBuildTargetBoundTransactions(out var sourceTransaction, out var targetTransaction, out error))
+            return false;
+
+        return InventoryTransfer.CanCommitTargetBound(Source, sourceTransaction!, Target!, targetTransaction!, out error);
+    }
+
+    /// <summary>
+    /// Attempts to commit this target-bound transfer.
+    /// </summary>
+    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the transfer commits; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound.</exception>
+    public bool TryCommit(out string? error)
+    {
+        EnsureTargetBoundForCommit();
+        if (!TryBuildTargetBoundTransactions(out var sourceTransaction, out var targetTransaction, out error))
+            return false;
+
+        return InventoryTransfer.TryCommitTargetBound(Source, sourceTransaction!, Target!, targetTransaction!, out error);
+    }
+
+    /// <summary>Commits this target-bound transfer or throws when it is rejected.</summary>
+    /// <exception cref="InvalidOperationException">This builder is not target-bound, or the transfer is rejected.</exception>
+    public void Commit()
+    {
+        if (!TryCommit(out var error))
+            throw new InvalidOperationException(error);
     }
 
     internal InventoryTransaction<TKey> BuildSourceTransaction()
     {
-        return _builder.Build();
+        if (!TryBuildSourceTransaction(out var transaction, out var error) || transaction == null)
+            throw new InvalidOperationException(error);
+
+        return transaction;
+    }
+
+    internal bool TryBuildSourceTransaction(out InventoryTransaction<TKey>? transaction, out string? error)
+    {
+        return TryReplay(_operations, buildTarget: false, out transaction, out _, out error);
+    }
+
+    internal bool TryBuildTargetBoundTransactions(
+        out InventoryTransaction<TKey>? sourceTransaction,
+        out InventoryTransaction<TKey>? targetTransaction,
+        out string? error)
+    {
+        EnsureTargetBoundForCommit();
+        return TryReplay(_operations, buildTarget: true, out sourceTransaction, out targetTransaction, out error);
     }
 
     internal static IReadOnlyList<InventoryTransferEntry<TKey>> BuildEntries(InventoryTransaction<TKey> transaction)
@@ -147,11 +352,132 @@ public sealed class InventoryTransferBuilder<TKey>
         return entries;
     }
 
-    private static InstanceMetadata? CloneMetadataOrNull(InstanceMetadata metadata)
+    private static InstanceMetadata? CloneMetadataOrNull(InstanceMetadata? metadata)
     {
         if (metadata == null || metadata.IsEmpty)
             return null;
 
         return metadata.Clone();
+    }
+
+    private bool TryStage(PlannedOperation operation, out string? error)
+    {
+        var proposed = new List<PlannedOperation>(_operations) { operation };
+        if (!TryReplay(proposed, buildTarget: IsTargetBound, out _, out _, out error))
+            return false;
+
+        _operations.Add(operation);
+        error = null;
+        return true;
+    }
+
+    private bool TryReplay(
+        IReadOnlyList<PlannedOperation> operations,
+        bool buildTarget,
+        out InventoryTransaction<TKey>? sourceTransaction,
+        out InventoryTransaction<TKey>? targetTransaction,
+        out string? error)
+    {
+        sourceTransaction = null;
+        targetTransaction = null;
+
+        if (buildTarget && Target == null)
+        {
+            error = "Transfer builder is not target-bound.";
+            return false;
+        }
+
+        var sourceBuilder = InventoryTransaction<TKey>.From(Source);
+        var targetBuilder = buildTarget ? InventoryTransaction<TKey>.From(Target!) : null;
+        var cumulativeEntries = new List<InventoryTransferEntry<TKey>>();
+
+        foreach (var operation in operations)
+        {
+            var beforeEntries = cumulativeEntries;
+            if (!operation.ApplySource(Source, sourceBuilder, out error))
+                return false;
+
+            var afterEntries = new List<InventoryTransferEntry<TKey>>(BuildEntries(sourceBuilder.Build()));
+            var newEntries = DiffEntries(beforeEntries, afterEntries);
+            if (newEntries.Count == 0)
+            {
+                error = "Transfer contains no items.";
+                return false;
+            }
+
+            if (buildTarget)
+            {
+                if (operation.TargetContext != null && newEntries.Count != 1)
+                {
+                    error = "Direct target context can only be used for a single incoming transfer entry.";
+                    return false;
+                }
+
+                foreach (var entry in newEntries)
+                {
+                    var addContext = operation.TargetContext;
+                    if (!targetBuilder!.TryAdd(entry.Definition, entry.Amount, addContext, CloneMetadataOrNull(entry.Metadata), out error))
+                        return false;
+                }
+            }
+
+            cumulativeEntries = afterEntries;
+        }
+
+        sourceTransaction = sourceBuilder.Build();
+        targetTransaction = targetBuilder?.Build();
+        if (operations.Count > 0 && (sourceTransaction.IsEmpty || (buildTarget && targetTransaction!.IsEmpty)))
+        {
+            error = "Transfer contains no items.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static List<InventoryTransferEntry<TKey>> DiffEntries(
+        IReadOnlyList<InventoryTransferEntry<TKey>> before,
+        IReadOnlyList<InventoryTransferEntry<TKey>> after)
+    {
+        var entries = new List<InventoryTransferEntry<TKey>>();
+        foreach (var afterEntry in after)
+        {
+            var previousAmount = FindEntryAmount(before, afterEntry.SourceInstance);
+            var delta = afterEntry.Amount - previousAmount;
+            if (delta <= 0)
+                continue;
+
+            entries.Add(new InventoryTransferEntry<TKey>(
+                afterEntry.Definition,
+                delta,
+                CloneMetadataOrNull(afterEntry.Metadata),
+                afterEntry.SourceInstance));
+        }
+
+        return entries;
+    }
+
+    private static int FindEntryAmount(IReadOnlyList<InventoryTransferEntry<TKey>> entries, ItemInstance<TKey>? sourceInstance)
+    {
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (ReferenceEquals(entries[i].SourceInstance, sourceInstance))
+                return entries[i].Amount;
+        }
+
+        return 0;
+    }
+
+    private void EnsureTargetBoundForContext()
+    {
+        if (!IsTargetBound)
+            throw new InvalidOperationException("Target-context removals require a target-bound transfer builder. Call To(target) before staging removals.");
+    }
+
+    private void EnsureTargetBoundForCommit()
+    {
+        if (!IsTargetBound)
+            throw new InvalidOperationException("Transfer builder is not target-bound. Commit through the source inventory or call To(target) before staging removals.");
     }
 }

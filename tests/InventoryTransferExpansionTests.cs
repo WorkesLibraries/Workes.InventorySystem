@@ -381,6 +381,306 @@ public class InventoryTransferExpansionTests
     }
 
     [Test]
+    public void TransferBuilder_ToReturnsSameBuilderTypeAndPlacesSingleEntryInDirectTargetContext()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(3));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 4);
+
+        var transfer = InventoryTransfer.From(source).To(target);
+        var staged = transfer.TryRemove(source.Items[0], 3, SlotLayoutContext<string>.Single(2), out var stageError);
+        var committed = transfer.TryCommit(out var commitError);
+
+        Assert.That(transfer, Is.TypeOf<InventoryTransferBuilder<string>>());
+        Assert.That(transfer.IsTargetBound, Is.True);
+        Assert.That(transfer.Target, Is.SameAs(target));
+        Assert.That(staged, Is.True, stageError);
+        Assert.That(committed, Is.True, commitError);
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(2))!.Amount, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundDirectContextMergesWhenAddressingCompatibleStack()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(2), maxStack: 10);
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 3);
+        target.TryAdd(apple, out _, 5, SlotLayoutContext<string>.Single(1));
+
+        var targetInstance = target.Items[0];
+        var transfer = InventoryTransfer.From(source).To(target);
+        var staged = transfer.TryRemove(source.Items[0], 3, SlotLayoutContext<string>.Single(1), out var stageError);
+        var committed = transfer.TryCommit(out var commitError);
+
+        Assert.That(staged, Is.True, stageError);
+        Assert.That(committed, Is.True, commitError);
+        Assert.That(target.Items, Has.Count.EqualTo(1));
+        Assert.That(target.Items[0], Is.SameAs(targetInstance));
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(1))!.Amount, Is.EqualTo(8));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundAutomaticPlacementCanMergeAndCreateRemainder()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(3), maxStack: 10);
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 5);
+        target.TryAdd(apple, out _, 8, SlotLayoutContext<string>.Single(0));
+
+        var transfer = InventoryTransfer.From(source).To(target);
+        var staged = transfer.TryRemove(source.Items[0], 5, targetContext: null, out var stageError);
+        var committed = transfer.TryCommit(out var commitError);
+
+        Assert.That(staged, Is.True, stageError);
+        Assert.That(committed, Is.True, commitError);
+        Assert.That(target.Count(apple), Is.EqualTo(13));
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(0))!.Amount, Is.EqualTo(10));
+        Assert.That(target.Items, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundDoesNotMergeMetadataDistinctEntries()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(3));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        var fresh = new InstanceMetadata();
+        fresh.Set("quality", "fresh");
+        var bruised = new InstanceMetadata();
+        bruised.Set("quality", "bruised");
+        var sourceSeed = InventoryTransaction<string>.From(source);
+        sourceSeed.TryAdd(apple, 2, null, fresh, out _);
+        source.CommitTransaction(sourceSeed.Build());
+        var targetSeed = InventoryTransaction<string>.From(target);
+        targetSeed.TryAdd(apple, 4, SlotLayoutContext<string>.Single(0), bruised, out _);
+        target.CommitTransaction(targetSeed.Build());
+
+        var transfer = InventoryTransfer.From(source).To(target);
+        var staged = transfer.TryRemove(source.Items[0], 2, SlotLayoutContext<string>.Single(1), out var stageError);
+        var committed = transfer.TryCommit(out var commitError);
+
+        Assert.That(staged, Is.True, stageError);
+        Assert.That(committed, Is.True, commitError);
+        Assert.That(target.Items, Has.Count.EqualTo(2));
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(0))!.Amount, Is.EqualTo(4));
+        Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(1))!.Amount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundRejectsWrongContextTypeDuringStagingWithoutMutatingSource()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(2));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+
+        var transfer = InventoryTransfer.From(source).To(target);
+        var staged = transfer.TryRemove(source.Items[0], 1, GridLayoutContext<string>.Single(0, 0), out var error);
+
+        Assert.That(staged, Is.False);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(transfer.IsEmpty, Is.True);
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.TotalItemCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundRevalidatesTargetAtCommitAndLeavesSourceUnchanged()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var sword = new ItemDefinition<string>("sword");
+        var manager = CreateManager(layout: new SlotLayout<string>(2));
+        manager.Registry.Register(apple);
+        manager.Registry.Register(sword);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+
+        var transfer = InventoryTransfer.From(source).To(target);
+        Assert.That(transfer.TryRemove(source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var stageError), Is.True, stageError);
+        Assert.That(target.TryAdd(sword, out _, 1, SlotLayoutContext<string>.Single(1)), Is.True);
+
+        var committed = transfer.TryCommit(out var commitError);
+
+        Assert.That(committed, Is.False);
+        Assert.That(commitError, Is.Not.Null);
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.Count(sword), Is.EqualTo(1));
+        Assert.That(target.Count(apple), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TransferBuilder_ToThrowsWhenBuilderAlreadyModified()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var transfer = InventoryTransfer.From(source);
+        Assert.That(transfer.TryRemove(source.Items[0], 1, out var error), Is.True, error);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => transfer.To(target));
+
+        Assert.That(ex!.Message, Is.EqualTo("Target must be bound before staging transfer removals."));
+    }
+
+    [Test]
+    public void TransferBuilder_ToThrowsForInvalidTargets()
+    {
+        var manager = CreateManager();
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var otherManager = CreateManager();
+        var otherApple = new ItemDefinition<string>("apple");
+        otherManager.Registry.Register(otherApple);
+        otherManager.Catalog.Freeze();
+        var otherTarget = otherManager.CreateInventory();
+
+        Assert.Throws<ArgumentNullException>(() => InventoryTransfer.From(source).To(null!));
+        Assert.That(
+            Assert.Throws<InvalidOperationException>(() => InventoryTransfer.From(source).To(source))!.Message,
+            Is.EqualTo("Cannot transfer between the same inventory."));
+        Assert.That(
+            Assert.Throws<InvalidOperationException>(() => InventoryTransfer.From(source).To(otherTarget))!.Message,
+            Is.EqualTo("Inventories must share the same item catalog."));
+    }
+
+    [Test]
+    public void TransferBuilder_ContextRemovalThrowsWhenNotTargetBound()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(2));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var transfer = InventoryTransfer.From(source);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            transfer.TryRemove(source.Items[0], 1, SlotLayoutContext<string>.Single(0), out _));
+
+        Assert.That(ex!.Message, Is.EqualTo("Target-context removals require a target-bound transfer builder. Call To(target) before staging removals."));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundAutomaticRemovalRejectsTargetRuleDuringStaging()
+    {
+        var food = "core:food";
+        var catalog = new ItemCatalog<string>();
+        catalog.Tags.Define(food);
+        var apple = new ItemDefinition<string>("apple", food);
+        var stone = new ItemDefinition<string>("stone");
+        catalog.Registry.Register(apple);
+        catalog.Registry.Register(stone);
+        catalog.Freeze();
+        var source = CreateManager(catalog).CreateInventory();
+        var rules = new RuleContainer<string>();
+        rules.Add("food-only", new RequireAllTagsRule<string>(food));
+        var target = CreateManager(catalog, rules: rules).CreateInventory();
+        source.TryAdd(stone, out _, 1);
+        var transfer = InventoryTransfer.From(source).To(target);
+
+        var staged = transfer.TryRemove(source.Items[0], 1, out var error);
+
+        Assert.That(staged, Is.False);
+        Assert.That(error, Does.Contain("food-only"));
+        Assert.That(transfer.IsEmpty, Is.True);
+        Assert.That(source.Count(stone), Is.EqualTo(1));
+        Assert.That(target.TotalItemCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundDirectContextRejectsOverflowInsteadOfAutoPlacingRemainder()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(3), maxStack: 10);
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 5);
+        target.TryAdd(apple, out _, 8, SlotLayoutContext<string>.Single(0));
+        var transfer = InventoryTransfer.From(source).To(target);
+
+        var staged = transfer.TryRemove(source.Items[0], 5, SlotLayoutContext<string>.Single(0), out var error);
+
+        Assert.That(staged, Is.False);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(transfer.IsEmpty, Is.True);
+        Assert.That(source.Count(apple), Is.EqualTo(5));
+        Assert.That(target.Count(apple), Is.EqualTo(8));
+        Assert.That(target.Items, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void TransferBuilder_TargetBoundRemoveByDefinitionValidatesAutomaticTargetPlacement()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(1));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 2);
+        target.TryAdd(apple, out _, 10, SlotLayoutContext<string>.Single(0));
+        var transfer = InventoryTransfer.From(source).To(target);
+
+        var staged = transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out var error);
+
+        Assert.That(staged, Is.False);
+        Assert.That(error, Is.Not.Null);
+        Assert.That(transfer.IsEmpty, Is.True);
+        Assert.That(source.Count(apple), Is.EqualTo(2));
+        Assert.That(target.Count(apple), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Inventory_TryCommitTransfer_RejectsSeparateContextForTargetBoundBuilder()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var manager = CreateManager(layout: new SlotLayout<string>(2));
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var source = manager.CreateInventory();
+        var target = manager.CreateInventory();
+        source.TryAdd(apple, out _, 1);
+        var transfer = InventoryTransfer.From(source).To(target);
+        Assert.That(transfer.TryRemove(source.Items[0], 1, out var stageError), Is.True, stageError);
+
+        var committed = source.TryCommitTransfer(transfer, target, SlotLayoutContext<string>.Single(0), out var error);
+
+        Assert.That(committed, Is.False);
+        Assert.That(error, Is.EqualTo("Target-bound transfer builder already contains target placement."));
+        Assert.That(source.Count(apple), Is.EqualTo(1));
+        Assert.That(target.Count(apple), Is.EqualTo(0));
+    }
+
+    [Test]
     public void TrySwap_SucceedsForPartialAmountsAndPreservesMetadata()
     {
         var manager = CreateManager();

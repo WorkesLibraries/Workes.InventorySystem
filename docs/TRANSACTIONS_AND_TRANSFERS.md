@@ -25,7 +25,8 @@ Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations an
 | Perform one ordinary add or removal | `Inventory<TKey>.TryAdd(...)`, `TryRemove(...)`, or another direct operation |
 | Combine several adds and removals atomically in one inventory | `InventoryTransactionBuilder<TKey>` |
 | Move one amount between inventories | `TryTransferTo(...)` |
-| Plan several outgoing entries and commit them together | `InventoryTransferBuilder<TKey>` |
+| Plan several outgoing entries and commit them later | `InventoryTransferBuilder<TKey>` |
+| Plan transfers against a known target with per-entry placement | `InventoryTransfer.From(source).To(target)` |
 | Move all matching contents or fail without moving any | `TryMoveWhereTo(...)` and related bulk helpers |
 | Move as much as the target can currently accept | Maximum-transfer helpers |
 | Exchange contents between inventories | Cross-inventory swap helpers |
@@ -326,15 +327,21 @@ var committed =
 ```
 
 `InventoryTransfer.From(source)` creates an outgoing-only builder. Staging removal never adds to a target and never
-mutates the source.
+mutates the source. This is useful when the target is chosen later or when one shared target context should be supplied
+at commit time.
 
 | Builder member | Meaning |
 |---|---|
 | `Source` | Inventory whose items are planned to leave |
+| `Target` | Target inventory when the builder was created with `.To(target)`; otherwise `null` |
+| `IsTargetBound` | Whether staging validates target additions immediately |
 | `Entries` | Snapshot of planned outgoing entries |
 | `IsEmpty` | Whether no outgoing entries are staged |
+| `To(target)` | Create an empty target-bound builder before staging removals |
 | `TryRemove(item, amount, out error)` | Stage removal from one source instance |
+| `TryRemove(item, amount, targetContext, out error)` | Stage removal and direct target placement; target-bound builders only |
 | `TryRemoveAtStorageIndex(index, amount, out error)` | Stage removal by source storage index |
+| `TryRemoveAtStorageIndex(index, amount, targetContext, out error)` | Stage indexed removal and direct target placement; target-bound builders only |
 | `TryRemoveByDefinition(definition, amount, ignoreMetadata, out error)` | Stage removal across matching source stacks |
 | `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out error)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
 
@@ -352,6 +359,78 @@ The builder must be committed through the same source inventory:
 | `CommitTransfer(...)` | Throwing wrappers |
 
 An empty transfer is rejected. A builder created from another source is also rejected.
+
+### Target-Bound Transfer Builders
+
+When the target is already known, bind the builder before staging removals:
+
+```csharp
+var transfer =
+    InventoryTransfer
+        .From(backpack)
+        .To(chest);
+
+transfer.TryRemove(
+    backpack.Find(herb).Single(),
+    amount: 3,
+    targetContext:
+        SlotLayoutContext<string>.Single(2),
+    out var herbError);
+
+var committed =
+    transfer.TryCommit(out var error);
+```
+
+`.To(target)` returns the same `InventoryTransferBuilder<TKey>` type in target-bound mode. It must be called before any
+removals are staged. Binding validates that the source and target can participate in transfers; same-inventory or
+different-catalog targets are setup errors.
+
+This path is the ergonomic choice for "move this source amount to this target position." Each staged item or storage
+index removal can carry its own direct target context, so the target layout can decide immediately whether the incoming
+entry merges with an existing compatible stack or creates a new item instance at that position.
+
+Target-bound staging validates against simulated source and target transactions. If target placement, capacity, rules,
+or stacking reject a staged operation, that operation is not added to the builder and neither live inventory changes.
+`CanCommit(...)` and `TryCommit(...)` revalidate both live inventories before committing, so target changes made after
+staging can still reject the transfer without removing source items.
+
+This stricter validation applies even without a direct context:
+
+```csharp
+var transfer =
+    InventoryTransfer.From(backpack).To(chest);
+
+var accepted =
+    transfer.TryRemove(
+        backpack.Find(stone).Single(),
+        amount: 1,
+        out var error);
+```
+
+Here `accepted` is `false` immediately if `chest` has rules, capacity, stacking, or automatic-placement behavior that
+rejects the incoming stone. The outgoing-only builder would not discover the same target rejection until commit because
+it does not know the target yet.
+
+Direct contexts are exact. If an amount cannot fit through the supplied context, the staged removal is rejected instead
+of silently placing overflow elsewhere. Split large source stacks into several explicit removals when target stack
+limits or layout shape require several target positions.
+
+Definition-based target-bound removals use automatic target placement:
+
+```csharp
+transfer.TryRemoveByDefinition(
+    herb,
+    amount: 12,
+    ignoreMetadata: true,
+    out var error);
+```
+
+A single definition-based removal can produce several incoming entries from several source stacks, so it does not accept
+one direct target context. Use item or storage-index removals when each incoming entry needs an exact target position.
+
+Target-bound builders can also be passed to the existing source-owned commit APIs with the same target and a `null`
+commit-time context. Supplying a separate non-null commit context is rejected because target placement is already part of
+the staged plan.
 
 ## How A Planned Transfer Commits
 
@@ -389,7 +468,8 @@ source.TryTransferTo(
     out var error);
 ```
 
-For several incoming entries, use a mapped context keyed by `InventoryTransferBuilder<TKey>.Entries` order:
+For deferred placement of several incoming entries, use a mapped context keyed by
+`InventoryTransferBuilder<TKey>.Entries` order:
 
 ```csharp
 var transfer =
@@ -415,8 +495,12 @@ var moved =
 The context belongs to the target layout. Its mapped indices describe incoming transfer-entry order, not source storage
 indices.
 
-Best-effort maximum helpers use simpler repeated-transfer placement. Use a transfer builder with a mapped context when
-precise multi-entry placement matters.
+Prefer a target-bound builder when each staged removal already knows its own direct target context. Mapped transfer
+contexts remain useful for deferred placement, but they are less ergonomic for precise transfer planning because target
+stacking can merge incoming entries before a mapped added-entry index exists.
+
+Best-effort maximum helpers use simpler repeated-transfer placement. Use one of the builder workflows when precise
+multi-entry placement matters.
 
 ## All-Or-Nothing Bulk Moves
 
