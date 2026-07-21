@@ -1044,7 +1044,7 @@ public class InventoryPolicyParameterMutationTests
 
         var change = captured!.ConfigurationChanged.Single();
         Assert.That(change.Kind, Is.EqualTo(InventoryConfigurationChangeKind.CapacityPolicy));
-        Assert.That(change.ParameterId, Is.EqualTo("maxTotalItemAmount"));
+        Assert.That(change.ConfigurationId, Is.EqualTo("maxTotalItemAmount"));
         Assert.That(captured.RequiresFullRefresh, Is.False);
     }
 

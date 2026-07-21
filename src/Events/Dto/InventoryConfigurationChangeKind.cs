@@ -18,5 +18,10 @@ public enum InventoryConfigurationChangeKind
     /// <summary>
     /// The inventory layout changed.
     /// </summary>
-    Layout
+    Layout,
+
+    /// <summary>
+    /// The inventory rule set changed.
+    /// </summary>
+    Rules
 }

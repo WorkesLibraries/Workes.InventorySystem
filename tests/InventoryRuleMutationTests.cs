@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Workes.InventorySystem.Capacity;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Events;
+using Workes.InventorySystem.Events.Dto;
 using Workes.InventorySystem.Layout;
 using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Stacking;
@@ -128,6 +132,160 @@ public class InventoryRuleMutationTests
         Assert.That(inventory.Rules.ContainsKey("only-apple"), Is.False);
     }
 
+    [Test]
+    public void TrySetRule_AddsRuleAndEmitsConfigurationChangedEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var inventory = CreateInventory(null, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 5, enabled: true, out var error), Is.True, error);
+
+        var change = SingleRuleChange(events);
+        Assert.That(change.Kind, Is.EqualTo(InventoryConfigurationChangeKind.Rules));
+        Assert.That(change.ConfigurationId, Is.EqualTo("only-apple"));
+#pragma warning disable CS0618
+        Assert.That(change.ParameterId, Is.EqualTo("only-apple"));
+#pragma warning restore CS0618
+        Assert.That(change.Value, Is.Null);
+        Assert.That(change.RequiresFullRefresh, Is.False);
+        Assert.That(events.Single().RequiresFullRefresh, Is.False);
+        Assert.That(events.Single().AffectedLayoutContexts, Is.Empty);
+        Assert.That(change.RuleChange!.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.Added));
+        Assert.That(change.RuleChange.PreviousState, Is.Null);
+        Assert.That(change.RuleChange.CurrentState!.Id, Is.EqualTo("only-apple"));
+        Assert.That(change.RuleChange.CurrentState.Priority, Is.EqualTo(5));
+        Assert.That(change.RuleChange.CurrentState.Enabled, Is.True);
+    }
+
+    [Test]
+    public void TrySetRule_ReplacesRuleAndReportsBeforeAndAfterState()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var rules = new RuleContainer<string>();
+        var previousRule = new OnlyAllowItemsRule<string>(apple);
+        rules.Add("active", previousRule, priority: 2, enabled: false);
+        var inventory = CreateInventory(rules, apple, berry);
+        var replacementRule = new OnlyAllowItemsRule<string>(berry);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRule("active", replacementRule, out var error), Is.True, error);
+
+        var ruleChange = SingleRuleChange(events).RuleChange!;
+        Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.Replaced));
+        Assert.That(ruleChange.PreviousState!.Priority, Is.EqualTo(2));
+        Assert.That(ruleChange.PreviousState.Enabled, Is.False);
+        Assert.That(ruleChange.CurrentState!.Priority, Is.EqualTo(2));
+        Assert.That(ruleChange.CurrentState.Enabled, Is.False);
+        Assert.That(ruleChange.PreviousState.Policy, Is.Not.SameAs(ruleChange.CurrentState.Policy));
+    }
+
+    [Test]
+    public void TryRemoveRule_RemovesRuleAndEmitsConfigurationChangedEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var rules = new RuleContainer<string>();
+        rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 3, enabled: true);
+        var inventory = CreateInventory(rules, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TryRemoveRule("only-apple", out var error), Is.True, error);
+
+        var ruleChange = SingleRuleChange(events).RuleChange!;
+        Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.Removed));
+        Assert.That(ruleChange.PreviousState!.Id, Is.EqualTo("only-apple"));
+        Assert.That(ruleChange.PreviousState.Priority, Is.EqualTo(3));
+        Assert.That(ruleChange.PreviousState.Enabled, Is.True);
+        Assert.That(ruleChange.CurrentState, Is.Null);
+    }
+
+    [Test]
+    public void TrySetRuleEnabled_ChangesEnabledStateAndEmitsConfigurationChangedEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var rules = new RuleContainer<string>();
+        rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), enabled: false);
+        var inventory = CreateInventory(rules, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var error), Is.True, error);
+
+        var ruleChange = SingleRuleChange(events).RuleChange!;
+        Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.EnabledChanged));
+        Assert.That(ruleChange.PreviousState!.Enabled, Is.False);
+        Assert.That(ruleChange.CurrentState!.Enabled, Is.True);
+        Assert.That(ruleChange.CurrentState.Priority, Is.EqualTo(ruleChange.PreviousState.Priority));
+    }
+
+    [Test]
+    public void TrySetRulePriority_ChangesPriorityAndEmitsConfigurationChangedEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var rules = new RuleContainer<string>();
+        rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 1);
+        var inventory = CreateInventory(rules, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 9, out var error), Is.True, error);
+
+        var ruleChange = SingleRuleChange(events).RuleChange!;
+        Assert.That(ruleChange.ChangeKind, Is.EqualTo(InventoryRuleConfigurationChangeKind.PriorityChanged));
+        Assert.That(ruleChange.PreviousState!.Priority, Is.EqualTo(1));
+        Assert.That(ruleChange.CurrentState!.Priority, Is.EqualTo(9));
+        Assert.That(ruleChange.CurrentState.Enabled, Is.EqualTo(ruleChange.PreviousState.Enabled));
+    }
+
+    [Test]
+    public void RejectedRuleMutation_EmitsNoConfigurationChangedEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var berry = new ItemDefinition<string>("berry");
+        var inventory = CreateInventory(null, apple, berry);
+        inventory.Add(berry);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRule("only-apple", new OnlyAllowItemsRule<string>(apple), out _), Is.False);
+
+        Assert.That(events, Is.Empty);
+    }
+
+    [Test]
+    public void RuleMutationNoOps_SucceedWithoutEmittingEvent()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var rules = new RuleContainer<string>();
+        rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 4, enabled: true);
+        var inventory = CreateInventory(rules, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var enabledError), Is.True, enabledError);
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 4, out var priorityError), Is.True, priorityError);
+
+        Assert.That(events, Is.Empty);
+    }
+
+    [Test]
+    public void RuleConfigurationChangedSnapshots_AreNotRewrittenByLaterMutations()
+    {
+        var apple = new ItemDefinition<string>("apple");
+        var rules = new RuleContainer<string>();
+        rules.Add("only-apple", new OnlyAllowItemsRule<string>(apple), priority: 1, enabled: false);
+        var inventory = CreateInventory(rules, apple);
+        var events = CaptureEvents(inventory);
+
+        Assert.That(inventory.TrySetRuleEnabled("only-apple", enabled: true, out var firstError), Is.True, firstError);
+        var firstChange = events.Single().ConfigurationChanged.Single().RuleChange!;
+        events.Clear();
+
+        Assert.That(inventory.TrySetRulePriority("only-apple", priority: 7, out var secondError), Is.True, secondError);
+
+        Assert.That(firstChange.PreviousState!.Enabled, Is.False);
+        Assert.That(firstChange.CurrentState!.Enabled, Is.True);
+        Assert.That(firstChange.CurrentState.Priority, Is.EqualTo(1));
+        Assert.That(events.Single().ConfigurationChanged.Single().RuleChange!.CurrentState!.Priority, Is.EqualTo(7));
+    }
+
     private static Inventory<string> CreateInventory(
         RuleContainer<string>? rules,
         params ItemDefinition<string>[] definitions)
@@ -152,5 +310,21 @@ public class InventoryRuleMutationTests
 
         manager.Catalog.Freeze();
         return manager;
+    }
+
+    private static List<InventoryChangedEventArgs<string>> CaptureEvents(Inventory<string> inventory)
+    {
+        var events = new List<InventoryChangedEventArgs<string>>();
+        inventory.Changed += (_, args) => events.Add(args);
+        return events;
+    }
+
+    private static InventoryConfigurationChanged<string> SingleRuleChange(
+        IReadOnlyList<InventoryChangedEventArgs<string>> events)
+    {
+        Assert.That(events, Has.Count.EqualTo(1));
+        var change = events.Single().ConfigurationChanged.Single();
+        Assert.That(change.RuleChange, Is.Not.Null);
+        return change;
     }
 }

@@ -247,9 +247,11 @@ Enabling a disabled rule can fail when current contents violate it. Removing or 
 validation, but still uses the same proposed-rule-set path. Unknown IDs are rejected by remove, enable, and priority
 operations.
 
-Rule-container changes do not currently emit `Inventory<TKey>.Changed`; they change validation configuration without
-changing contents or layout. Code that presents editable rule configuration should update that view from the result of
-the rule-mutation call.
+Successful rule changes emit one `Inventory<TKey>.Changed` event with a `ConfigurationChanged` entry whose `Kind` is
+`Rules`. The entry's `ConfigurationId` is the rule ID, and `RuleChange` describes whether the rule was added, replaced,
+removed, enabled/disabled, or reprioritized. Rule changes do not affect layout contexts and do not request a full
+refresh. Rejected changes emit no event. Setting an existing rule's enabled state or priority to its current value is a
+successful no-op and emits no event.
 
 ## Runtime Component Parameters
 
@@ -470,19 +472,21 @@ inventory.TrySetLayoutParameter(
 
 ## Events And Refresh
 
-Every successful component-parameter mutation emits one `Inventory<TKey>.Changed` event whose
-`ConfigurationChanged` collection contains the replacement:
+Every successful component-parameter mutation and non-no-op rule mutation emits one `Inventory<TKey>.Changed` event
+whose `ConfigurationChanged` collection contains the replacement or rule-change details:
 
 | Result | Full refresh |
 |---|---|
 | Preserve-only stack resolver change | No |
 | Preserve-only capacity policy change | No |
+| Rule added, replaced, removed, enabled/disabled, or reprioritized | No |
 | Any successful layout parameter change | Yes |
 | Stack split or compression without repack | No; normal item and affected-context payloads describe shape changes |
 | Stack-resolver mutation containing `RepackLayout` | No for complete built-in layout deltas; custom reconciliation may request one |
 
-Each configuration entry reports its `Kind`, `ParameterId`, proposed value, previous component, replacement component,
-and `RequiresFullRefresh`.
+Each configuration entry reports its `Kind`, `ConfigurationId`, proposed parameter value, previous component,
+replacement component, and `RequiresFullRefresh`. Rule entries also populate `RuleChange`. `ParameterId` remains as an
+obsolete compatibility alias for `ConfigurationId`.
 
 ```csharp
 inventory.Changed += (_, args) =>

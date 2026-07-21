@@ -49,6 +49,8 @@ This file records notable changes to `Workes.InventorySystem`.
   ordinary reads.
 - Added migration-aware definition-ID overloads for common inventory, transaction-builder, and transfer-builder
   workflows, including add, count, contains, find, and remove-by-definition operations.
+- Added rule configuration change events for inventory-owned rule add/replace/remove/enable/priority mutations,
+  including typed rule-change details and immutable before/after rule-state snapshots.
 - Added `ItemCatalog<TKey>(bool areTagsNamespaced)` and `TagCatalog(bool areTagsNamespaced)` constructors for explicit
   namespaced or non-namespaced tag-mode selection. Parameterless construction retains the existing compatibility
   workflow.
@@ -65,12 +67,14 @@ This file records notable changes to `Workes.InventorySystem`.
   state is visible.
 - Metadata arrays and lists now use value-snapshot ownership at every input, candidate, event, persistence, and read
   boundary. `InstanceMetadata` also supports typed `Update<T>(...)` and `TryUpdate<T>(...)`.
+- `InventoryConfigurationChanged<TKey>` now uses `ConfigurationId` for both component parameter IDs and rule IDs.
 
 ### Deprecated
 
 - Deprecated `Inventory<TKey>.Serialize()`, `Inventory<TKey>.Deserialize(...)`, `SerializedInventory<TKey>`, and
   `SerializedItem<TKey>`. Use portable inventory snapshots for new persistence code.
 - Deprecated `ItemMoved<TKey>.IsSortResult`. Use `Cause == ItemMovementCause.Sort`.
+- Deprecated `InventoryConfigurationChanged<TKey>.ParameterId`. Use `ConfigurationId`.
 
 ### Fixed
 

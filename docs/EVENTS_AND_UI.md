@@ -58,7 +58,7 @@ One `InventoryChangedEventArgs<TKey>` can contain several categories from the sa
 | `Swapped` | Two layout placements were exchanged. |
 | `MetadataChanged` | Metadata changed directly on an existing item instance. |
 | `InventoryMetadataChanged` | Inventory-owned metadata changed, with detached before/after values and sorted keys. |
-| `ConfigurationChanged` | A runtime stack resolver, capacity policy, or layout parameter changed. |
+| `ConfigurationChanged` | A runtime stack resolver, capacity policy, layout parameter, or rule configuration changed. |
 | `Cleared` | Existing contents were cleared as part of the operation. |
 | `AffectedLayoutContexts` | Positions gathered from relevant payloads and layout reconciliation. |
 | `RequiresFullRefresh` | The event does not completely describe the observable change at context level. |
@@ -324,15 +324,17 @@ foreach (var added in args.Added)
 
 ## Runtime Configuration Changes
 
-Successful inventory-owned parameter mutation produces `InventoryConfigurationChanged<TKey>`.
+Successful inventory-owned parameter and rule mutation produces `InventoryConfigurationChanged<TKey>`.
 
 | Member | Meaning |
 |---|---|
-| `Kind` | `StackResolver`, `CapacityPolicy`, or `Layout`. |
-| `ParameterId` | Stable parameter ID that changed. |
-| `Value` | Committed parameter value. |
+| `Kind` | `StackResolver`, `CapacityPolicy`, `Layout`, or `Rules`. |
+| `ConfigurationId` | Stable parameter ID or rule ID that changed. |
+| `ParameterId` | Obsolete compatibility alias for `ConfigurationId`. |
+| `Value` | Committed parameter value for parameter changes. |
 | `PreviousComponent` | Component before replacement. |
 | `CurrentComponent` | Replacement component. |
+| `RuleChange` | Typed rule details when `Kind` is `Rules`. |
 | `RequiresFullRefresh` | Whether this change cannot be represented safely as targeted updates. |
 
 ```csharp
@@ -351,6 +353,10 @@ foreach (var change in args.ConfigurationChanged)
         case InventoryConfigurationChangeKind.Layout:
             RebuildInventoryView();
             break;
+
+        case InventoryConfigurationChangeKind.Rules:
+            RefreshRuleConfiguration(change.RuleChange!);
+            break;
     }
 }
 ```
@@ -358,9 +364,9 @@ foreach (var change in args.ConfigurationChanged)
 `InventoryChangedEventArgs<TKey>.RequiresFullRefresh` is true when the event was explicitly marked as incomplete,
 when `Cleared` is true, or when any configuration entry requires it.
 
-Inventory-owned rule changes are different: `TrySetRule(...)`, `TryRemoveRule(...)`, enable changes, and priority changes
-do not currently emit `Inventory<TKey>.Changed`. A rule editor should update its own configuration view from the
-mutation result.
+Rule configuration changes do not affect layout contexts and do not request full refresh. Rejected rule mutations emit
+no event. Setting an existing rule's enabled state or priority to its current value succeeds as a no-op and emits no
+event.
 
 ## Full-Refresh Cases
 

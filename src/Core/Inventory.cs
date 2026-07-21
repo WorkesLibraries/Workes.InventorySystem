@@ -999,6 +999,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public bool TrySetRule(string id, IRulePolicy<TKey> rule, out string? error)
     {
         return TryApplyRuleMutation(
+            id,
+            _rules.GetRuleStateSnapshot(id) == null
+                ? InventoryRuleConfigurationChangeKind.Added
+                : InventoryRuleConfigurationChangeKind.Replaced,
             rules => rules.Set(id, rule),
             out error);
     }
@@ -1015,6 +1019,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out string? error)
     {
         return TryApplyRuleMutation(
+            id,
+            _rules.GetRuleStateSnapshot(id) == null
+                ? InventoryRuleConfigurationChangeKind.Added
+                : InventoryRuleConfigurationChangeKind.Replaced,
             rules => rules.Set(id, rule, priority, enabled),
             out error);
     }
@@ -1040,6 +1048,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         }
 
         return TryApplyRuleMutation(
+            id,
+            InventoryRuleConfigurationChangeKind.Removed,
             rules => rules.Remove(id),
             out error);
     }
@@ -1065,7 +1075,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return false;
         }
 
+        var beforeState = _rules.GetRuleStateSnapshot(id);
+        if (beforeState != null && beforeState.Enabled == enabled)
+        {
+            error = null;
+            return true;
+        }
+
         return TryApplyRuleMutation(
+            id,
+            InventoryRuleConfigurationChangeKind.EnabledChanged,
             rules => rules.TrySetEnabled(id, enabled),
             out error);
     }
@@ -1091,7 +1110,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return false;
         }
 
+        var beforeState = _rules.GetRuleStateSnapshot(id);
+        if (beforeState != null && beforeState.Priority == priority)
+        {
+            error = null;
+            return true;
+        }
+
         return TryApplyRuleMutation(
+            id,
+            InventoryRuleConfigurationChangeKind.PriorityChanged,
             rules => rules.TrySetPriority(id, priority),
             out error);
     }
@@ -1157,11 +1185,23 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             ThrowMutationFailure(error, "Rule change failed.");
     }
 
-    private bool TryApplyRuleMutation(Action<RuleContainer<TKey>> mutate, out string? error)
+    private bool TryApplyRuleMutation(
+        string ruleId,
+        InventoryRuleConfigurationChangeKind changeKind,
+        Action<RuleContainer<TKey>> mutate,
+        out string? error)
     {
         if (mutate == null)
             throw new ArgumentNullException(nameof(mutate));
 
+        if (string.IsNullOrWhiteSpace(ruleId))
+        {
+            error = "Rule id cannot be null or empty.";
+            return false;
+        }
+
+        var previousRules = _rules.Clone();
+        var previousState = previousRules.GetRuleStateSnapshot(ruleId);
         var proposedRules = _rules.Clone();
         try
         {
@@ -1177,6 +1217,15 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return false;
 
         _rules.ReplaceWith(proposedRules);
+        var currentRules = proposedRules.Clone();
+        var currentState = currentRules.GetRuleStateSnapshot(ruleId);
+        FireRuleConfigurationChanged(
+            ruleId,
+            changeKind,
+            previousState,
+            currentState,
+            previousRules,
+            currentRules);
         error = null;
         return true;
     }
@@ -2109,6 +2158,33 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             moved: moved,
             configurationChanged: new[] { change },
             affectedLayoutContexts: affectedLayoutContexts));
+    }
+
+    private void FireRuleConfigurationChanged(
+        string ruleId,
+        InventoryRuleConfigurationChangeKind changeKind,
+        InventoryRuleState<TKey>? previousState,
+        InventoryRuleState<TKey>? currentState,
+        RuleContainer<TKey> previousRules,
+        RuleContainer<TKey> currentRules)
+    {
+        var ruleChange = new InventoryRuleConfigurationChanged<TKey>(
+            ruleId,
+            changeKind,
+            previousState,
+            currentState);
+        var change = new InventoryConfigurationChanged<TKey>(
+            InventoryConfigurationChangeKind.Rules,
+            ruleId,
+            value: null,
+            previousRules,
+            currentRules,
+            requiresFullRefresh: false,
+            ruleChange: ruleChange);
+
+        Changed?.Invoke(this, new InventoryChangedEventArgs<TKey>(
+            configurationChanged: new[] { change },
+            requiresFullRefresh: false));
     }
 
     private void ApplyStackParameterMutationTransaction(

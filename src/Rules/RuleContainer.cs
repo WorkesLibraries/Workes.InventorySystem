@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Workes.InventorySystem.Core;
+using Workes.InventorySystem.Events.Dto;
 namespace Workes.InventorySystem.Rules;
 
 /// <summary>
@@ -56,6 +57,16 @@ public class RuleContainer<TKey>
         foreach (var rule in source._rules)
             _rules.Add(rule.Key, rule.Value);
         _sequence = source._sequence;
+    }
+
+    internal InventoryRuleState<TKey>? GetRuleStateSnapshot(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        return _rules.TryGetValue(id, out var entry)
+            ? new InventoryRuleState<TKey>(id, entry.Rule, entry.Priority, entry.Enabled)
+            : null;
     }
 
     /*
