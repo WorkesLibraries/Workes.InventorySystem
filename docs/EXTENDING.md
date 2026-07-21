@@ -50,7 +50,9 @@ All extension implementations should follow these rules:
 - Make singleton codecs stateless and safe for concurrent calls.
 
 Invalid constructor configuration and invalid definition data can throw. Conditional runtime validation should normally
-return `false` with an `InventoryFailure`. The inventory catches the failure before commit.
+return `false` with an `InventoryFailure`. The inventory catches the failure before commit. Custom extension behavior
+should normally extend the failure system with stable namespaced failure codes, not custom exception types or new
+failure categories; see [Extension-Authored Failures](FAILURES.md#extension-authored-failures).
 
 ## Validation And Simulation Lifecycle
 

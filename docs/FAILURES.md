@@ -171,6 +171,18 @@ Common groups include:
 Package-owned codes are reserved. Extension authors should use their own namespaced codes, for example
 `com.example.inventory.rule.quest_locked`.
 
+Custom codes are the intended extension point for application-specific rejection behavior. Keep them:
+
+- stable once application code, telemetry, localization, or saved diagnostics may depend on them.
+- namespaced to your application or package, not `workes.inventory.*`.
+- specific enough for branching. Prefer `com.example.inventory.rule.quest_locked` over
+  `com.example.inventory.rejected`.
+- independent from `Message`. Messages are display and debugging text and may be rewritten without breaking callers.
+
+Do not try to extend `InventoryFailureKind`. The kinds are intentionally broad package-owned categories so application
+code can make coarse decisions consistently across built-in and custom components. Put extension-specific meaning in
+`Code`, `Component`, `Source`, and `Cause`.
+
 ## Nested Causes
 
 Higher-level systems can wrap lower-level failures while preserving the original cause.
@@ -196,9 +208,14 @@ if (!inventory.TryAdd("sword", out var failure))
 
 This gives the UI and tooling both the high-level failing operation and the underlying reason.
 
-## Extension Authoring
+## Extension-Authored Failures
 
-Extension contracts use `out InventoryFailure? failure` for conditional rejection:
+Extension contracts use `out InventoryFailure? failure` for conditional rejection. This includes custom rules, capacity
+policies, stack resolvers, layouts, repack/reconciliation contracts, snapshot codecs, and custom key codecs.
+
+Expected rejection should return `false` with an `InventoryFailure`; it should not throw. The inventory can then keep
+the operation atomic, return the same failure from the `Try...` API, or wrap it in an `InventoryOperationException` when
+the caller used an expected-success wrapper.
 
 ```csharp
 public bool CanAccept(
@@ -222,8 +239,32 @@ public bool CanAccept(
 }
 ```
 
+Choose the broad `InventoryFailureKind` that describes the failing subsystem and use a custom namespaced `Code` for the
+application-specific reason. For example:
+
+| Extension | Suggested kind | Example code |
+|---|---|---|
+| Gameplay rule | `Rules` | `com.example.inventory.rules.requires_license` |
+| Capacity policy | `Capacity` | `com.example.inventory.capacity.guild_rank_too_low` |
+| Stack resolver | `Stacking` | `com.example.inventory.stacking.quality_mismatch` |
+| Layout | `Layout` | `com.example.inventory.layout.shelf_too_short` |
+| Snapshot or key codec | `Snapshot` | `com.example.inventory.snapshot.item_key_malformed` |
+
+Use `Component` for the component type or stable component name that reported the failure. Use `Source` for a stable
+configured identifier, such as a rule ID, parameter ID, slot ID, section ID, codec format ID, or layout-kind ID.
+
+```csharp
+failure = InventoryFailure.Create(
+    InventoryFailureKind.Layout,
+    "com.example.inventory.layout.shelf_too_short",
+    "The selected shelf is too short for this item.",
+    component: nameof(ShelfLayout<string>),
+    source: shelfId);
+return false;
+```
+
 Use `InventoryFailure.Wrap(...)` when your extension rejects because of a lower-level failure and you want to preserve
-that cause:
+that cause. A custom layout might wrap a metadata rejection, or a codec might wrap a malformed field failure:
 
 ```csharp
 failure = InventoryFailure.Wrap(
@@ -234,13 +275,35 @@ failure = InventoryFailure.Wrap(
     component: nameof(ShelfLayout<string>));
 ```
 
-Guidelines:
+In application code, branch on your custom code just like a built-in code:
+
+```csharp
+if (!inventory.TryAdd("pickaxe", out var failure))
+{
+    if (failure?.Code == "com.example.inventory.rules.requires_license")
+        ShowLicensePrompt();
+    else
+        ShowToast(failure?.Message);
+}
+```
+
+### Exceptions In Extensions
+
+Custom exception types are rarely useful inside inventory extension contracts. The package already provides
+`InventorySystemException` and `InventoryOperationException` for expected-success wrappers, and those exceptions carry
+the same `InventoryFailure` that a `Try...` method would have returned.
+
+Use this split:
 
 - return `false` with `InventoryFailure` for expected runtime rejection.
+- throw `ArgumentException`, `ArgumentNullException`, `ArgumentOutOfRangeException`, or another standard exception for
+  programmer/setup misuse such as invalid constructor arguments.
+- let unexpected extension bugs throw normally; the package may convert exceptions caught inside expected extension
+  paths with `InventoryFailure.FromException(...)`.
+- avoid custom exception hierarchies for normal gameplay, layout, capacity, stacking, or codec rejection.
 - use stable, namespaced custom codes for extension-owned behavior.
-- keep messages useful to humans but avoid branching on them.
+- keep messages useful to humans, but avoid branching on them.
 - create failures explicitly; assigning a plain string to `InventoryFailure` is not supported.
-- throw standard exceptions for invalid constructor arguments or programmer misuse.
 - keep validation side-effect free; rejected proposals must leave active inventory state unchanged.
 
 ## Migration From String Errors
