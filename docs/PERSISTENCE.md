@@ -346,6 +346,83 @@ amounts, and malformed layout envelopes. Codec-specific layout decoding performs
 Actual compatibility with current inventory rules and configuration is part of snapshot assessment and restoration,
 not DTO validation.
 
+## Snapshot Builder And Save Migrations
+
+Use `InventorySnapshot.ToBuilder()` when an application save needs to be migrated before assessment or application:
+
+```csharp
+InventorySnapshot migrated =
+    loadedSave.Inventory
+        .ToBuilder()
+        .SetMetadata(
+            "migratedBy",
+            InventorySnapshotCodecs.Encode("2.0 migration"))
+        .SetEntryDefinitionId(
+            "e4",
+            InventorySnapshotCodecs.Encode("iron-sword"))
+        .SetEntryAmount("e4", 1)
+        .ResetLayoutToEntryOrder()
+        .Build();
+```
+
+`InventorySnapshotBuilder` works on the non-generic DTO only. It does not need JSON, MessagePack, files, a live
+inventory, a catalog, or an `InventoryManager<TKey>`. It is useful for:
+
+- renaming encoded definition IDs after an application migration.
+- converting or removing old metadata keys.
+- changing captured amounts when an old save format used different units.
+- removing corrupt, obsolete, or intentionally discarded entries.
+- reordering snapshot entries while preserving snapshot-local entry IDs.
+- replacing custom layout data or deliberately discarding saved placement before reconciliation or salvage.
+
+Builder output is detached in both directions. Mutating the original snapshot does not affect the builder, mutating a
+built snapshot does not affect the builder, and `Build()` always returns a fresh DTO.
+
+The builder validates structural snapshot invariants when it builds: format version, unique entry IDs, positive
+amounts, supported encoded value shapes, metadata names, layout envelope shape, and resolvable portable value codecs.
+It deliberately does not validate catalog resolution, stack sizes, capacity, rules, or target-layout compatibility.
+Use `AssessSnapshot(...)`, `RestoreSnapshot(...)`, `ReconcileSnapshot(...)`, or `SalvageSnapshot(...)` for those
+runtime checks.
+
+### Entry Identity And Layout References
+
+Snapshot layout data references stable entry IDs such as `e0`, not storage indexes. Reordering entries therefore
+changes restored storage order without silently retargeting saved positions:
+
+```csharp
+InventorySnapshot reordered =
+    snapshot
+        .ToBuilder()
+        .ReorderEntries(new[] { "e1", "e0" })
+        .Build();
+```
+
+Removing entries is different because saved layout data may still reference the removed ID. For package-owned layout
+kinds, the builder updates references deterministically:
+
+- entry layout removes the entry from its order list.
+- slot, grid, multi-cell grid, equipment, and sectioned layouts clear affected positions to `null`.
+
+For custom layout kinds, the package cannot know where entry IDs are meaningful inside layout-owned data. In that
+case, `TryRemoveEntry(...)` fails with a layout failure until the application explicitly replaces or resets the layout:
+
+```csharp
+var builder =
+    snapshot.ToBuilder();
+
+if (!builder.TryRemoveEntry("e7", out var failure))
+{
+    builder
+        .ResetLayoutToEntryOrder()
+        .RemoveEntry("e7");
+}
+```
+
+`ResetLayoutToEntryOrder()` replaces the saved layout payload with a simple built-in entry-layout snapshot over the
+current entry order. Exact restoration can use it when the target is an entry layout. Reconciliation and salvage ignore
+saved placement anyway, so this is the normal way to say “keep the logical items, but let the current inventory place
+them again.”
+
 ## Application Versioning
 
 `InventorySnapshot.FormatVersion` versions only the package-owned snapshot schema. Wrap it in an application save model
@@ -387,6 +464,7 @@ explicit migration path.
 - Expecting the removed `Inventory<TKey>.Attributes` container instead of using `Inventory.Metadata`.
 - Adding a custom `TKey` without its `InventorySnapshotKeyCodec` attribute.
 - Changing a codec ID when evolving its data version.
+- Removing entries from a custom-layout snapshot without resetting or replacing the layout data.
 - Assuming arbitrary collections or domain objects serialize automatically.
 - Persisting a cyclic metadata graph.
 - Using a derived layout whose inherited codec omits derived persistent state.

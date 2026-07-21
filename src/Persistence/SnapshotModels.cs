@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Workes.InventorySystem.Core;
 
 namespace Workes.InventorySystem.Persistence;
 
@@ -21,6 +22,11 @@ public sealed class InventorySnapshot
 
     /// <summary>Gets or sets the captured layout state.</summary>
     public InventoryLayoutSnapshot Layout { get; set; } = new();
+
+    /// <summary>
+    /// Creates a detached builder for application-controlled snapshot migration before assessment or application.
+    /// </summary>
+    public InventorySnapshotBuilder ToBuilder() => new(this);
 }
 
 /// <summary>

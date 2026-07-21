@@ -35,6 +35,9 @@ This file records notable changes to `Workes.InventorySystem`.
 - Added snapshot validation and application workflows: `AssessSnapshot(...)`, exact `RestoreSnapshot(...)`, lossless
   `ReconcileSnapshot(...)`, deterministic `SalvageSnapshot(...)`, and their conditional `Try...` forms. Application is
   atomic and returns structured assessment, result, issue, and item-loss information.
+- Added `InventorySnapshotBuilder` through `InventorySnapshot.ToBuilder()` for detached save migrations before
+  assessment or application, including definition-ID, amount, metadata, entry-order, entry-removal, and layout-reset
+  edits.
 - Added serializer-friendly snapshot DTOs, built-in codecs for supported key and value types,
   `InventorySnapshotKeyCodecAttribute`, `IInventorySnapshotKeyCodec<TKey>`, and
   `IInventoryLayoutSnapshotCodec<TKey>` for custom persistence contracts.
