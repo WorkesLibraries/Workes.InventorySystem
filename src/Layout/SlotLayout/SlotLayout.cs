@@ -48,10 +48,10 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = new SlotLayout<TKey>(_slotMap.Count);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -60,14 +60,14 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out error))
+        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out failure))
             return false;
 
         layout = new SlotLayout<TKey>(slotCount);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -77,17 +77,17 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out error))
+        if (!TryResolveSlotCount(parameterId, value, out int slotCount, out failure))
             return false;
 
         for (int slot = slotCount; slot < _slotMap.Count; slot++)
         {
             if (_slotMap[slot].HasValue)
             {
-                error = "Cannot shrink slot layout because a removed slot is occupied.";
+                failure = InventoryFailures.Layout("Cannot shrink slot layout because a removed slot is occupied.");
                 return false;
             }
         }
@@ -97,7 +97,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             newMap.Add(slot < _slotMap.Count ? _slotMap[slot] : null);
 
         layout = new SlotLayout<TKey>(newMap);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -105,29 +105,29 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out int slotCount,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         slotCount = 0;
         if (parameterId != "slotCount")
         {
-            error = $"Parameter '{parameterId}' is not supported by SlotLayout.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by SlotLayout.");
             return false;
         }
 
         if (value is not int resolvedSlotCount)
         {
-            error = "Parameter 'slotCount' expects value type 'Int32'.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'slotCount' expects value type 'Int32'.");
             return false;
         }
 
         if (resolvedSlotCount <= 0)
         {
-            error = "Slot count must be greater than zero.";
+            failure = InventoryFailures.Layout("Slot count must be greater than zero.");
             return false;
         }
 
         slotCount = resolvedSlotCount;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -207,15 +207,15 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         foreach (var (index, _) in transaction.AmountDeltas)
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
         }
@@ -225,7 +225,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
             removedIndices.Add(index);
@@ -248,19 +248,19 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             {
                 if (itemSlotContext.IsMapped)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
 
                 slot = itemSlotContext.SlotIndex;
                 if (slot < 0 || slot >= simulated.Count)
                 {
-                    error = "Slot index out of range.";
+                    failure = InventoryFailures.Layout("Slot index out of range.");
                     return false;
                 }
                 if (!explicitSlots.Add(slot))
                 {
-                    error = "Duplicate mapped target slot.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target slot.");
                     return false;
                 }
             }
@@ -269,19 +269,19 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                 slot = FindFirstAvailableSlot(simulated);
                 if (slot < 0)
                 {
-                    error = "Not enough empty slots for new instances.";
+                    failure = InventoryFailures.Layout("Not enough empty slots for new instances.");
                     return false;
                 }
             }
             else
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
 
             if (simulated[slot].HasValue)
             {
-                error = "Slot already occupied.";
+                failure = InventoryFailures.Layout("Slot already occupied.");
                 return false;
             }
 
@@ -298,10 +298,10 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
 
         if (context == null)
         {
@@ -311,7 +311,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
         if (context is not SlotLayoutContext<TKey> slotContext)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -319,7 +319,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (transaction.Added.Count == 1)
             {
-                if (!TryCreateAddedCopy(transaction, 0, slotContext, out mappedTransaction, out error))
+                if (!TryCreateAddedCopy(transaction, 0, slotContext, out mappedTransaction, out failure))
                     return false;
                 return true;
             }
@@ -329,12 +329,12 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                 int slot = slotContext.SlotIndex;
                 if (slot < 0 || slot >= _slotMap.Count)
                 {
-                    error = "Slot index out of range.";
+                    failure = InventoryFailures.Layout("Slot index out of range.");
                     return false;
                 }
                 if (!_slotMap[slot].HasValue || _slotMap[slot]!.Value != transaction.AmountDeltas[0].index)
                 {
-                    error = "Merge delta index does not match the item in the slot specified by context.";
+                    failure = InventoryFailures.Layout("Merge delta index does not match the item in the slot specified by context.");
                     return false;
                 }
 
@@ -342,7 +342,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                 return true;
             }
 
-            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            failure = InventoryFailures.Layout("Transaction placement context can only target one added entry unless it is a mapped context.");
             return false;
         }
 
@@ -351,12 +351,12 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
             {
-                error = "Mapped added entry index out of range.";
+                failure = InventoryFailures.Layout("Mapped added entry index out of range.");
                 return false;
             }
             if (!targetSlots.Add(pair.Value))
             {
-                error = "Duplicate mapped target slot.";
+                failure = InventoryFailures.Layout("Duplicate mapped target slot.");
                 return false;
             }
         }
@@ -372,12 +372,12 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                     !existingSlotContext.IsMapped &&
                     existingSlotContext.SlotIndex != mappedSlot)
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not SlotLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, mappedContext));
@@ -398,10 +398,10 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
         for (int i = 0; i < transaction.Added.Count; i++)
         {
@@ -413,12 +413,12 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                     !existingSlotContext.IsMapped &&
                     existingSlotContext.SlotIndex != newSlotContext.SlotIndex)
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not SlotLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, context));
@@ -436,9 +436,9 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         int slot;
         if (context is SlotLayoutContext<TKey> slotContext)
@@ -446,7 +446,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             slot = slotContext.SlotIndex;
             if (slot < 0 || slot >= _slotMap.Count)
             {
-                error = "Slot index out of range.";
+                failure = InventoryFailures.Layout("Slot index out of range.");
                 return false;
             }
         }
@@ -455,14 +455,14 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             slot = FindFirstAvailableSlot();
             if (slot < 0)
             {
-                error = "No available slot.";
+                failure = InventoryFailures.Layout("No available slot.");
                 return false;
             }
         }
 
         if (_slotMap[slot].HasValue)
         {
-            error = "Slot already occupied.";
+            failure = InventoryFailures.Layout("Slot already occupied.");
             return false;
         }
 
@@ -497,13 +497,13 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         if (contextFrom is not SlotLayoutContext<TKey> slotContextFrom || contextTo is not SlotLayoutContext<TKey> slotContextTo)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -512,25 +512,25 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
         if (toSlot < 0 || toSlot >= _slotMap.Count || fromSlot < 0 || fromSlot >= _slotMap.Count)
         {
-            error = "Slot index out of range.";
+            failure = InventoryFailures.Layout("Slot index out of range.");
             return false;
         }
 
         if (toSlot == fromSlot)
         {
-            error = "Cannot move item to the same slot.";
+            failure = InventoryFailures.Layout("Cannot move item to the same slot.");
             return false;
         }
 
         if (!_slotMap[fromSlot].HasValue)
         {
-            error = "Source slot has no item.";
+            failure = InventoryFailures.Layout("Source slot has no item.");
             return false;
         }
 
         if (_slotMap[toSlot].HasValue)
         {
-            error = "Target slot already occupied.";
+            failure = InventoryFailures.Layout("Target slot already occupied.");
             return false;
         }
 
@@ -542,13 +542,13 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         if (contextFrom is not SlotLayoutContext<TKey> slotContextFrom || contextTo is not SlotLayoutContext<TKey> slotContextTo)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -557,19 +557,19 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
         if (toSlot < 0 || toSlot >= _slotMap.Count || fromSlot < 0 || fromSlot >= _slotMap.Count)
         {
-            error = "Slot index out of range.";
+            failure = InventoryFailures.Layout("Slot index out of range.");
             return false;
         }
 
         if (toSlot == fromSlot)
         {
-            error = "Cannot swap item with itself.";
+            failure = InventoryFailures.Layout("Cannot swap item with itself.");
             return false;
         }
 
         if (!_slotMap[fromSlot].HasValue || !_slotMap[toSlot].HasValue)
         {
-            error = "One or both of the slots has no item.";
+            failure = InventoryFailures.Layout("One or both of the slots has no item.");
             return false;
         }
 
@@ -582,11 +582,11 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
-            error = "Invalid sort context type.";
+            failure = InventoryFailures.Layout("Invalid sort context type.");
             return false;
         }
 
@@ -606,7 +606,7 @@ public class SlotLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         for (int i = 0; i < _slotMap.Count; i++)
             _slotMap[i] = i < occupied.Count ? occupied[i].storageIndex : null;
 
-        error = null;
+        failure = null;
         return true;
     }
 

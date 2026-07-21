@@ -17,17 +17,17 @@ public interface ICapacityPolicy<TKey>
     /// </summary>
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="normalizedTransaction">The transaction grouped by item definition and metadata.</param>
-    /// <param name="error">A consumer-facing reason when the transaction is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the transaction is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction may be applied; otherwise, <see langword="false"/>.</returns>
-    bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error);
+    bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? failure);
 
     /// <summary>
     /// Evaluates whether one item instance can be added.
     /// </summary>
     /// <param name="inventory">The inventory that would receive the instance.</param>
     /// <param name="instance">The item instance being evaluated.</param>
-    /// <param name="error">A consumer-facing reason when the instance is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the instance is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the instance may be added; otherwise, <see langword="false"/>.</returns>
     /// <remarks>The inventory uses <see cref="CanApply"/> for transaction formulation; this member remains available for custom code.</remarks>
-    bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error);
+    bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? failure);
 }

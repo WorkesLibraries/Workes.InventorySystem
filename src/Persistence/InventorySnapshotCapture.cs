@@ -11,7 +11,7 @@ internal static class InventorySnapshotCapture
     public static bool TryCapture<TKey>(
         Inventory<TKey> inventory,
         out InventorySnapshot? snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         snapshot = null;
         var result = new InventorySnapshot();
@@ -19,7 +19,7 @@ internal static class InventorySnapshotCapture
 
         foreach (var pair in inventory.Metadata.EnumerateStored().OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
-            if (!TryNamedValue(pair.Key, pair.Value, "inventory metadata", out var named, out error) ||
+            if (!TryNamedValue(pair.Key, pair.Value, "inventory metadata", out var named, out failure) ||
                 named == null)
                 return false;
             result.Metadata.Add(named);
@@ -33,16 +33,16 @@ internal static class InventorySnapshotCapture
 
             if (instance.Definition.Id is null)
             {
-                error = $"Definition id for entry '{entryId}' cannot be null.";
+                failure = InventoryFailures.Definition($"Definition id for entry '{entryId}' cannot be null.");
                 return false;
             }
             if (!InventorySnapshotCodecs.TryEncodeKey(
                     instance.Definition.Id,
                     out var definitionId,
-                    out error) ||
+                    out failure) ||
                 definitionId == null)
             {
-                error = $"Definition id for entry '{entryId}' could not be captured: {error}";
+                failure = InventoryFailures.Definition($"Definition id for entry '{entryId}' could not be captured: {failure}");
                 return false;
             }
 
@@ -54,18 +54,18 @@ internal static class InventorySnapshotCapture
             };
             foreach (var pair in instance.Metadata.AsReadOnly().OrderBy(pair => pair.Key, StringComparer.Ordinal))
             {
-                if (!TryNamedValue(pair.Key, pair.Value, "metadata", out var named, out error) || named == null)
+                if (!TryNamedValue(pair.Key, pair.Value, "metadata", out var named, out failure) || named == null)
                     return false;
                 entry.Metadata.Add(named);
             }
             result.Entries.Add(entry);
         }
 
-        if (!TryCaptureLayout(inventory, entryIds, result.Entries, out var layout, out error) || layout == null)
+        if (!TryCaptureLayout(inventory, entryIds, result.Entries, out var layout, out failure) || layout == null)
             return false;
         result.Layout = layout;
 
-        if (!InventorySnapshotValidator.TryValidate(result, out error))
+        if (!InventorySnapshotValidator.TryValidate(result, out failure))
             return false;
 
         snapshot = result;
@@ -77,17 +77,17 @@ internal static class InventorySnapshotCapture
         object? value,
         string role,
         out SnapshotNamedValue? named,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         named = null;
         if (string.IsNullOrWhiteSpace(name))
         {
-            error = $"Snapshot {role} name cannot be null or empty.";
+            failure = InventoryFailures.Snapshot($"Snapshot {role} name cannot be null or empty.");
             return false;
         }
-        if (!InventorySnapshotCodecs.TryEncodeObject(value, out var encoded, out error) || encoded == null)
+        if (!InventorySnapshotCodecs.TryEncodeObject(value, out var encoded, out failure) || encoded == null)
         {
-            error = $"Snapshot {role} '{name}' could not be captured: {error}";
+            failure = InventoryFailures.Snapshot($"Snapshot {role} '{name}' could not be captured: {failure}");
             return false;
         }
         named = new SnapshotNamedValue { Name = name, Value = encoded };
@@ -99,7 +99,7 @@ internal static class InventorySnapshotCapture
         IReadOnlyDictionary<ItemInstance<TKey>, string> entryIds,
         IReadOnlyList<InventorySnapshotEntry> snapshotEntries,
         out InventoryLayoutSnapshot? snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         snapshot = null;
         var codec = inventory.Layout.SnapshotCodec;
@@ -107,28 +107,28 @@ internal static class InventorySnapshotCapture
             string.IsNullOrWhiteSpace(codec.LayoutKind) ||
             codec.CurrentVersion <= 0)
         {
-            error = "The layout snapshot codec requires a stable kind and positive version.";
+            failure = InventoryFailures.Layout("The layout snapshot codec requires a stable kind and positive version.");
             return false;
         }
         if (!InventoryLayoutSnapshotCodecIdentity.TryAssociate(
                 codec.GetType(),
                 codec.LayoutKind,
-                out error))
+                out failure))
             return false;
         try
         {
             if (!codec.TryCapture(
                     new InventoryLayoutSnapshotCaptureContext<TKey>(inventory, entryIds),
                     out var data,
-                    out error) ||
+                    out failure) ||
                 data == null)
             {
-                error ??= $"Layout snapshot codec '{codec.LayoutKind}' rejected capture.";
+                failure ??= InventoryFailures.Layout($"Layout snapshot codec '{codec.LayoutKind}' rejected capture.");
                 return false;
             }
-            if (!SnapshotValueValidator.TryClone(data, out var detached, out error) || detached == null)
+            if (!SnapshotValueValidator.TryClone(data, out var detached, out failure) || detached == null)
             {
-                error = $"Layout snapshot codec '{codec.LayoutKind}' produced invalid data: {error}";
+                failure = InventoryFailures.Layout($"Layout snapshot codec '{codec.LayoutKind}' produced invalid data: {failure}");
                 return false;
             }
             snapshot = new InventoryLayoutSnapshot
@@ -141,15 +141,16 @@ internal static class InventorySnapshotCapture
             if (!codec.TryDecode(
                     new InventoryLayoutSnapshotDecodeContext<TKey>(snapshot, entries),
                     out var candidate,
-                    out error) ||
+                    out failure) ||
                 candidate == null ||
                 !string.Equals(candidate.LayoutKind, codec.LayoutKind, StringComparison.Ordinal) ||
                 candidate.DataVersion != codec.CurrentVersion)
             {
                 snapshot = null;
-                error =
-                    $"Layout snapshot codec '{codec.LayoutKind}' could not decode its captured data: " +
-                    (error ?? "The codec returned an incompatible candidate.");
+                failure =
+                    InventoryFailures.SnapshotCodecRejected(
+                        $"Layout snapshot codec '{codec.LayoutKind}' could not decode its captured data: " +
+                        (failure?.Message ?? "The codec returned an incompatible candidate."));
                 return false;
             }
             var storageIndices = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -173,14 +174,15 @@ internal static class InventorySnapshotCapture
                         storageIndices,
                         instances),
                     out var exactLayout,
-                    out error) ||
+                    out failure) ||
                 exactLayout == null ||
                 ReferenceEquals(exactLayout, inventory.Layout))
             {
                 snapshot = null;
-                error =
-                    $"Layout snapshot codec '{codec.LayoutKind}' could not exactly restore its captured data: " +
-                    (error ?? "The codec did not return an isolated layout.");
+                failure =
+                    InventoryFailures.SnapshotCodecRejected(
+                        $"Layout snapshot codec '{codec.LayoutKind}' could not exactly restore its captured data: " +
+                        (failure?.Message ?? "The codec did not return an isolated layout."));
                 return false;
             }
             return true;
@@ -188,7 +190,7 @@ internal static class InventorySnapshotCapture
         catch (Exception ex)
         {
             snapshot = null;
-            error = $"Layout snapshot codec '{codec.LayoutKind}' failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Layout snapshot codec '{codec.LayoutKind}' failed: {ex.Message}");
             return false;
         }
 

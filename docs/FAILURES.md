@@ -239,6 +239,7 @@ Guidelines:
 - return `false` with `InventoryFailure` for expected runtime rejection.
 - use stable, namespaced custom codes for extension-owned behavior.
 - keep messages useful to humans but avoid branching on them.
+- create failures explicitly; assigning a plain string to `InventoryFailure` is not supported.
 - throw standard exceptions for invalid constructor arguments or programmer misuse.
 - keep validation side-effect free; rejected proposals must leave active inventory state unchanged.
 
@@ -259,6 +260,7 @@ Typical migration:
 - replace `out string? error` with `out InventoryFailure? failure`.
 - display `failure?.Message` where the old error string was shown.
 - branch on `failure?.Kind` or `failure?.Code` instead of comparing text.
+- replace any string-returning extension rejection with `InventoryFailure.Create(...)` or `InventoryFailure.Wrap(...)`.
 - catch `InventorySystemException` or `InventoryOperationException` when using throwing wrappers.
 
 The failure object is for inventory-domain rejection, not for serializer choice, file I/O errors, network errors, save

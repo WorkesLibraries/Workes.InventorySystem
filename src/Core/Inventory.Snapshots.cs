@@ -117,8 +117,8 @@ public partial class Inventory<TKey>
     /// <summary>Restores the snapshot exactly or throws without changing this inventory.</summary>
     public SnapshotApplicationResult RestoreSnapshot(InventorySnapshot snapshot)
     {
-        if (!TryRestoreSnapshot(snapshot, out var result, out var error) || result == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage("Exact snapshot restoration failed."));
+        if (!TryRestoreSnapshot(snapshot, out var result, out var failure) || result == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Snapshot("Exact snapshot restoration failed."));
         return result;
     }
 
@@ -126,10 +126,10 @@ public partial class Inventory<TKey>
     public bool TryRestoreSnapshot(
         InventorySnapshot snapshot,
         out SnapshotApplicationResult? result,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         result = null;
-        if (!TryPlanExactSnapshot(snapshot, out var plan, out _, out error) || plan == null)
+        if (!TryPlanExactSnapshot(snapshot, out var plan, out _, out failure) || plan == null)
             return false;
         result = ApplySnapshotPlan(plan, SnapshotApplicationMode.Exact, SnapshotApplicationOutcome.Exact);
         return true;
@@ -138,8 +138,8 @@ public partial class Inventory<TKey>
     /// <summary>Reconciles all snapshot quantities into current stacking and automatic layout placement.</summary>
     public SnapshotApplicationResult ReconcileSnapshot(InventorySnapshot snapshot)
     {
-        if (!TryReconcileSnapshot(snapshot, out var result, out var error) || result == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage("Snapshot reconciliation failed."));
+        if (!TryReconcileSnapshot(snapshot, out var result, out var failure) || result == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Snapshot("Snapshot reconciliation failed."));
         return result;
     }
 
@@ -147,10 +147,10 @@ public partial class Inventory<TKey>
     public bool TryReconcileSnapshot(
         InventorySnapshot snapshot,
         out SnapshotApplicationResult? result,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         result = null;
-        if (!TryPlanReconciledSnapshot(snapshot, out var plan, out _, out error) || plan == null)
+        if (!TryPlanReconciledSnapshot(snapshot, out var plan, out _, out failure) || plan == null)
             return false;
         result = ApplySnapshotPlan(plan, SnapshotApplicationMode.Reconcile, SnapshotApplicationOutcome.Reconciled);
         return true;
@@ -161,8 +161,8 @@ public partial class Inventory<TKey>
         InventorySnapshot snapshot,
         SnapshotSalvageOptions<TKey>? options = null)
     {
-        if (!TrySalvageSnapshot(snapshot, options, out var result, out var error) || result == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage("Snapshot salvage failed."));
+        if (!TrySalvageSnapshot(snapshot, options, out var result, out var failure) || result == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Snapshot("Snapshot salvage failed."));
         return result;
     }
 
@@ -171,7 +171,7 @@ public partial class Inventory<TKey>
         InventorySnapshot snapshot,
         SnapshotSalvageOptions<TKey>? options,
         out SnapshotApplicationResult? result,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         result = null;
         if (!TryPlanSalvagedSnapshot(
@@ -179,7 +179,7 @@ public partial class Inventory<TKey>
                 options ?? new SnapshotSalvageOptions<TKey>(),
                 out var plan,
                 out _,
-                out error) ||
+                out failure) ||
             plan == null)
         {
             return false;
@@ -195,7 +195,7 @@ public partial class Inventory<TKey>
         InventorySnapshot snapshot,
         out SnapshotPlan? plan,
         out SnapshotIssue? issue,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         plan = null;
         issue = null;
@@ -206,28 +206,28 @@ public partial class Inventory<TKey>
                 out var rootMetadata,
                 out _,
                 out issue,
-                out error))
+                out failure))
             return false;
 
         if (!string.Equals(snapshot.Layout.Kind, _layout.SnapshotCodec.LayoutKind, StringComparison.Ordinal))
             return FailPlan(
                 SnapshotIssueCode.Layout,
-                $"Snapshot layout kind '{snapshot.Layout.Kind}' does not match current layout kind '{_layout.SnapshotCodec.LayoutKind}'.",
+                InventoryFailures.Layout($"Snapshot layout kind '{snapshot.Layout.Kind}' does not match current layout kind '{_layout.SnapshotCodec.LayoutKind}'."),
                 out issue,
-                out error);
+                out failure);
 
         var snapshotEntries = snapshot.Entries.ToDictionary(entry => entry.EntryId, StringComparer.Ordinal);
         if (!_layout.SnapshotCodec.TryDecode(
                 new InventoryLayoutSnapshotDecodeContext<TKey>(snapshot.Layout, snapshotEntries),
                 out var layoutCandidate,
-                out error) ||
+                out failure) ||
             layoutCandidate == null)
         {
             return FailPlan(
                 SnapshotIssueCode.Layout,
-                error ?? InventoryFailure.FromMessage("Current layout codec rejected the snapshot layout.", InventoryFailureKind.Layout),
+                failure ?? InventoryFailures.Layout("Current layout codec rejected the snapshot layout."),
                 out issue,
-                out error);
+                out failure);
         }
         var instancesById = new Dictionary<string, ItemInstance<TKey>>(StringComparer.Ordinal);
         var storageIndices = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -238,19 +238,17 @@ public partial class Inventory<TKey>
                 entry.Definition,
                 entry.Source.Amount,
                 entry.Metadata.IsEmpty ? null : entry.Metadata.Clone());
-            if (!TryResolveMaxStackSize(instance, out int maxStack, out error) ||
+            if (!TryResolveMaxStackSize(instance, out int maxStack, out failure) ||
                 instance.Amount > maxStack)
             {
-                error ??=
-                    InventoryFailure.FromMessage(
-                        $"Snapshot entry '{entry.Source.EntryId}' amount {instance.Amount} exceeds max stack size {maxStack}.",
-                        InventoryFailureKind.Stacking,
-                        InventoryFailureCodes.StackingRejected);
+                failure ??=
+                    InventoryFailures.Stacking(
+                        $"Snapshot entry '{entry.Source.EntryId}' amount {instance.Amount} exceeds max stack size {maxStack}.");
                 return FailPlan(
                     SnapshotIssueCode.StackLimit,
-                    error,
+                    failure,
                     out issue,
-                    out error,
+                    out failure,
                     entry.Source.EntryId,
                     entry.Source.Amount);
             }
@@ -258,8 +256,8 @@ public partial class Inventory<TKey>
             storageIndices.Add(entry.Source.EntryId, index);
         }
 
-        if (!TryValidateExactPlacement(layoutCandidate, entries, instancesById, rootMetadata, out error))
-            return FailPlan(SnapshotIssueCode.Layout, error!, out issue, out error);
+        if (!TryValidateExactPlacement(layoutCandidate, entries, instancesById, rootMetadata, out failure))
+            return FailPlan(SnapshotIssueCode.Layout, failure!, out issue, out failure);
 
         if (!_layout.SnapshotCodec.TryCreateExactLayout(
                 new InventoryLayoutSnapshotRestoreContext<TKey>(
@@ -268,22 +266,22 @@ public partial class Inventory<TKey>
                     storageIndices,
                     instancesById),
                 out var exactLayout,
-                out error) ||
+                out failure) ||
             exactLayout == null)
         {
             return FailPlan(
                 SnapshotIssueCode.Layout,
-                error ?? InventoryFailure.FromMessage("The current layout configuration cannot reproduce the saved placement.", InventoryFailureKind.Layout),
+                failure ?? InventoryFailures.Layout("The current layout configuration cannot reproduce the saved placement."),
                 out issue,
-                out error);
+                out failure);
         }
 
         var candidate = CreateDetachedCandidate(exactLayout, rootMetadata);
         foreach (var entry in entries)
             AddCandidateInstanceDirect(candidate, instancesById[entry.Source.EntryId]);
 
-        if (!TryValidateReplacement(candidate, out var validationCode, out error))
-            return FailPlan(validationCode, error!, out issue, out error);
+        if (!TryValidateReplacement(candidate, out var validationCode, out failure))
+            return FailPlan(validationCode, failure!, out issue, out failure);
 
         plan = new SnapshotPlan(
             candidate,
@@ -296,7 +294,7 @@ public partial class Inventory<TKey>
         InventorySnapshot snapshot,
         out SnapshotPlan? plan,
         out SnapshotIssue? issue,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         plan = null;
         issue = null;
@@ -307,25 +305,25 @@ public partial class Inventory<TKey>
                 out var rootMetadata,
                 out _,
                 out issue,
-                out error))
+                out failure))
             return false;
 
         var candidate = CreateEmptyAutomaticCandidate(rootMetadata);
         foreach (var entry in entries)
         {
-            if (!TryAddAutomatically(candidate, entry, entry.Source.Amount, out error))
+            if (!TryAddAutomatically(candidate, entry, entry.Source.Amount, out failure))
             {
                 return FailPlan(
                     SnapshotIssueCode.Layout,
-                    $"Snapshot entry '{entry.Source.EntryId}' could not be reconciled: {error}",
+                    InventoryFailures.Layout($"Snapshot entry '{entry.Source.EntryId}' could not be reconciled: {failure?.Message}"),
                     out issue,
-                    out error,
+                    out failure,
                     entry.Source.EntryId,
                     entry.Source.Amount);
             }
         }
-        if (!TryValidateReplacement(candidate, out var validationCode, out error))
-            return FailPlan(validationCode, error!, out issue, out error);
+        if (!TryValidateReplacement(candidate, out var validationCode, out failure))
+            return FailPlan(validationCode, failure!, out issue, out failure);
 
         plan = new SnapshotPlan(
             candidate,
@@ -339,12 +337,12 @@ public partial class Inventory<TKey>
         SnapshotSalvageOptions<TKey> options,
         out SnapshotPlan? plan,
         out SnapshotIssue? issue,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         plan = null;
         issue = null;
-        if (!ValidateSalvageOptions(options, out error))
-            return FailPlan(SnapshotIssueCode.InvalidOptions, error!, out issue, out error);
+        if (!ValidateSalvageOptions(options, out failure))
+            return FailPlan(SnapshotIssueCode.InvalidOptions, failure!, out issue, out failure);
 
         bool discardUnknown =
             options.UnknownDefinitionHandling == SnapshotUnknownDefinitionHandling.Discard;
@@ -355,7 +353,7 @@ public partial class Inventory<TKey>
                 out var rootMetadata,
                 out var losses,
                 out issue,
-                out error))
+                out failure))
             return false;
 
         var ordered = entries.ToList();
@@ -379,9 +377,9 @@ public partial class Inventory<TKey>
             {
                 return FailPlan(
                     SnapshotIssueCode.InvalidOptions,
-                    $"Snapshot salvage priority comparer failed: {ex.Message}",
+                    InventoryFailures.Snapshot($"Snapshot salvage priority comparer failed: {ex.Message}"),
                     out issue,
-                    out error);
+                    out failure);
             }
         }
 
@@ -431,8 +429,8 @@ public partial class Inventory<TKey>
             }
         }
 
-        if (!TryValidateReplacement(candidate, out var validationCode, out error))
-            return FailPlan(validationCode, error!, out issue, out error);
+        if (!TryValidateReplacement(candidate, out var validationCode, out failure))
+            return FailPlan(validationCode, failure!, out issue, out failure);
 
         var issues = losses
             .Select(loss => new SnapshotIssue(
@@ -452,39 +450,39 @@ public partial class Inventory<TKey>
         out InventoryMetadata rootMetadata,
         out List<SnapshotItemLoss> losses,
         out SnapshotIssue? issue,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         entries = new List<ResolvedSnapshotEntry>();
         rootMetadata = new InventoryMetadata();
         losses = new List<SnapshotItemLoss>();
         issue = null;
 
-        if (!InventorySnapshotValidator.TryValidate(snapshot, out error))
-            return FailPlan(SnapshotIssueCode.MalformedSnapshot, error!, out issue, out error);
+        if (!InventorySnapshotValidator.TryValidate(snapshot, out failure))
+            return FailPlan(SnapshotIssueCode.MalformedSnapshot, failure!, out issue, out failure);
 
         foreach (var named in snapshot.Metadata)
         {
-            if (!InventorySnapshotCodecs.TryDecodeRuntime(named.Value, out var value, out error) ||
-                !rootMetadata.TrySet(named.Name, value, out error))
+            if (!InventorySnapshotCodecs.TryDecodeRuntime(named.Value, out var value, out failure) ||
+                !rootMetadata.TrySet(named.Name, value, out failure))
             {
                 return FailPlan(
                     SnapshotIssueCode.UnsupportedCodec,
-                    $"Inventory metadata '{named.Name}' could not be decoded: {error}",
+                    InventoryFailures.Metadata($"Inventory metadata '{named.Name}' could not be decoded: {failure?.Message}"),
                     out issue,
-                    out error);
+                    out failure);
             }
         }
 
         for (int index = 0; index < snapshot.Entries.Count; index++)
         {
             var source = snapshot.Entries[index];
-            if (!InventorySnapshotCodecs.TryDecodeKey(source.DefinitionId, out TKey definitionId, out error))
+            if (!InventorySnapshotCodecs.TryDecodeKey(source.DefinitionId, out TKey definitionId, out failure))
             {
                 return FailPlan(
                     SnapshotIssueCode.UnsupportedCodec,
-                    $"Snapshot entry '{source.EntryId}' definition id could not be decoded: {error}",
+                    InventoryFailures.SnapshotCodecRejected($"Snapshot entry '{source.EntryId}' definition id could not be decoded: {failure?.Message}"),
                     out issue,
-                    out error,
+                    out failure,
                     source.EntryId,
                     source.Amount);
             }
@@ -500,9 +498,9 @@ public partial class Inventory<TKey>
                 {
                     return FailPlan(
                         SnapshotIssueCode.UnknownDefinition,
-                        ex.Message,
+                        InventoryFailures.DefinitionUnresolved(ex.Message),
                         out issue,
-                        out error,
+                        out failure,
                         source.EntryId,
                         source.Amount);
                 }
@@ -513,14 +511,14 @@ public partial class Inventory<TKey>
             var metadata = new InstanceMetadata();
             foreach (var named in source.Metadata)
             {
-                if (!InventorySnapshotCodecs.TryDecodeRuntime(named.Value, out var value, out error) ||
-                    !metadata.TrySet(named.Name, value, out error))
+                if (!InventorySnapshotCodecs.TryDecodeRuntime(named.Value, out var value, out failure) ||
+                    !metadata.TrySet(named.Name, value, out failure))
                 {
                     return FailPlan(
                         SnapshotIssueCode.UnsupportedCodec,
-                        $"Snapshot entry '{source.EntryId}' metadata '{named.Name}' could not be decoded: {error}",
+                        InventoryFailures.Metadata($"Snapshot entry '{source.EntryId}' metadata '{named.Name}' could not be decoded: {failure?.Message}"),
                         out issue,
-                        out error,
+                        out failure,
                         source.EntryId,
                         source.Amount);
                 }
@@ -528,7 +526,7 @@ public partial class Inventory<TKey>
             entries.Add(new ResolvedSnapshotEntry(source, definition, metadata, index));
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -537,7 +535,7 @@ public partial class Inventory<TKey>
         IReadOnlyList<ResolvedSnapshotEntry> entries,
         IReadOnlyDictionary<string, ItemInstance<TKey>> instances,
         InventoryMetadata rootMetadata,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var validation = CreateEmptyAutomaticCandidate(rootMetadata);
         for (int storageIndex = 0; storageIndex < entries.Count; storageIndex++)
@@ -546,7 +544,7 @@ public partial class Inventory<TKey>
             if (!layoutCandidate.EntryContexts.TryGetValue(entry.Source.EntryId, out var contexts) ||
                 contexts.Count == 0)
             {
-                error = $"Snapshot entry '{entry.Source.EntryId}' has no exact layout position.";
+                failure = InventoryFailures.Layout($"Snapshot entry '{entry.Source.EntryId}' has no exact layout position.");
                 return false;
             }
 
@@ -561,7 +559,7 @@ public partial class Inventory<TKey>
             }
 
             var instance = instances[entry.Source.EntryId];
-            if (!validation._layout.CanAcceptNewItem(validation, instance, placement, out error))
+            if (!validation._layout.CanAcceptNewItem(validation, instance, placement, out failure))
                 return false;
             try
             {
@@ -571,11 +569,11 @@ public partial class Inventory<TKey>
             catch (Exception ex)
             {
                 validation._items.RemoveAt(validation._items.Count - 1);
-                error = ex.Message;
+                failure = InventoryFailures.Layout(ex.Message);
                 return false;
             }
         }
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -619,7 +617,7 @@ public partial class Inventory<TKey>
         Inventory<TKey> candidate,
         ResolvedSnapshotEntry entry,
         int amount,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (!candidate.TryFormulateAdd(
                 entry.Definition,
@@ -627,7 +625,7 @@ public partial class Inventory<TKey>
                 null,
                 entry.Metadata.IsEmpty ? null : entry.Metadata,
                 out var transaction,
-                out error) ||
+                out failure) ||
             transaction == null)
             return false;
         candidate.ApplyPreparedTransaction(transaction);
@@ -639,11 +637,11 @@ public partial class Inventory<TKey>
         ResolvedSnapshotEntry entry,
         int amount,
         out Inventory<TKey>? result,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         result = CreateSimulationClone(candidate);
-        if (!TryAddAutomatically(result, entry, amount, out error) ||
-            !TryValidateReplacement(result, out _, out error))
+        if (!TryAddAutomatically(result, entry, amount, out failure) ||
+            !TryValidateReplacement(result, out _, out failure))
         {
             result = null;
             return false;
@@ -654,16 +652,15 @@ public partial class Inventory<TKey>
     private bool TryValidateReplacement(
         Inventory<TKey> candidate,
         out SnapshotIssueCode issueCode,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var item in candidate._items)
         {
-            if (!candidate.TryResolveMaxStackSize(item, out int maxStack, out error) ||
+            if (!candidate.TryResolveMaxStackSize(item, out int maxStack, out failure) ||
                 item.Amount > maxStack)
             {
                 issueCode = SnapshotIssueCode.StackLimit;
-                error ??=
-                    $"Candidate stack '{item.Definition.Id}' amount {item.Amount} exceeds max stack size {maxStack}.";
+                failure ??= InventoryFailures.Definition($"Candidate stack '{item.Definition.Id}' amount {item.Amount} exceeds max stack size {maxStack}.");
                 return false;
             }
         }
@@ -682,30 +679,30 @@ public partial class Inventory<TKey>
             new List<(int index, int delta)>(),
             removed,
             added);
-        if (!candidate.TryValidateTransactionDefinitions(replacement, out error))
+        if (!candidate.TryValidateTransactionDefinitions(replacement, out failure))
         {
             issueCode = SnapshotIssueCode.UnknownDefinition;
             return false;
         }
         var normalized = candidate.GenerateNormalizedInventoryTransaction(replacement);
-        if (!_capacityPolicy.CanApply(candidate, normalized, out error))
+        if (!_capacityPolicy.CanApply(candidate, normalized, out failure))
         {
             issueCode = SnapshotIssueCode.Capacity;
             return false;
         }
-        if (!_rules.CanApply(candidate, normalized, replacement, out error))
+        if (!_rules.CanApply(candidate, normalized, replacement, out failure))
         {
             issueCode = SnapshotIssueCode.Rule;
             return false;
         }
-        if (!candidate._layout.CanSatisfyPlacement(candidate, replacement, out error))
+        if (!candidate._layout.CanSatisfyPlacement(candidate, replacement, out failure))
         {
             issueCode = SnapshotIssueCode.Layout;
             return false;
         }
 
         issueCode = default;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -778,34 +775,34 @@ public partial class Inventory<TKey>
 
     private static bool ValidateSalvageOptions(
         SnapshotSalvageOptions<TKey> options,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (!Enum.IsDefined(typeof(SnapshotSalvageQuantityMode), options.QuantityMode) ||
             !Enum.IsDefined(typeof(SnapshotUnknownDefinitionHandling), options.UnknownDefinitionHandling) ||
             !Enum.IsDefined(typeof(SnapshotSalvagePlacementStrategy), options.PlacementStrategy))
         {
-            error = "Snapshot salvage options contain an unsupported enum value.";
+            failure = InventoryFailures.Snapshot("Snapshot salvage options contain an unsupported enum value.");
             return false;
         }
         if (options.PlacementStrategy != SnapshotSalvagePlacementStrategy.GreedyAutomatic)
         {
-            error = "Only deterministic greedy automatic snapshot placement is supported.";
+            failure = InventoryFailures.Layout("Only deterministic greedy automatic snapshot placement is supported.");
             return false;
         }
-        error = null;
+        failure = null;
         return true;
     }
 
     private static bool FailPlan(
         SnapshotIssueCode code,
-        InventoryFailure failure,
+        InventoryFailure rejection,
         out SnapshotIssue? issue,
-        out InventoryFailure? error,
+        out InventoryFailure? failure,
         string? entryId = null,
         int quantity = 0)
     {
-        issue = new SnapshotIssue(code, failure.Message, entryId, quantity);
-        error = failure;
+        issue = new SnapshotIssue(code, rejection.Message, entryId, quantity);
+        failure = rejection;
         return false;
     }
 }

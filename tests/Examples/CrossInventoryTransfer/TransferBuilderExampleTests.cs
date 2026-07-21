@@ -38,7 +38,7 @@ public class TransferBuilderExampleTests
         builder.TryRemove(backpack.Find(herb).Single(), 3, out _);
         builder.TryRemove(backpack.Find(bottle).Single(), 1, out _);
 
-        var moved = backpack.TryCommitTransfer(builder, craftingInput, targetContext: null, out var error);
+        var moved = backpack.TryCommitTransfer(builder, craftingInput, targetContext: null, out var failure);
 
         Assert.That(moved, Is.True);
         Assert.That(backpack.Count(herb), Is.EqualTo(1));

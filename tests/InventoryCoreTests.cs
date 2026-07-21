@@ -104,7 +104,7 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(apple, out var error, 3), Is.True);
+        Assert.That(inventory.TryAdd(apple, out var failure, 3), Is.True);
         var instance = inventory.Items.Single();
         instance.Metadata.Set("quality", "fresh");
 
@@ -287,10 +287,10 @@ public class InventoryCoreTests
         var fromContext = new SlotLayoutContext<string>(0);
         var toContext = new SlotLayoutContext<string>(1);
 
-        var result = inventory.TryMove(fromContext, toContext, out var error);
+        var result = inventory.TryMove(fromContext, toContext, out var failure);
 
         Assert.That(result, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(failure, Is.Null);
         Assert.That(capturedArgs, Is.Not.Null);
         Assert.That(capturedArgs!.Moved.Count, Is.EqualTo(1));
         Assert.That(capturedArgs.Moved[0].Instance, Is.EqualTo(appleInstance));
@@ -320,10 +320,10 @@ public class InventoryCoreTests
         var fromContext = new SlotLayoutContext<string>(0);
         var toContext = new SlotLayoutContext<string>(1);
 
-        var result = inventory.TryMove(fromContext, toContext, out var error);
+        var result = inventory.TryMove(fromContext, toContext, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Item not found in inventory."));
+        Assert.That(failure?.Message, Is.EqualTo("Item not found in inventory."));
         Assert.That(changedCount, Is.EqualTo(0));
     }
 
@@ -352,10 +352,10 @@ public class InventoryCoreTests
         var slot0 = new SlotLayoutContext<string>(0);
         var slot1 = new SlotLayoutContext<string>(1);
 
-        var result = inventory.TrySwap(slot0, slot1, out var error);
+        var result = inventory.TrySwap(slot0, slot1, out var failure);
 
         Assert.That(result, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(failure, Is.Null);
         Assert.That(capturedArgs, Is.Not.Null);
         Assert.That(capturedArgs!.Swapped.Count, Is.EqualTo(1));
 
@@ -388,10 +388,10 @@ public class InventoryCoreTests
         var slot0 = new SlotLayoutContext<string>(0);
         var slot1 = new SlotLayoutContext<string>(1);
 
-        var result = inventory.TrySwap(slot0, slot1, out var error);
+        var result = inventory.TrySwap(slot0, slot1, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("One or both of the items not found in inventory."));
+        Assert.That(failure?.Message, Is.EqualTo("One or both of the items not found in inventory."));
         Assert.That(changedCount, Is.EqualTo(0));
     }
 
@@ -412,10 +412,10 @@ public class InventoryCoreTests
         var fromContext = new SlotLayoutContext<string>(1);
         var toContext = new SlotLayoutContext<string>(0);
 
-        var result = inventory.TryMergeMove(fromContext, toContext, out var error);
+        var result = inventory.TryMergeMove(fromContext, toContext, out var failure);
 
         Assert.That(result, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(failure, Is.Null);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(12));
         Assert.That(inventory.InstanceCount, Is.EqualTo(2));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(10));
@@ -439,10 +439,10 @@ public class InventoryCoreTests
         var fromContext = new SlotLayoutContext<string>(1);
         var toContext = new SlotLayoutContext<string>(0);
 
-        var result = inventory.TryMergeMove(fromContext, toContext, out var error);
+        var result = inventory.TryMergeMove(fromContext, toContext, out var failure);
 
         Assert.That(result, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(failure, Is.Null);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
         Assert.That(inventory.InstanceCount, Is.EqualTo(1));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(5));
@@ -468,10 +468,10 @@ public class InventoryCoreTests
         int changedCount = 0;
         inventory.Changed += (_, _) => changedCount++;
 
-        var result = inventory.TryMergeMove(fromContext, toContext, out var error, amount: 2);
+        var result = inventory.TryMergeMove(fromContext, toContext, out var failure, amount: 2);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Not enough room in target stack to move the requested amount."));
+        Assert.That(failure?.Message, Is.EqualTo("Not enough room in target stack to move the requested amount."));
         Assert.That(changedCount, Is.EqualTo(0));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(9));
         Assert.That(inventory.Items[1].Amount, Is.EqualTo(2));
@@ -496,10 +496,10 @@ public class InventoryCoreTests
         var fromContext = new SlotLayoutContext<string>(1);
         var toContext = new SlotLayoutContext<string>(0);
 
-        var result = inventory.TryMergeMove(fromContext, toContext, out var error);
+        var result = inventory.TryMergeMove(fromContext, toContext, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Items are not stack compatible."));
+        Assert.That(failure?.Message, Is.EqualTo("Items are not stack compatible."));
     }
 
     [Test]

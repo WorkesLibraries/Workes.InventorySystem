@@ -209,7 +209,7 @@ public class TagFocusedItemUniverseExampleTests
         ritualRules.Add("ritual-knife", new RequireAllTagsRule<string>(GameTags.Equipment.Tools.Knife, GameTags.Materials.Obsidian));
         var ritualInput = CreateManager(catalog, ritualRules).CreateInventory();
 
-        var ritualResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
+        var ritualResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)>
         {
             EvaluateAdd(ritualInput, obsidianKnife),
             EvaluateAdd(ritualInput, steelKnife),
@@ -224,7 +224,7 @@ public class TagFocusedItemUniverseExampleTests
         toolBeltRules.Add("tool", new RequireAnyTagRule<string>(GameTags.Equipment.Tools.Knife, GameTags.Equipment.Tools.Axe));
         var toolBelt = CreateManager(catalog, toolBeltRules).CreateInventory();
 
-        var toolBeltResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
+        var toolBeltResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)>
         {
             EvaluateAdd(toolBelt, obsidianKnife),
             EvaluateAdd(toolBelt, axe),
@@ -294,19 +294,19 @@ public class TagFocusedItemUniverseExampleTests
             Assert.That(catalog.Satisfies(definition, tag), Is.True, $"{definition.Id} should satisfy {tag}.");
     }
 
-    private static (ItemDefinition<string> definition, bool accepted, InventoryFailure? error) EvaluateAdd(
+    private static (ItemDefinition<string> definition, bool accepted, InventoryFailure? failure) EvaluateAdd(
         Inventory<string> inventory,
         ItemDefinition<string> definition)
     {
-        var accepted = inventory.TryAdd(definition, out var error);
-        return (definition, accepted, error?.Message);
+        var accepted = inventory.TryAdd(definition, out var failure);
+        return (definition, accepted, failure);
     }
 
     private static string WriteExampleOutput(
         ItemCatalog<string> catalog,
         IReadOnlyCollection<ItemDefinition<string>> definitions,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> ritualResults,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> toolBeltResults,
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)> ritualResults,
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)> toolBeltResults,
         bool flatSatisfiesTools,
         bool flatSatisfiesEquipment)
     {
@@ -345,10 +345,10 @@ public class TagFocusedItemUniverseExampleTests
             builder.Append(result.definition.Id);
             builder.Append(": ");
             builder.Append(result.accepted ? "accepted" : "rejected");
-            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error?.Message))
+            if (!result.accepted && !string.IsNullOrWhiteSpace(result.failure?.Message))
             {
                 builder.Append(" (");
-                builder.Append(result.error.Message);
+                builder.Append(result.failure.Message);
                 builder.Append(')');
             }
             builder.AppendLine();
@@ -362,10 +362,10 @@ public class TagFocusedItemUniverseExampleTests
             builder.Append(result.definition.Id);
             builder.Append(": ");
             builder.Append(result.accepted ? "accepted" : "rejected");
-            if (!result.accepted && !string.IsNullOrWhiteSpace(result.error?.Message))
+            if (!result.accepted && !string.IsNullOrWhiteSpace(result.failure?.Message))
             {
                 builder.Append(" (");
-                builder.Append(result.error.Message);
+                builder.Append(result.failure.Message);
                 builder.Append(')');
             }
             builder.AppendLine();
@@ -436,5 +436,4 @@ public class TagFocusedItemUniverseExampleTests
         builder.AppendLine();
     }
 }
-
 

@@ -33,18 +33,18 @@ public class RequireMetadataKeyRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (_, metadata, _) in transaction.Added)
         {
             if (metadata == null || metadata.AsReadOnly().ContainsKey(_key) == false)
             {
-                error = $"Expected item metadata to contain key '{_key}'.";
+                failure = InventoryFailures.Metadata($"Expected item metadata to contain key '{_key}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

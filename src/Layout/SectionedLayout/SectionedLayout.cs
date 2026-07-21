@@ -85,10 +85,10 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = new SectionedLayout<TKey>(CloneSections());
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -97,14 +97,14 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
+        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out failure) || newSections == null)
             return false;
 
         layout = new SectionedLayout<TKey>(newSections);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -114,10 +114,10 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out error) || newSections == null)
+        if (!TryCreateSectionsWithParameter(parameterId, value, out var newSections, out failure) || newSections == null)
             return false;
 
         int newTotalSlots = newSections.Sum(section => section.SlotCount);
@@ -139,7 +139,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
                 if (slot >= newSection.SlotCount)
                 {
-                    error = $"Cannot shrink section '{oldSection.Id}' because a removed slot is occupied.";
+                    failure = InventoryFailures.Layout($"Cannot shrink section '{oldSection.Id}' because a removed slot is occupied.");
                     return false;
                 }
 
@@ -159,7 +159,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         });
 
         layout = replacement;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -167,31 +167,31 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         string parameterId,
         object? value,
         out List<SectionDefinition<TKey>>? sections,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         sections = null;
         if (!TryParseSectionSlotCountParameter(parameterId, out var sectionId))
         {
-            error = $"Parameter '{parameterId}' is not supported by SectionedLayout.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by SectionedLayout.");
             return false;
         }
 
         if (value is not int slotCount)
         {
-            error = $"Parameter '{parameterId}' expects value type 'Int32'.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' expects value type 'Int32'.");
             return false;
         }
 
         if (slotCount <= 0)
         {
-            error = "Section slot count must be greater than zero.";
+            failure = InventoryFailures.Layout("Section slot count must be greater than zero.");
             return false;
         }
 
         int targetSectionIndex = _sections.FindIndex(section => string.Equals(section.Id, sectionId, StringComparison.Ordinal));
         if (targetSectionIndex < 0)
         {
-            error = $"Section '{sectionId}' was not found.";
+            failure = InventoryFailures.Layout($"Section '{sectionId}' was not found.");
             return false;
         }
 
@@ -211,7 +211,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         }
 
         sections = newSections;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -329,14 +329,14 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         foreach (var (index, _) in transaction.AmountDeltas)
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
         }
@@ -346,7 +346,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
             removedIndices.Add(index);
@@ -368,22 +368,22 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
             {
                 if (sectionContext.IsMapped)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 if (!TryGetFlatSlotIndex(sectionContext.SectionId, sectionContext.SlotIndex, out flatIndex))
                 {
-                    error = "Section slot not found.";
+                    failure = InventoryFailures.Layout("Section slot not found.");
                     return false;
                 }
                 if (!explicitSlots.Add(flatIndex))
                 {
-                    error = "Duplicate mapped target section slot.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target section slot.");
                     return false;
                 }
                 if (!CanSectionAccept(inventory, _sections[_sectionIndices[sectionContext.SectionId]], instance.Definition))
                 {
-                    error = "No compatible section slot available.";
+                    failure = InventoryFailures.Layout("No compatible section slot available.");
                     return false;
                 }
             }
@@ -392,19 +392,19 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
                 flatIndex = FindFirstCompatibleEmptySlot(inventory, simulated, instance.Definition);
                 if (flatIndex < 0)
                 {
-                    error = "No compatible section slot available.";
+                    failure = InventoryFailures.Layout("No compatible section slot available.");
                     return false;
                 }
             }
             else
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
 
             if (simulated[flatIndex].HasValue)
             {
-                error = "Section slot already occupied.";
+                failure = InventoryFailures.Layout("Section slot already occupied.");
                 return false;
             }
 
@@ -421,10 +421,10 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         if (context == null)
         {
             mappedTransaction = transaction;
@@ -432,25 +432,25 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         }
         if (context is not SectionedLayoutContext<TKey> sectionContext)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (!sectionContext.IsMapped)
         {
             if (transaction.Added.Count == 1)
-                return TryCreateAddedCopy(transaction, 0, sectionContext, out mappedTransaction, out error);
+                return TryCreateAddedCopy(transaction, 0, sectionContext, out mappedTransaction, out failure);
 
             if (transaction.Added.Count == 0 && transaction.AmountDeltas.Count == 1 && transaction.AmountDeltas[0].delta > 0)
             {
                 if (!TryGetFlatSlotIndex(sectionContext.SectionId, sectionContext.SlotIndex, out int flatIndex))
                 {
-                    error = "Section slot not found.";
+                    failure = InventoryFailures.Layout("Section slot not found.");
                     return false;
                 }
                 if (!_slotMap[flatIndex].HasValue || _slotMap[flatIndex]!.Value != transaction.AmountDeltas[0].index)
                 {
-                    error = "Merge delta does not match the item at the specified section slot.";
+                    failure = InventoryFailures.Layout("Merge delta does not match the item at the specified section slot.");
                     return false;
                 }
 
@@ -458,7 +458,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
                 return true;
             }
 
-            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            failure = InventoryFailures.Layout("Transaction placement context can only target one added entry unless it is a mapped context.");
             return false;
         }
 
@@ -466,7 +466,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         {
             if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
             {
-                error = "Mapped added entry index out of range.";
+                failure = InventoryFailures.Layout("Mapped added entry index out of range.");
                 return false;
             }
         }
@@ -483,12 +483,12 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
                     (!string.Equals(existingSectionContext.SectionId, mappedSlot.sectionId, StringComparison.Ordinal) ||
                      existingSectionContext.SlotIndex != mappedSlot.slotIndex))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not SectionedLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, mappedContext));
@@ -506,113 +506,113 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure)
     {
         if (context is SectionedLayoutContext<TKey> sectionContext && !sectionContext.IsMapped)
         {
             if (!TryGetFlatSlotIndex(sectionContext.SectionId, sectionContext.SlotIndex, out int flatIndex))
             {
-                error = "Section slot not found.";
+                failure = InventoryFailures.Layout("Section slot not found.");
                 return false;
             }
             if (_slotMap[flatIndex].HasValue)
             {
-                error = "Section slot already occupied.";
+                failure = InventoryFailures.Layout("Section slot already occupied.");
                 return false;
             }
             if (!CanSectionAccept(inventory, _sections[_sectionIndices[sectionContext.SectionId]], instance.Definition))
             {
-                error = "No compatible section slot available.";
+                failure = InventoryFailures.Layout("No compatible section slot available.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
 
         if (context != null)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (FindFirstCompatibleEmptySlot(inventory, _slotMap, instance.Definition) < 0)
         {
-            error = "No compatible section slot available.";
+            failure = InventoryFailures.Layout("No compatible section slot available.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!TryGetFlatSlotIndex(fromContext.SectionId, fromContext.SlotIndex, out int fromSlot) ||
             !TryGetFlatSlotIndex(toContext.SectionId, toContext.SlotIndex, out int toSlot))
         {
-            error = "Section slot not found.";
+            failure = InventoryFailures.Layout("Section slot not found.");
             return false;
         }
         if (fromSlot == toSlot)
         {
-            error = "Cannot move item to itself.";
+            failure = InventoryFailures.Layout("Cannot move item to itself.");
             return false;
         }
         if (!_slotMap[fromSlot].HasValue)
         {
-            error = "Source section slot has no item.";
+            failure = InventoryFailures.Layout("Source section slot has no item.");
             return false;
         }
         if (_slotMap[toSlot].HasValue)
         {
-            error = "Section slot already occupied.";
+            failure = InventoryFailures.Layout("Section slot already occupied.");
             return false;
         }
 
         var item = inventory.Items[_slotMap[fromSlot]!.Value];
         if (!CanSectionAccept(inventory, _sections[_sectionIndices[toContext.SectionId]], item.Definition))
         {
-            error = "No compatible section slot available.";
+            failure = InventoryFailures.Layout("No compatible section slot available.");
             return false;
         }
 
         _slotMap[toSlot] = _slotMap[fromSlot];
         _slotMap[fromSlot] = null;
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!TryGetFlatSlotIndex(fromContext.SectionId, fromContext.SlotIndex, out int fromSlot) ||
             !TryGetFlatSlotIndex(toContext.SectionId, toContext.SlotIndex, out int toSlot))
         {
-            error = "Section slot not found.";
+            failure = InventoryFailures.Layout("Section slot not found.");
             return false;
         }
         if (fromSlot == toSlot)
         {
-            error = "Cannot swap item with itself.";
+            failure = InventoryFailures.Layout("Cannot swap item with itself.");
             return false;
         }
         if (!_slotMap[fromSlot].HasValue || !_slotMap[toSlot].HasValue)
         {
-            error = "One or both of the section slots has no item.";
+            failure = InventoryFailures.Layout("One or both of the section slots has no item.");
             return false;
         }
 
@@ -621,24 +621,24 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         if (!CanSectionAccept(inventory, _sections[_sectionIndices[fromContext.SectionId]], toItem.Definition) ||
             !CanSectionAccept(inventory, _sections[_sectionIndices[toContext.SectionId]], fromItem.Definition))
         {
-            error = "No compatible section slot available.";
+            failure = InventoryFailures.Layout("No compatible section slot available.");
             return false;
         }
 
         var temp = _slotMap[fromSlot];
         _slotMap[fromSlot] = _slotMap[toSlot];
         _slotMap[toSlot] = temp;
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
-            error = "Invalid sort context type.";
+            failure = InventoryFailures.Layout("Invalid sort context type.");
             return false;
         }
 
@@ -661,7 +661,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
             int target = FindFirstCompatibleEmptySlot(inventory, simulated, inventory.Items[item.storageIndex].Definition);
             if (target < 0)
             {
-                error = "No compatible section slot available.";
+                failure = InventoryFailures.Layout("No compatible section slot available.");
                 return false;
             }
 
@@ -670,7 +670,7 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
 
         _slotMap.Clear();
         _slotMap.AddRange(simulated);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -860,10 +860,10 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
         for (int i = 0; i < transaction.Added.Count; i++)
         {
@@ -876,12 +876,12 @@ public sealed class SectionedLayout<TKey> : IParameterizedRepackableInventoryLay
                     (!string.Equals(existingSectionContext.SectionId, newSectionContext.SectionId, StringComparison.Ordinal) ||
                      existingSectionContext.SlotIndex != newSectionContext.SlotIndex))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not SectionedLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, context));

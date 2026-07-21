@@ -91,14 +91,14 @@ public class RuleContainer<TKey>
     /// </summary>
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
-    /// <param name="error">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when every enabled rule allows the transaction; otherwise, <see langword="false"/>.</returns>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return CanApply(inventory, transaction, structuralTransaction: null, out error);
+        return CanApply(inventory, transaction, structuralTransaction: null, out failure);
     }
 
     /// <summary>
@@ -107,13 +107,13 @@ public class RuleContainer<TKey>
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
     /// <param name="structuralTransaction">Optional structural transaction containing storage-index changes.</param>
-    /// <param name="error">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing rejection reason wrapped with the failing rule id and type; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when every enabled rule allows the transaction; otherwise, <see langword="false"/>.</returns>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryTransaction<TKey>? structuralTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         InventoryRuleSnapshot<TKey>? snapshot = null;
 
@@ -128,22 +128,22 @@ public class RuleContainer<TKey>
             if (rule is IInventorySnapshotRulePolicy<TKey> snapshotRule)
             {
                 snapshot ??= new InventoryRuleSnapshot<TKey>(inventory, transaction);
-                allowed = snapshotRule.CanApply(inventory, transaction, snapshot, out error);
+                allowed = snapshotRule.CanApply(inventory, transaction, snapshot, out failure);
             }
             else
             {
-                allowed = rule.CanApply(inventory, transaction, out error);
+                allowed = rule.CanApply(inventory, transaction, out failure);
             }
 
             if (!allowed)
             {
                 var ruleName = GetRuleComponentName(rule);
                 var ruleId = rule.Id;
-                error = InventoryFailure.Wrap(
+                failure = InventoryFailure.Wrap(
                     InventoryFailureKind.Rules,
                     InventoryFailureCodes.RulesRejected,
                     $"Rule '{ruleId}' ({ruleName}) rejected the transaction.",
-                    error,
+                    failure,
                     component: ruleName,
                     source: ruleId);
                 return false;
@@ -160,23 +160,23 @@ public class RuleContainer<TKey>
                 if (entry.Rule is not IInventoryStructuralRulePolicy<TKey> structuralRule)
                     continue;
 
-                if (structuralRule.CanApply(inventory, structuralTransaction, out error))
+                if (structuralRule.CanApply(inventory, structuralTransaction, out failure))
                     continue;
 
                 var ruleName = GetRuleComponentName(entry.Rule);
                 var ruleId = entry.Rule.Id;
-                error = InventoryFailure.Wrap(
+                failure = InventoryFailure.Wrap(
                     InventoryFailureKind.Rules,
                     InventoryFailureCodes.RulesRejected,
                     $"Rule '{ruleId}' ({ruleName}) rejected the transaction.",
-                    error,
+                    failure,
                     component: ruleName,
                     source: ruleId);
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 

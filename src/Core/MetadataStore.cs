@@ -31,90 +31,90 @@ internal sealed class MetadataStore
     public bool ContainsKey(string key) =>
         _data != null && _data.ContainsKey(key);
 
-    public bool TryAdd(string key, object? value, out InventoryFailure? error)
+    public bool TryAdd(string key, object? value, out InventoryFailure? failure)
     {
-        if (!TryValidateKey(key, out error))
+        if (!TryValidateKey(key, out failure))
             return false;
         if (_data != null && _data.ContainsKey(key))
         {
-            error = $"Metadata key '{key}' already exists.";
+            failure = InventoryFailures.Metadata($"Metadata key '{key}' already exists.");
             return false;
         }
-        if (!TryCloneValue(value, out var detached, out error))
+        if (!TryCloneValue(value, out var detached, out failure))
         {
-            error = $"Metadata value '{key}' is not portable: {error}";
+            failure = InventoryFailures.Metadata($"Metadata value '{key}' is not portable: {failure}");
             return false;
         }
         Data.Add(key, detached);
-        error = null;
+        failure = null;
         return true;
     }
 
-    public bool TrySet(string key, object? value, out InventoryFailure? error)
+    public bool TrySet(string key, object? value, out InventoryFailure? failure)
     {
-        if (!TryValidateKey(key, out error))
+        if (!TryValidateKey(key, out failure))
             return false;
-        if (!TryCloneValue(value, out var detached, out error))
+        if (!TryCloneValue(value, out var detached, out failure))
         {
-            error = $"Metadata value '{key}' is not portable: {error}";
+            failure = InventoryFailures.Metadata($"Metadata value '{key}' is not portable: {failure}");
             return false;
         }
         Data[key] = detached;
-        error = null;
+        failure = null;
         return true;
     }
 
-    public bool TryChange(string key, object? value, out InventoryFailure? error)
+    public bool TryChange(string key, object? value, out InventoryFailure? failure)
     {
-        if (!TryValidateKey(key, out error))
+        if (!TryValidateKey(key, out failure))
             return false;
         if (_data == null || !_data.ContainsKey(key))
         {
-            error = $"Metadata key '{key}' was not found.";
+            failure = InventoryFailures.Metadata($"Metadata key '{key}' was not found.");
             return false;
         }
-        return TrySet(key, value, out error);
+        return TrySet(key, value, out failure);
     }
 
-    public bool TryRemove(string key, out InventoryFailure? error)
+    public bool TryRemove(string key, out InventoryFailure? failure)
     {
-        if (!TryValidateKey(key, out error))
+        if (!TryValidateKey(key, out failure))
             return false;
         if (_data == null || !_data.Remove(key))
         {
-            error = $"Metadata key '{key}' was not found.";
+            failure = InventoryFailures.Metadata($"Metadata key '{key}' was not found.");
             return false;
         }
         if (_data.Count == 0)
             _data = null;
-        error = null;
+        failure = null;
         return true;
     }
 
-    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out InventoryFailure? error)
+    public bool TryReplace(IReadOnlyDictionary<string, object?>? values, out InventoryFailure? failure)
     {
         if (values == null || values.Count == 0)
         {
             _data = null;
-            error = null;
+            failure = null;
             return true;
         }
 
         var replacement = new Dictionary<string, object?>(values.Count, StringComparer.Ordinal);
         foreach (var pair in values)
         {
-            if (!TryValidateKey(pair.Key, out error))
+            if (!TryValidateKey(pair.Key, out failure))
                 return false;
-            if (!TryCloneValue(pair.Value, out var detached, out error))
+            if (!TryCloneValue(pair.Value, out var detached, out failure))
             {
-                error = $"Metadata value '{pair.Key}' is not portable: {error}";
+                failure = InventoryFailures.Metadata($"Metadata value '{pair.Key}' is not portable: {failure}");
                 return false;
             }
             replacement.Add(pair.Key, detached);
         }
 
         _data = replacement;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -145,8 +145,8 @@ internal sealed class MetadataStore
             return result;
         foreach (var pair in _data)
         {
-            if (!TryCloneValue(pair.Value, out var detached, out var error))
-                throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+            if (!TryCloneValue(pair.Value, out var detached, out var failure))
+                throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
             result.Add(pair.Key, detached);
         }
         return result;
@@ -163,8 +163,8 @@ internal sealed class MetadataStore
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
-        if (!TryReplace(source._data, out var error))
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryReplace(source._data, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
     public bool StructuralEquals(MetadataStore other)
@@ -221,30 +221,30 @@ internal sealed class MetadataStore
     private Dictionary<string, object?> Data =>
         _data ??= new Dictionary<string, object?>(StringComparer.Ordinal);
 
-    private static bool TryValidateKey(string key, out InventoryFailure? error)
+    private static bool TryValidateKey(string key, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(key))
         {
-            error = "Metadata keys cannot be null, empty, or whitespace.";
+            failure = InventoryFailures.Metadata("Metadata keys cannot be null, empty, or whitespace.");
             return false;
         }
-        error = null;
+        failure = null;
         return true;
     }
 
-    private static bool TryCloneValue(object? value, out object? clone, out InventoryFailure? error)
+    private static bool TryCloneValue(object? value, out object? clone, out InventoryFailure? failure)
     {
         clone = null;
         if (!IsSupportedMetadataValue(
                 value,
                 new HashSet<object>(MetadataReferenceComparer.Instance),
-                out error))
+                out failure))
         {
             return false;
         }
-        if (!InventorySnapshotCodecs.TryEncodeObject(value, out var encoded, out error) || encoded == null)
+        if (!InventorySnapshotCodecs.TryEncodeObject(value, out var encoded, out failure) || encoded == null)
             return false;
-        if (!InventorySnapshotCodecs.TryDecodeRuntime(encoded, out clone, out _, out error))
+        if (!InventorySnapshotCodecs.TryDecodeRuntime(encoded, out clone, out _, out failure))
             return false;
         return true;
     }
@@ -252,11 +252,11 @@ internal sealed class MetadataStore
     private static bool IsSupportedMetadataValue(
         object? value,
         HashSet<object> path,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (value == null)
         {
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -280,7 +280,7 @@ internal sealed class MetadataStore
             type == typeof(DateTimeOffset) ||
             type == typeof(TimeSpan))
         {
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -288,29 +288,30 @@ internal sealed class MetadataStore
         bool isList = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>);
         if (!isArray && !isList)
         {
-            error = type == typeof(object)
-                ? "Literal System.Object values are not supported metadata."
-                : $"unsupported: Type '{type.FullName}' is not a supported portable snapshot value for metadata; expected a " +
-                  "portable scalar, one-dimensional array, or List<T>.";
+            failure = type == typeof(object)
+                ? InventoryFailures.MetadataUnsupportedValue("Literal System.Object values are not supported metadata.")
+                : InventoryFailures.MetadataUnsupportedValue(
+                    $"unsupported: Type '{type.FullName}' is not a supported portable snapshot value for metadata; expected a " +
+                    "portable scalar, one-dimensional array, or List<T>.");
             return false;
         }
         Type elementType = isArray ? type.GetElementType()! : type.GetGenericArguments()[0];
         if (elementType != typeof(object) &&
             !IsSupportedMetadataElementType(elementType))
         {
-            error = $"Collection element type '{elementType.FullName}' is not supported metadata.";
+            failure = InventoryFailures.Metadata($"Collection element type '{elementType.FullName}' is not supported metadata.");
             return false;
         }
         if (!path.Add(value))
         {
-            error = $"Metadata value graph contains a cycle at type '{type.FullName}'.";
+            failure = InventoryFailures.Metadata($"Metadata value graph contains a cycle at type '{type.FullName}'.");
             return false;
         }
         try
         {
             foreach (var item in (IEnumerable)value)
             {
-                if (!IsSupportedMetadataValue(item, path, out error))
+                if (!IsSupportedMetadataValue(item, path, out failure))
                     return false;
             }
         }
@@ -318,7 +319,7 @@ internal sealed class MetadataStore
         {
             path.Remove(value);
         }
-        error = null;
+        failure = null;
         return true;
     }
 

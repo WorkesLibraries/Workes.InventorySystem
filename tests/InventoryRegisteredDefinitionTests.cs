@@ -41,10 +41,10 @@ public class InventoryRegisteredDefinitionTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        var accepted = inventory.TryAdd(detached, out var error);
+        var accepted = inventory.TryAdd(detached, out var failure);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error?.Message, Does.Contain("not registered"));
+        Assert.That(failure?.Message, Does.Contain("not registered"));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
         Assert.That(events, Is.EqualTo(0));
     }
@@ -70,10 +70,10 @@ public class InventoryRegisteredDefinitionTests
         var inventory = manager.CreateInventory();
         var detachedSameId = new ItemDefinition<string>("coin");
 
-        var accepted = inventory.TryAdd(detachedSameId, out var error);
+        var accepted = inventory.TryAdd(detachedSameId, out var failure);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error?.Message, Does.Contain("not the registered definition instance"));
+        Assert.That(failure?.Message, Does.Contain("not the registered definition instance"));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
     }
 
@@ -84,7 +84,7 @@ public class InventoryRegisteredDefinitionTests
         var manager = CreateManager(definitions: registered);
         var inventory = manager.CreateInventory();
 
-        var accepted = inventory.TryAdd(registered, out var error, amount: 2);
+        var accepted = inventory.TryAdd(registered, out var failure, amount: 2);
 
         Assert.That(accepted, Is.True);
         Assert.That(inventory.Count(registered), Is.EqualTo(2));
@@ -99,10 +99,10 @@ public class InventoryRegisteredDefinitionTests
         var builder = InventoryTransaction<string>.From(inventory);
         var detached = new ItemDefinition<string>("gem");
 
-        var accepted = builder.TryAdd(detached, out var error);
+        var accepted = builder.TryAdd(detached, out var failure);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error?.Message, Does.Contain("not registered"));
+        Assert.That(failure?.Message, Does.Contain("not registered"));
         Assert.That(builder.IsEmpty, Is.True);
     }
 
@@ -115,10 +115,10 @@ public class InventoryRegisteredDefinitionTests
         var builder = InventoryTransaction<string>.From(inventory);
         var detachedSameId = new ItemDefinition<string>("gem");
 
-        var accepted = builder.TryAdd(detachedSameId, out var error);
+        var accepted = builder.TryAdd(detachedSameId, out var failure);
 
         Assert.That(accepted, Is.False);
-        Assert.That(error?.Message, Does.Contain("not the registered definition instance"));
+        Assert.That(failure?.Message, Does.Contain("not the registered definition instance"));
         Assert.That(builder.IsEmpty, Is.True);
     }
 
@@ -132,11 +132,11 @@ public class InventoryRegisteredDefinitionTests
             new() { (detached, null, 1) },
             new());
 
-        var accepted = inventory.TryFormulateFromNormalized(normalized, out var transaction, out var error);
+        var accepted = inventory.TryFormulateFromNormalized(normalized, out var transaction, out var failure);
 
         Assert.That(accepted, Is.False);
         Assert.That(transaction, Is.Null);
-        Assert.That(error?.Message, Does.Contain("not registered"));
+        Assert.That(failure?.Message, Does.Contain("not registered"));
     }
 
     [Test]
@@ -148,7 +148,7 @@ public class InventoryRegisteredDefinitionTests
         var target = manager.CreateInventory();
         source.Add(apple, amount: 2);
 
-        var accepted = source.TryTransferTo(target, source.Items[0], 1, targetContext: null, out var error);
+        var accepted = source.TryTransferTo(target, source.Items[0], 1, targetContext: null, out var failure);
 
         Assert.That(accepted, Is.True);
         Assert.That(target.Items.Single().Definition, Is.SameAs(apple));
@@ -162,7 +162,7 @@ public class InventoryRegisteredDefinitionTests
         var inventory = manager.CreateInventory();
         inventory.Add(gem, amount: 5);
 
-        var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var error);
+        var accepted = inventory.Items[0].TrySplitAndSetMetadata(2, "quest-item", true, out var metadataStack, out var failure);
 
         Assert.That(accepted, Is.True);
         Assert.That(metadataStack, Is.Not.Null);
@@ -182,7 +182,7 @@ public class InventoryRegisteredDefinitionTests
             5,
             InventoryParameterMutationActions.RepackLayout |
             InventoryParameterMutationActions.SplitOversizedStacks,
-            out var error);
+            out var failure);
 
         Assert.That(accepted, Is.True);
         Assert.That(inventory.Items, Has.Count.EqualTo(2));

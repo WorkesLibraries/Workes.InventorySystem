@@ -39,7 +39,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryAdd(apple, out var error, 1, SlotLayoutContext<string>.Single(2));
+        var result = inventory.TryAdd(apple, out var failure, 1, SlotLayoutContext<string>.Single(2));
 
         Assert.That(result, Is.True);
         var added = captured!.Added.Single();
@@ -55,7 +55,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryAdd(apple, out var error);
+        var result = inventory.TryAdd(apple, out var failure);
 
         Assert.That(result, Is.True);
         var added = captured!.Added.Single();
@@ -72,7 +72,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryRemove(inventory.Items[0], out var error);
+        var result = inventory.TryRemove(inventory.Items[0], out var failure);
 
         Assert.That(result, Is.True);
         var removed = captured!.Removed.Single();
@@ -89,7 +89,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryAdd(apple, out var error, 3, SlotLayoutContext<string>.Single(0));
+        var result = inventory.TryAdd(apple, out var failure, 3, SlotLayoutContext<string>.Single(0));
 
         Assert.That(result, Is.True);
         var modified = captured!.Modified.Single();
@@ -108,7 +108,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryRemove(inventory.Items[0], out var error, 2);
+        var result = inventory.TryRemove(inventory.Items[0], out var failure, 2);
 
         Assert.That(result, Is.True);
         var modified = captured!.Modified.Single();
@@ -147,7 +147,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var error);
+        var result = inventory.TryMove(SlotLayoutContext<string>.Single(0), SlotLayoutContext<string>.Single(1), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(captured!.Moved.Single().Cause, Is.EqualTo(ItemMovementCause.ExplicitMove));
@@ -165,7 +165,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
+        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(captured!.Moved, Is.Not.Empty);
@@ -231,7 +231,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
+        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var failure);
 
         Assert.That(result, Is.True);
         var movedContexts = captured!.Moved
@@ -250,10 +250,10 @@ public class InventoryChangedEventTests
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
 
-        var result = inventory.TryAdd(apple, out var error, 1);
+        var result = inventory.TryAdd(apple, out var failure, 1);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -269,10 +269,10 @@ public class InventoryChangedEventTests
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
 
-        var result = inventory.TryCommitTransaction(builder.Build(), SlotLayoutContext<string>.Single(0), out var error);
+        var result = inventory.TryCommitTransaction(builder.Build(), SlotLayoutContext<string>.Single(0), out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Slot already occupied."));
+        Assert.That(failure?.Message, Is.EqualTo("Slot already occupied."));
         Assert.That(changed, Is.EqualTo(0));
     }
 
@@ -292,7 +292,7 @@ public class InventoryChangedEventTests
         source.Changed += (_, e) => sourceEvent = e;
         target.Changed += (_, e) => targetEvent = e;
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, SlotLayoutContext<string>.Single(1), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(sourceEvent!.Modified.Single().AfterAmount, Is.EqualTo(1));
@@ -406,7 +406,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        Assert.That(inventory.Items[0].Metadata.TrySet("quality", "polished", out var error), Is.True);
+        Assert.That(inventory.Items[0].Metadata.TrySet("quality", "polished", out var failure), Is.True);
 
         var changed = captured!.MetadataChanged.Single();
         Assert.That(changed.Instance, Is.SameAs(inventory.Items[0]));
@@ -427,7 +427,7 @@ public class InventoryChangedEventTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        Assert.That(inventory.Items[0].TrySplitAndSetMetadata(1, "quest-item", true, out _, out var error), Is.True);
+        Assert.That(inventory.Items[0].TrySplitAndSetMetadata(1, "quest-item", true, out _, out var failure), Is.True);
 
         Assert.That(captured!.Added, Has.Count.EqualTo(1));
         Assert.That(captured.Modified, Has.Count.EqualTo(1));

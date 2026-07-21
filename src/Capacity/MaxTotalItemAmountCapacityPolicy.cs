@@ -41,7 +41,7 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error)
+    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? failure)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -54,17 +54,17 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
 
         if (projected > MaxTotalItemAmount)
         {
-            error = "Capacity exceeded.";
+            failure = InventoryFailures.Capacity("Capacity exceeded.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error)
+    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? failure)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
@@ -73,11 +73,11 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
 
         if (inventory.TotalItemCount + instance.Amount > MaxTotalItemAmount)
         {
-            error = "Capacity exceeded.";
+            failure = InventoryFailures.Capacity("Capacity exceeded.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -88,29 +88,29 @@ public class MaxTotalItemAmountCapacityPolicy<TKey> : IParameterizedCapacityPoli
         string parameterId,
         object? value,
         out ICapacityPolicy<TKey>? policy,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         policy = null;
         if (parameterId != "maxTotalItemAmount")
         {
-            error = $"Parameter '{parameterId}' is not supported by MaxTotalItemAmountCapacityPolicy.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by MaxTotalItemAmountCapacityPolicy.");
             return false;
         }
 
         if (value is not int maxTotalItemAmount)
         {
-            error = "Parameter 'maxTotalItemAmount' expects value type 'Int32'.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'maxTotalItemAmount' expects value type 'Int32'.");
             return false;
         }
 
         if (maxTotalItemAmount < 0)
         {
-            error = "Maximum total item amount cannot be negative.";
+            failure = InventoryFailures.Capacity("Maximum total item amount cannot be negative.");
             return false;
         }
 
         policy = new MaxTotalItemAmountCapacityPolicy<TKey>(maxTotalItemAmount);
-        error = null;
+        failure = null;
         return true;
     }
 }

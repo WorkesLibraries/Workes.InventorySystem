@@ -23,7 +23,7 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     /// </summary>
     /// <param name="attributeId">The required attribute id.</param>
     /// <param name="predicate">The predicate that must accept the attribute value.</param>
-    /// <param name="errorMessage">The error message prefix used when validation fails.</param>
+    /// <param name="errorMessage">The failure message prefix used when validation fails.</param>
     /// <param name="id">Optional rule id override.</param>
     /// <exception cref="ArgumentException"><paramref name="attributeId"/> is null, empty, or whitespace.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is <see langword="null"/>.</exception>
@@ -47,24 +47,24 @@ public class AttributePredicateRule<TKey, TValue> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (definition, _, _) in transaction.Added)
         {
             if (!definition.Attributes.TryGet<TValue>(_attributeId, out var value))
             {
-                error = $"{_errorMessage}. Item definition '{definition.Id}' was missing attribute '{_attributeId}'.";
+                failure = InventoryFailures.Definition($"{_errorMessage}. Item definition '{definition.Id}' was missing attribute '{_attributeId}'.");
                 return false;
             }
 
             if (!_predicate(value))
             {
-                error = $"{_errorMessage}. Item definition '{definition.Id}' attribute '{_attributeId}' was '{value}'.";
+                failure = InventoryFailures.Definition($"{_errorMessage}. Item definition '{definition.Id}' attribute '{_attributeId}' was '{value}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

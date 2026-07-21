@@ -30,14 +30,14 @@ public class TransactionBuilderCommitExampleTests
 
         var inventory = manager.CreateInventory();
         var builder = InventoryTransaction<string>.From(inventory);
-        Assert.That(builder.TryAdd(apple, out var error, 3), Is.True);
-        Assert.That(builder.TryAdd(sword, out error), Is.True);
+        Assert.That(builder.TryAdd(apple, out var failure, 3), Is.True);
+        Assert.That(builder.TryAdd(sword, out failure), Is.True);
 
         var placement = SlotLayoutContext<string>.Map()
             .Add(0, 1)
             .Add(1, 3)
             .Build();
-        var committed = inventory.TryCommitTransaction(builder, placement, out error);
+        var committed = inventory.TryCommitTransaction(builder, placement, out failure);
 
         Assert.That(committed, Is.True);
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));

@@ -26,12 +26,12 @@ public interface IParameterizedStackResolver<TKey> : IStackResolver<TKey>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="resolver">The replacement resolver when creation succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when a replacement resolver was created; otherwise, <see langword="false"/>.</returns>
     bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

@@ -18,7 +18,7 @@ public class InventoryLayoutQueryWrapperTests
         var item = new ItemDefinition<string>("item");
         var inventory = CreateInventory(testCase.Layout, item);
 
-        Assert.That(inventory.TryAdd(item, out var error, 1, testCase.Context), Is.True);
+        Assert.That(inventory.TryAdd(item, out var failure, 1, testCase.Context), Is.True);
 
         Assert.That(inventory.GetLayoutPositionCount(), Is.EqualTo(inventory.Layout.GetPositionCount(inventory)));
         Assert.That(
@@ -53,7 +53,7 @@ public class InventoryLayoutQueryWrapperTests
         var item = new ItemDefinition<string>("item");
         var inventory = CreateInventory(new SlotLayout<string>(2), item);
         var otherInventory = CreateInventory(new SlotLayout<string>(2), item);
-        Assert.That(otherInventory.TryAdd(item, out var error), Is.True);
+        Assert.That(otherInventory.TryAdd(item, out var failure), Is.True);
         var foreignItem = otherInventory.Items[0];
 
         Assert.That(inventory.GetLayoutContextsForStorageIndex(99), Is.Empty);
@@ -72,7 +72,7 @@ public class InventoryLayoutQueryWrapperTests
             new MultiCellGridLayout<string>(3, 2, new FixedFootprintProvider(2, 1)),
             item);
 
-        Assert.That(inventory.TryAdd(item, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
+        Assert.That(inventory.TryAdd(item, out var failure, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
 
         var contexts = inventory.GetLayoutContextsForItem(inventory.Items[0])
             .Cast<MultiCellGridLayoutContext<string>>()

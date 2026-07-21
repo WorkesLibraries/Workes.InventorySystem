@@ -18,10 +18,10 @@ public interface IInventoryStructuralRulePolicy<TKey>
     /// </summary>
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="transaction">The structural transaction containing storage-index changes.</param>
-    /// <param name="error">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction satisfies the rule; otherwise, <see langword="false"/>.</returns>
     bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

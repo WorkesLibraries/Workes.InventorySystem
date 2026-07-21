@@ -23,6 +23,8 @@ This file records notable changes to `Workes.InventorySystem`.
   Custom layouts must implement `IRepackableInventoryLayout<TKey>` to opt in.
 - Public expected-failure contracts now return `out InventoryFailure? failure` instead of `out string? error`. Consumer
   logic should branch on `failure.Kind` or stable `failure.Code` and use `failure.Message` only for display.
+- Removed the temporary public string-to-`InventoryFailure` conversion; extension authors must create structured
+  failures explicitly.
 
 ### Added
 

@@ -37,29 +37,29 @@ public class InventoryTransferTests
             _maxTotalAmount = maxTotalAmount;
         }
 
-        public bool CanApply(Inventory<string> inventory, NormalizedInventoryTransaction<string> normalizedTransaction, out InventoryFailure? error)
+        public bool CanApply(Inventory<string> inventory, NormalizedInventoryTransaction<string> normalizedTransaction, out InventoryFailure? failure)
         {
             var added = normalizedTransaction.Added.Sum(i => i.amount);
             var removed = normalizedTransaction.Removed.Sum(i => i.amount);
             if (inventory.TotalItemCount + added - removed > _maxTotalAmount)
             {
-                error = "Capacity exceeded.";
+                failure = InventoryFailures.Capacity("Capacity exceeded.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
 
-        public bool CanAdd(Inventory<string> inventory, ItemInstance<string> instance, out InventoryFailure? error)
+        public bool CanAdd(Inventory<string> inventory, ItemInstance<string> instance, out InventoryFailure? failure)
         {
             if (inventory.TotalItemCount + instance.Amount > _maxTotalAmount)
             {
-                error = "Capacity exceeded.";
+                failure = InventoryFailures.Capacity("Capacity exceeded.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
     }
@@ -75,7 +75,7 @@ public class InventoryTransferTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 5);
 
-        var result = source.TryTransferTo(target, source.Items[0], 2, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 2, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(3));
@@ -93,7 +93,7 @@ public class InventoryTransferTests
         var target = CreateManager(catalog).CreateInventory();
         source.TryAdd(apple, out _, 4);
 
-        var result = source.TryTransferTo(target, source.Items[0], 4, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 4, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(0));
@@ -115,10 +115,10 @@ public class InventoryTransferTests
         var target = targetManager.CreateInventory();
         source.TryAdd(sourceApple, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Inventories must share the same item catalog."));
+        Assert.That(failure?.Message, Is.EqualTo("Inventories must share the same item catalog."));
         Assert.That(source.Count(sourceApple), Is.EqualTo(2));
         Assert.That(target.Count(targetApple), Is.EqualTo(0));
     }
@@ -134,10 +134,10 @@ public class InventoryTransferTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 0, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 0, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Amount must be greater than zero."));
+        Assert.That(failure?.Message, Is.EqualTo("Amount must be greater than zero."));
         Assert.That(source.Count(apple), Is.EqualTo(2));
         Assert.That(target.Count(apple), Is.EqualTo(0));
     }
@@ -155,10 +155,10 @@ public class InventoryTransferTests
         other.TryAdd(apple, out _, 1);
         var foreignItem = other.Items[0];
 
-        var result = source.TryTransferTo(target, foreignItem, 1, null, out var error);
+        var result = source.TryTransferTo(target, foreignItem, 1, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Item not found in source inventory."));
+        Assert.That(failure?.Message, Is.EqualTo("Item not found in source inventory."));
     }
 
     [Test]
@@ -178,10 +178,10 @@ public class InventoryTransferTests
         var target = CreateManager(catalog, rules: rules).CreateInventory();
         source.TryAdd(stone, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Does.Contain("food-only"));
+        Assert.That(failure?.Message, Does.Contain("food-only"));
         Assert.That(source.Count(stone), Is.EqualTo(2));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
     }
@@ -200,10 +200,10 @@ public class InventoryTransferTests
         source.TryAdd(apple, out _, 1, new SlotLayoutContext<string>(0));
         target.TryAdd(berry, out _, 1, new SlotLayoutContext<string>(0));
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, new SlotLayoutContext<string>(0), out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, new SlotLayoutContext<string>(0), out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Slot already occupied."));
+        Assert.That(failure?.Message, Is.EqualTo("Slot already occupied."));
         Assert.That(source.Count(apple), Is.EqualTo(1));
         Assert.That(target.Count(berry), Is.EqualTo(1));
         Assert.That(target.Count(apple), Is.EqualTo(0));
@@ -221,7 +221,7 @@ public class InventoryTransferTests
         source.TryAdd(apple, out _, 3);
         target.TryAdd(apple, out _, 4);
 
-        var result = source.TryTransferTo(target, source.Items[0], 3, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 3, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.InstanceCount, Is.EqualTo(1));
@@ -240,10 +240,10 @@ public class InventoryTransferTests
         source.TryAdd(apple, out _, 3);
         target.TryAdd(apple, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(source.Count(apple), Is.EqualTo(3));
         Assert.That(target.Count(apple), Is.EqualTo(2));
     }
@@ -263,7 +263,7 @@ public class InventoryTransferTests
         builder.TryAdd(apple, 2, null, metadata, out _);
         source.CommitTransaction(builder.Build());
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.Items[0].Metadata.StructuralEquals(metadata), Is.True);
@@ -285,7 +285,7 @@ public class InventoryTransferTests
         source.Changed += (_, _) => sourceChanged++;
         target.Changed += (_, _) => targetChanged++;
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(sourceChanged, Is.EqualTo(1));
@@ -325,7 +325,7 @@ public class InventoryTransferTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 2, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 2, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.InstanceCount, Is.EqualTo(0));

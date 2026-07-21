@@ -25,10 +25,10 @@ public class MaxTotalItemAmountCapacityPolicyTests
         inventory.TryAdd(apple, out _, 3);
         var instance = CreateCandidateInstance(apple, 2);
 
-        var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
+        var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var failure);
 
         Assert.That(result, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(failure, Is.Null);
     }
 
     [Test]
@@ -39,10 +39,10 @@ public class MaxTotalItemAmountCapacityPolicyTests
         inventory.TryAdd(apple, out _, 4);
         var instance = CreateCandidateInstance(apple, 2);
 
-        var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var error);
+        var result = new MaxTotalItemAmountCapacityPolicy<string>(5).CanAdd(inventory, instance, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
     }
 
     [Test]
@@ -51,7 +51,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new MaxTotalItemAmountCapacityPolicy<string>(5), apple);
 
-        var result = inventory.TryAdd(apple, out var error, 5);
+        var result = inventory.TryAdd(apple, out var failure, 5);
 
         Assert.That(result, Is.True);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
@@ -64,10 +64,10 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var inventory = CreateInventory(new MaxTotalItemAmountCapacityPolicy<string>(5), apple);
         inventory.TryAdd(apple, out _, 4);
 
-        var result = inventory.TryAdd(apple, out var error, 2);
+        var result = inventory.TryAdd(apple, out var failure, 2);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(4));
     }
 
@@ -85,10 +85,10 @@ public class MaxTotalItemAmountCapacityPolicyTests
         int changed = 0;
         inventory.Changed += (_, _) => changed++;
 
-        var result = inventory.TryCommitTransaction(transaction, out var error);
+        var result = inventory.TryCommitTransaction(transaction, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(changed, Is.EqualTo(0));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
     }
@@ -104,7 +104,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
         builder.TryRemove(inventory.Items[0], out _, 2);
         builder.TryAdd(berry, out _, 2);
 
-        var result = inventory.TryCommitTransaction(builder.Build(), out var error);
+        var result = inventory.TryCommitTransaction(builder.Build(), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
@@ -124,10 +124,10 @@ public class MaxTotalItemAmountCapacityPolicyTests
         source.TryAdd(apple, out _, 3);
         target.TryAdd(apple, out _, 2);
 
-        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.TryTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
         Assert.That(source.Count(apple), Is.EqualTo(3));
         Assert.That(target.Count(apple), Is.EqualTo(2));
     }
@@ -145,7 +145,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
     {
         var inventory = CreateInventory(new UnlimitedCapacityPolicy<string>(), definition);
 
-        Assert.That(inventory.TryAdd(definition, out var error, amount), Is.True);
+        Assert.That(inventory.TryAdd(definition, out var failure, amount), Is.True);
         return inventory.Items.Single();
     }
 

@@ -112,7 +112,7 @@ public class SectionedLayoutTests
             new SectionedLayout<string>(new SectionDefinition<string>("bag", 2)),
             definitions: apple);
 
-        Assert.That(inventory.TryAdd(apple, out var error, 1, SectionedLayoutContext<string>.Single("bag", 1)), Is.True);
+        Assert.That(inventory.TryAdd(apple, out var failure, 1, SectionedLayoutContext<string>.Single("bag", 1)), Is.True);
 
         Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
         Assert.That(inventory.Layout.TryGetContextForStorageIndex(inventory, 0, out var context), Is.True);
@@ -132,7 +132,7 @@ public class SectionedLayoutTests
             tags: new[] { weapon, "gear:potion" },
             definitions: sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
 
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
         Assert.That(ItemAt(inventory, "potions", 0), Is.Null);
@@ -150,7 +150,7 @@ public class SectionedLayoutTests
                     new SectionDefinitionOptions<string> { AllowedDefinitionIds = new[] { "sword" } })),
             definitions: sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
     }
 
@@ -167,8 +167,8 @@ public class SectionedLayoutTests
                     new SectionDefinitionOptions<string> { AllowedDefinitions = new[] { sword } })),
             definitions: new ItemDefinition<string>[] { sword, apple });
 
-        Assert.That(inventory.TryAdd(apple, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible section slot available."));
+        Assert.That(inventory.TryAdd(apple, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible section slot available."));
     }
 
     [Test]
@@ -203,7 +203,7 @@ public class SectionedLayoutTests
             new SectionedLayout<string>(new SectionDefinition<string>("bag", 1)),
             definitions: apple);
 
-        Assert.That(inventory.TryAdd(apple, out var error), Is.True);
+        Assert.That(inventory.TryAdd(apple, out var failure), Is.True);
     }
 
     [Test]
@@ -216,8 +216,8 @@ public class SectionedLayoutTests
             tags: new[] { weapon, "gear:food" },
             definitions: apple);
 
-        Assert.That(inventory.TryAdd(apple, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible section slot available."));
+        Assert.That(inventory.TryAdd(apple, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible section slot available."));
     }
 
     [Test]
@@ -294,8 +294,8 @@ public class SectionedLayoutTests
             .Add(1, "hotbar", 0)
             .Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
+        Assert.That(builder.TryBuild(context, out var transaction, out var failure), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out failure), Is.True);
 
         Assert.That(ItemAt(inventory, "bag", 1), Is.EqualTo("apple"));
         Assert.That(ItemAt(inventory, "hotbar", 0), Is.EqualTo("sword"));
@@ -314,8 +314,8 @@ public class SectionedLayoutTests
         Assert.That(builder.TryBuild(
             SectionedLayoutContext<string>.Map().Add(1, "bag", 0).Build(),
             out _,
-            out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Mapped added entry index out of range."));
+            out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Mapped added entry index out of range."));
     }
 
     [Test]
@@ -334,8 +334,8 @@ public class SectionedLayoutTests
             .Add(1, "bag", 0)
             .Build();
 
-        Assert.That(builder.TryBuild(context, out _, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target section slot."));
+        Assert.That(builder.TryBuild(context, out _, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Duplicate mapped target section slot."));
     }
 
     [Test]
@@ -354,8 +354,8 @@ public class SectionedLayoutTests
         Assert.That(builder.TryBuild(
             SectionedLayoutContext<string>.Map().Add(0, "bag", 0).Build(),
             out var transaction,
-            out var error), Is.True);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
+            out var failure), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out failure), Is.True);
         Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("sword"));
     }
 
@@ -368,7 +368,7 @@ public class SectionedLayoutTests
             definitions: apple);
         inventory.TryAdd(apple, out _, 2, SectionedLayoutContext<string>.Single("bag", 0));
 
-        Assert.That(inventory.TryAdd(apple, out var error, 2), Is.True);
+        Assert.That(inventory.TryAdd(apple, out var failure, 2), Is.True);
         Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
         Assert.That(inventory.Items[0].Amount, Is.EqualTo(4));
     }
@@ -384,7 +384,7 @@ public class SectionedLayoutTests
             tags: new[] { axeTag },
             definitions: axe);
 
-        Assert.That(inventory.TryAdd(axe, out var error), Is.True);
+        Assert.That(inventory.TryAdd(axe, out var failure), Is.True);
         Assert.That(ItemAt(inventory, "tools", 0), Is.EqualTo("axe"));
     }
 
@@ -398,7 +398,7 @@ public class SectionedLayoutTests
             new[] { weapon },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
     }
 
@@ -411,7 +411,7 @@ public class SectionedLayoutTests
             new[] { "gear.weapon.sword" },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
     }
 
@@ -429,7 +429,7 @@ public class SectionedLayoutTests
         Assert.That(inventory.TryMove(
             SectionedLayoutContext<string>.Single("hotbar", 0),
             SectionedLayoutContext<string>.Single("bag", 0),
-            out var error), Is.True);
+            out var failure), Is.True);
 
         Assert.That(ItemAt(inventory, "bag", 0), Is.EqualTo("apple"));
         Assert.That(ItemAt(inventory, "hotbar", 0), Is.Null);
@@ -454,8 +454,8 @@ public class SectionedLayoutTests
         Assert.That(inventory.TryMove(
             SectionedLayoutContext<string>.Single("weapons", 0),
             SectionedLayoutContext<string>.Single("armor", 0),
-            out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible section slot available."));
+            out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible section slot available."));
         Assert.That(events, Is.EqualTo(0));
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("sword"));
     }
@@ -476,7 +476,7 @@ public class SectionedLayoutTests
         Assert.That(inventory.TrySwap(
             SectionedLayoutContext<string>.Single("left", 0),
             SectionedLayoutContext<string>.Single("right", 0),
-            out var error), Is.True);
+            out var failure), Is.True);
 
         Assert.That(ItemAt(inventory, "left", 0), Is.EqualTo("sword"));
         Assert.That(ItemAt(inventory, "right", 0), Is.EqualTo("apple"));
@@ -501,8 +501,8 @@ public class SectionedLayoutTests
         Assert.That(inventory.TrySwap(
             SectionedLayoutContext<string>.Single("weapons", 0),
             SectionedLayoutContext<string>.Single("armor", 0),
-            out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible section slot available."));
+            out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible section slot available."));
     }
 
     [Test]
@@ -525,7 +525,7 @@ public class SectionedLayoutTests
             Assert.That(args.AffectedLayoutContexts, Has.Count.EqualTo(4));
         };
 
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var failure), Is.True);
 
         Assert.That(ItemAt(inventory, "hotbar", 0), Is.EqualTo("apple"));
         Assert.That(ItemAt(inventory, "hotbar", 1), Is.EqualTo("sword"));
@@ -551,8 +551,8 @@ public class SectionedLayoutTests
         int events = 0;
         inventory.Changed += (_, _) => events++;
 
-        Assert.That(inventory.TrySortLayout(new UnknownSortContext(), out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Invalid sort context type."));
+        Assert.That(inventory.TrySortLayout(new UnknownSortContext(), out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Invalid sort context type."));
         Assert.That(ItemAt(inventory, "weapons", 0), Is.EqualTo("helmet"));
         Assert.That(ItemAt(inventory, "armor", 0), Is.EqualTo("sword"));
         Assert.That(events, Is.EqualTo(0));
@@ -641,7 +641,7 @@ public class SectionedLayoutTests
             .Add(1, "hotbar", 1)
             .Build();
 
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.True);
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var failure), Is.True);
 
         Assert.That(source.Items, Is.Empty);
         Assert.That(ItemAt(target, "bag", 0), Is.EqualTo("apple"));
@@ -666,8 +666,8 @@ public class SectionedLayoutTests
             .Add(1, "bag", 0)
             .Build();
 
-        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Duplicate mapped target section slot."));
+        Assert.That(transfer.Source.TryCommitTransfer(transfer, target, context, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Duplicate mapped target section slot."));
         Assert.That(source.Items, Has.Count.EqualTo(2));
         Assert.That(target.Items, Is.Empty);
     }

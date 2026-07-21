@@ -28,12 +28,12 @@ public interface IParameterizedInventoryLayout<TKey> : IInventoryLayout<TKey>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="layout">The replacement layout when creation succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when a replacement layout was created; otherwise, <see langword="false"/>.</returns>
     bool TryCreateWithParameter(
         Inventory<TKey> inventory,
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

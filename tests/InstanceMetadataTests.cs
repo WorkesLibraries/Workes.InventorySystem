@@ -224,7 +224,7 @@ public class InstanceMetadataTests
         inventory.CommitTransaction(builder.Build());
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True);
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var failure), Is.True);
         var entry = transfer.Entries.Single();
         inventory.Items[0].Metadata.Set("quality", "stale");
 
@@ -242,7 +242,7 @@ public class InstanceMetadataTests
         inventory.TryAdd(apple, out _, 1);
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var error), Is.True);
+        Assert.That(transfer.TryRemove(inventory.Items[0], 1, out var failure), Is.True);
         var entry = transfer.Entries.Single();
 
         Assert.That(entry.Metadata, Is.Null);
@@ -257,7 +257,7 @@ public class InstanceMetadataTests
         var sourceInstance = inventory.Items[0];
         var transfer = InventoryTransfer.From(inventory);
 
-        Assert.That(transfer.TryRemove(sourceInstance, 1, out var error), Is.True);
+        Assert.That(transfer.TryRemove(sourceInstance, 1, out var failure), Is.True);
         var entry = transfer.Entries.Single();
 
         Assert.That(entry.SourceInstance, Is.SameAs(sourceInstance));

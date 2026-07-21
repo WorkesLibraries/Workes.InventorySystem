@@ -26,8 +26,8 @@ public class InventorySnapshotRestorationTests
         var metadata = new InstanceMetadata();
         metadata.Set("quality", "rare");
         var add = InventoryTransaction<string>.From(source);
-        Assert.That(add.TryAdd(apple, 4, SlotLayoutContext<string>.Single(3), metadata, out var error), Is.True);
-        Assert.That(add.TryAdd(berry, 2, SlotLayoutContext<string>.Single(1), null, out error), Is.True);
+        Assert.That(add.TryAdd(apple, 4, SlotLayoutContext<string>.Single(3), metadata, out var failure), Is.True);
+        Assert.That(add.TryAdd(berry, 2, SlotLayoutContext<string>.Single(1), null, out failure), Is.True);
         source.CommitTransaction(add);
         var snapshot = source.CaptureSnapshot();
 
@@ -235,9 +235,9 @@ public class InventorySnapshotRestorationTests
         int eventCount = 0;
         target.Changed += (_, _) => eventCount++;
 
-        Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out var result, out var error), Is.False);
+        Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out var result, out var failure), Is.False);
         Assert.That(result, Is.Null);
-        Assert.That(error?.Message, Does.Contain("Capacity"));
+        Assert.That(failure?.Message, Does.Contain("Capacity"));
         Assert.That(target.Items.Single().InstanceId, Is.EqualTo(originalId));
         Assert.That(eventCount, Is.Zero);
     }
@@ -289,7 +289,7 @@ public class InventorySnapshotRestorationTests
             source.Add(apple);
             var target = manager.CreateInventory(layout: createLayout());
 
-            Assert.That(target.TryRestoreSnapshot(source.CaptureSnapshot(), out var result, out var error), Is.True);
+            Assert.That(target.TryRestoreSnapshot(source.CaptureSnapshot(), out var result, out var failure), Is.True);
             Assert.That(result!.Outcome, Is.EqualTo(SnapshotApplicationOutcome.Exact));
             Assert.That(target.TotalItemCount, Is.EqualTo(1));
         }
@@ -546,8 +546,8 @@ public class InventorySnapshotRestorationTests
         rules.Set("only-berry", new OnlyAllowItemsRule<string>(berry));
         var target = targetManager.CreateInventory(rules: rules);
 
-        Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out _, out var error), Is.False);
-        Assert.That(error?.Message, Does.Contain("OnlyAllowItems"));
+        Assert.That(target.TryReconcileSnapshot(source.CaptureSnapshot(), out _, out var failure), Is.False);
+        Assert.That(failure?.Message, Does.Contain("OnlyAllowItems"));
 
         var result = target.SalvageSnapshot(source.CaptureSnapshot());
         Assert.That(result.Losses.Single().Quantity, Is.EqualTo(2));
@@ -615,7 +615,7 @@ public class InventorySnapshotRestorationTests
         public bool TryCapture(
             InventoryLayoutSnapshotCaptureContext<string> context,
             out SnapshotValue? data,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             var state = (SlotLayoutPersistentData)context.Layout.GetPersistentData();
             var references = new List<object?>();
@@ -635,17 +635,17 @@ public class InventorySnapshotRestorationTests
                     Value = InventorySnapshotCodecs.Encode(references)
                 }
             });
-            error = null;
+            failure = null;
             return true;
         }
 
         public bool TryDecode(
             InventoryLayoutSnapshotDecodeContext<string> context,
             out InventoryLayoutSnapshotCandidate<string>? candidate,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             candidate = null;
-            error = null;
+            failure = null;
             if (context.Snapshot.Kind != LayoutKind ||
                 context.Snapshot.DataVersion != 1 ||
                 context.Snapshot.Data.Kind != SnapshotValueKind.Object ||
@@ -653,9 +653,9 @@ public class InventorySnapshotRestorationTests
                 !InventorySnapshotCodecs.TryDecode(
                     context.Snapshot.Data.Properties[0].Value,
                     out List<object?> references,
-                    out error))
+                    out failure))
             {
-                error ??= "Invalid automatic-only layout snapshot.";
+                failure ??= InventoryFailures.Layout("Invalid automatic-only layout snapshot.");
                 return false;
             }
             var mapped = new Dictionary<string, IReadOnlyList<ILayoutContext<string>>>(StringComparer.Ordinal);
@@ -665,14 +665,14 @@ public class InventorySnapshotRestorationTests
                     continue;
                 if (!context.TryGetEntry(entryId, out _))
                 {
-                    error = "Unknown entry.";
+                    failure = InventoryFailures.Snapshot("Unknown entry.");
                     return false;
                 }
                 mapped.Add(entryId, new[] { SlotLayoutContext<string>.Single(index) });
             }
             if (mapped.Count != context.EntryCount)
             {
-                error = "Every entry must be placed.";
+                failure = InventoryFailures.Snapshot("Every entry must be placed.");
                 return false;
             }
             candidate = new InventoryLayoutSnapshotCandidate<string>(
@@ -680,22 +680,22 @@ public class InventorySnapshotRestorationTests
                 1,
                 context.Snapshot.Data,
                 mapped);
-            error = null;
+            failure = null;
             return true;
         }
 
         public bool TryCreateExactLayout(
             InventoryLayoutSnapshotRestoreContext<string> context,
             out IInventoryLayout<string>? layout,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             layout = null;
-            error = null;
+            failure = null;
             if (context.TargetLayout is not AutomaticOnlyLayout ||
                 !InventorySnapshotCodecs.TryDecode(
                     context.Candidate.Data.Properties[0].Value,
                     out List<object?> references,
-                    out error))
+                    out failure))
                 return false;
 
             var slots = new List<int?>();

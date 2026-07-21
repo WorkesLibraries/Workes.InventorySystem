@@ -31,9 +31,9 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -42,7 +42,7 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var instanceCounts = new Dictionary<TKey, (ItemDefinition<TKey> definition, int count)>();
 
@@ -59,12 +59,12 @@ public class UniqueItemRule<TKey> : InventorySnapshotRulePolicy<TKey>, IInventor
         {
             if (state.count > _maxInstancesPerItem)
             {
-                error = $"Expected inventory to contain at most {_maxInstancesPerItem} instance(s) of item '{state.definition.Id}' after the transaction, but it would contain {state.count}.";
+                failure = InventoryFailures.Definition($"Expected inventory to contain at most {_maxInstancesPerItem} instance(s) of item '{state.definition.Id}' after the transaction, but it would contain {state.count}.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 

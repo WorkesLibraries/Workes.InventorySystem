@@ -32,7 +32,7 @@ public class MappedTransferContextExampleTests
             .Add(1, 3)
             .Build();
 
-        var moved = backpack.TryCommitTransfer(transfer, chest, context, out var error);
+        var moved = backpack.TryCommitTransfer(transfer, chest, context, out var failure);
 
         Assert.That(moved, Is.True);
         WriteOutput("MappedTransferBuilderExample.txt", Describe("Backpack", backpack, 5) + Describe("Chest", chest, 5));
@@ -51,7 +51,7 @@ public class MappedTransferContextExampleTests
 
         var backpackContext = SlotLayoutContext<string>.Map().Add(0, 2).Build();
         var chestContext = SlotLayoutContext<string>.Map().Add(0, 1).Build();
-        var swapped = backpack.TrySwapWithInventory(chest, backpackContext, chestContext, out var error);
+        var swapped = backpack.TrySwapWithInventory(chest, backpackContext, chestContext, out var failure);
 
         Assert.That(swapped, Is.True);
         WriteOutput("MappedInventorySwapExample.txt", Describe("Backpack", backpack, 4) + Describe("Chest", chest, 4));

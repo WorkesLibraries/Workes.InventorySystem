@@ -43,24 +43,24 @@ public class MetadataRangeRule<TKey, T> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (_, metadata, _) in transaction.Added)
         {
             if (metadata == null || !metadata.TryGet<T>(_key, out var value))
             {
-                error = $"Expected item to have numeric metadata '{_key}' with a value in range [{_min}, {_max}] (inclusive), but it was missing or not of the expected type.";
+                failure = InventoryFailures.Metadata($"Expected item to have numeric metadata '{_key}' with a value in range [{_min}, {_max}] (inclusive), but it was missing or not of the expected type.");
                 return false;
             }
 
             if (value.CompareTo(_min) < 0 || value.CompareTo(_max) > 0)
             {
-                error = $"Expected metadata '{_key}' to be in range [{_min}, {_max}] (inclusive), but it was '{value}'.";
+                failure = InventoryFailures.Metadata($"Expected metadata '{_key}' to be in range [{_min}, {_max}] (inclusive), but it was '{value}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

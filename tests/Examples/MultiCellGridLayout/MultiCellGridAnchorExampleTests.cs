@@ -35,8 +35,8 @@ public class MultiCellGridAnchorExampleTests
             .Add(0, 2, 0, GridAnchor.TopRight)
             .Add(1, 3, 2, GridAnchor.BottomRight)
             .Build();
-        Assert.That(builder.TryBuild(placement, out var transaction, out var error), Is.True);
-        Assert.That(mappedAnchors.TryCommitTransaction(transaction!, out error), Is.True);
+        Assert.That(builder.TryBuild(placement, out var transaction, out var failure), Is.True);
+        Assert.That(mappedAnchors.TryCommitTransaction(transaction!, out failure), Is.True);
 
         var output = new StringBuilder();
         output.AppendLine("Default top-left anchor");

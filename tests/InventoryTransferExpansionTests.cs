@@ -37,29 +37,29 @@ public class InventoryTransferExpansionTests
             _maxTotalAmount = maxTotalAmount;
         }
 
-        public bool CanApply(Inventory<string> inventory, NormalizedInventoryTransaction<string> normalizedTransaction, out InventoryFailure? error)
+        public bool CanApply(Inventory<string> inventory, NormalizedInventoryTransaction<string> normalizedTransaction, out InventoryFailure? failure)
         {
             int added = normalizedTransaction.Added.Sum(i => i.amount);
             int removed = normalizedTransaction.Removed.Sum(i => i.amount);
             if (inventory.TotalItemCount + added - removed > _maxTotalAmount)
             {
-                error = "Capacity exceeded.";
+                failure = InventoryFailures.Capacity("Capacity exceeded.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
 
-        public bool CanAdd(Inventory<string> inventory, ItemInstance<string> instance, out InventoryFailure? error)
+        public bool CanAdd(Inventory<string> inventory, ItemInstance<string> instance, out InventoryFailure? failure)
         {
             if (inventory.TotalItemCount + instance.Amount > _maxTotalAmount)
             {
-                error = "Capacity exceeded.";
+                failure = InventoryFailures.Capacity("Capacity exceeded.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
     }
@@ -81,7 +81,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 5);
 
         var builder = InventoryTransfer.From(source);
-        var result = builder.TryRemove(source.Items[0], 2, out var error);
+        var result = builder.TryRemove(source.Items[0], 2, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(5));
@@ -114,8 +114,8 @@ public class InventoryTransferExpansionTests
         manager.Catalog.Freeze();
         var builder = InventoryTransfer.From(manager.CreateInventory());
 
-        Assert.That(builder.TryRemoveAtStorageIndex(0, 1, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Index out of range."));
+        Assert.That(builder.TryRemoveAtStorageIndex(0, 1, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Index out of range."));
     }
 
     [Test]
@@ -134,7 +134,7 @@ public class InventoryTransferExpansionTests
         source.CommitTransaction(seed.Build());
 
         var builder = InventoryTransfer.From(source);
-        Assert.That(builder.TryRemoveByDefinition(apple, 5, ignoreMetadata: true, out var error), Is.True);
+        Assert.That(builder.TryRemoveByDefinition(apple, 5, ignoreMetadata: true, out var failure), Is.True);
 
         Assert.That(builder.Entries.Sum(e => e.Amount), Is.EqualTo(5));
     }
@@ -160,7 +160,7 @@ public class InventoryTransferExpansionTests
         source.Changed += (_, _) => sourceEvents++;
         target.Changed += (_, _) => targetEvents++;
 
-        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var error);
+        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(sourceEvents, Is.EqualTo(1));
@@ -190,10 +190,10 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var error);
+        var result = source.TryCommitTransfer(builder, target, targetContext: null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Does.Contain("food-only"));
+        Assert.That(failure?.Message, Does.Contain("food-only"));
         Assert.That(source.Count(stone), Is.EqualTo(2));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
     }
@@ -213,7 +213,7 @@ public class InventoryTransferExpansionTests
         source.Changed += (_, _) => sourceEvents++;
         target.Changed += (_, _) => targetEvents++;
 
-        var result = source.CanTransferTo(target, source.Items[0], 1, null, out var error);
+        var result = source.CanTransferTo(target, source.Items[0], 1, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(2));
@@ -239,7 +239,7 @@ public class InventoryTransferExpansionTests
         source.Changed += (_, _) => sourceEvents++;
         target.Changed += (_, _) => targetEvents++;
 
-        var result = source.CanCommitTransfer(builder, target, out var error);
+        var result = source.CanCommitTransfer(builder, target, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(2));
@@ -261,7 +261,7 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 2, out _);
 
-        var result = source.TryCommitTransfer(builder, target, out var error);
+        var result = source.TryCommitTransfer(builder, target, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(1));
@@ -281,7 +281,7 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = source.TryCommitTransfer(builder, target, SlotLayoutContext<string>.Single(1), out var error);
+        var result = source.TryCommitTransfer(builder, target, SlotLayoutContext<string>.Single(1), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.Layout.GetItemAt(target, SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
@@ -312,10 +312,10 @@ public class InventoryTransferExpansionTests
         var target = manager.CreateInventory();
         var builder = InventoryTransfer.From(source);
 
-        var result = source.TryCommitTransfer(builder, target, out var error);
+        var result = source.TryCommitTransfer(builder, target, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Transfer contains no items."));
+        Assert.That(failure?.Message, Is.EqualTo("Transfer contains no items."));
     }
 
     [Test]
@@ -332,10 +332,10 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = otherSource.TryCommitTransfer(builder, target, out var error);
+        var result = otherSource.TryCommitTransfer(builder, target, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Transfer builder does not belong to this inventory."));
+        Assert.That(failure?.Message, Is.EqualTo("Transfer builder does not belong to this inventory."));
         Assert.That(source.Count(apple), Is.EqualTo(1));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
     }
@@ -353,7 +353,7 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = source.TryCommitTransfer(builder, target, null, out var error);
+        var result = source.TryCommitTransfer(builder, target, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.TotalItemCount, Is.EqualTo(0));
@@ -373,7 +373,7 @@ public class InventoryTransferExpansionTests
         var builder = InventoryTransfer.From(source);
         builder.TryRemove(source.Items[0], 1, out _);
 
-        var result = source.CanCommitTransfer(builder, target, null, out var error);
+        var result = source.CanCommitTransfer(builder, target, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(1));
@@ -494,10 +494,10 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 1);
 
         var transfer = InventoryTransfer.From(source).To(target);
-        var staged = transfer.TryRemove(source.Items[0], 1, GridLayoutContext<string>.Single(0, 0), out var error);
+        var staged = transfer.TryRemove(source.Items[0], 1, GridLayoutContext<string>.Single(0, 0), out var failure);
 
         Assert.That(staged, Is.False);
-        Assert.That(error, Is.Not.Null);
+        Assert.That(failure, Is.Not.Null);
         Assert.That(transfer.IsEmpty, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(1));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
@@ -540,7 +540,7 @@ public class InventoryTransferExpansionTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1);
         var transfer = InventoryTransfer.From(source);
-        Assert.That(transfer.TryRemove(source.Items[0], 1, out var error), Is.True);
+        Assert.That(transfer.TryRemove(source.Items[0], 1, out var failure), Is.True);
 
         var ex = Assert.Throws<InvalidOperationException>(() => transfer.To(target));
 
@@ -605,10 +605,10 @@ public class InventoryTransferExpansionTests
         source.TryAdd(stone, out _, 1);
         var transfer = InventoryTransfer.From(source).To(target);
 
-        var staged = transfer.TryRemove(source.Items[0], 1, out var error);
+        var staged = transfer.TryRemove(source.Items[0], 1, out var failure);
 
         Assert.That(staged, Is.False);
-        Assert.That(error?.Message, Does.Contain("food-only"));
+        Assert.That(failure?.Message, Does.Contain("food-only"));
         Assert.That(transfer.IsEmpty, Is.True);
         Assert.That(source.Count(stone), Is.EqualTo(1));
         Assert.That(target.TotalItemCount, Is.EqualTo(0));
@@ -627,10 +627,10 @@ public class InventoryTransferExpansionTests
         target.TryAdd(apple, out _, 8, SlotLayoutContext<string>.Single(0));
         var transfer = InventoryTransfer.From(source).To(target);
 
-        var staged = transfer.TryRemove(source.Items[0], 5, SlotLayoutContext<string>.Single(0), out var error);
+        var staged = transfer.TryRemove(source.Items[0], 5, SlotLayoutContext<string>.Single(0), out var failure);
 
         Assert.That(staged, Is.False);
-        Assert.That(error, Is.Not.Null);
+        Assert.That(failure, Is.Not.Null);
         Assert.That(transfer.IsEmpty, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(5));
         Assert.That(target.Count(apple), Is.EqualTo(8));
@@ -650,10 +650,10 @@ public class InventoryTransferExpansionTests
         target.TryAdd(apple, out _, 10, SlotLayoutContext<string>.Single(0));
         var transfer = InventoryTransfer.From(source).To(target);
 
-        var staged = transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out var error);
+        var staged = transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out var failure);
 
         Assert.That(staged, Is.False);
-        Assert.That(error, Is.Not.Null);
+        Assert.That(failure, Is.Not.Null);
         Assert.That(transfer.IsEmpty, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(2));
         Assert.That(target.Count(apple), Is.EqualTo(10));
@@ -672,10 +672,10 @@ public class InventoryTransferExpansionTests
         var transfer = InventoryTransfer.From(source).To(target);
         Assert.That(transfer.TryRemove(source.Items[0], 1, out var stageError), Is.True);
 
-        var committed = source.TryCommitTransfer(transfer, target, SlotLayoutContext<string>.Single(0), out var error);
+        var committed = source.TryCommitTransfer(transfer, target, SlotLayoutContext<string>.Single(0), out var failure);
 
         Assert.That(committed, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Target-bound transfer builder already contains target placement."));
+        Assert.That(failure?.Message, Is.EqualTo("Target-bound transfer builder already contains target placement."));
         Assert.That(source.Count(apple), Is.EqualTo(1));
         Assert.That(target.Count(apple), Is.EqualTo(0));
     }
@@ -698,7 +698,7 @@ public class InventoryTransferExpansionTests
         seed.TryAdd(gem, 2, null, gemMetadata, out _);
         second.CommitTransaction(seed.Build());
 
-        var result = first.TrySwapItemsWithInventory(second, first.Items[0], 3, second.Items[0], 1, null, null, out var error);
+        var result = first.TrySwapItemsWithInventory(second, first.Items[0], 3, second.Items[0], 1, null, null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(first.Count(apple), Is.EqualTo(2));
@@ -753,7 +753,7 @@ public class InventoryTransferExpansionTests
             second,
             sourceTargetContext: null,
             otherTargetContext: null,
-            out var error);
+            out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(first.Count(gem), Is.EqualTo(3));
@@ -779,7 +779,7 @@ public class InventoryTransferExpansionTests
             second,
             sourceTargetContext: null,
             otherTargetContext: null,
-            out var error);
+            out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(events, Is.EqualTo(0));
@@ -799,7 +799,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 2);
         source.TryAdd(gem, out _, 1);
 
-        var result = source.TryMoveAllTo(target, targetContext: null, out var error);
+        var result = source.TryMoveAllTo(target, targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.TotalItemCount, Is.EqualTo(0));
@@ -824,7 +824,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 2);
         source.TryAdd(stone, out _, 3);
 
-        var result = source.TryMoveByTagTo(target, ingredient, targetContext: null, out var error);
+        var result = source.TryMoveByTagTo(target, ingredient, targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(source.Count(apple), Is.EqualTo(0));
@@ -849,7 +849,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 2);
         source.TryAdd(stone, out _, 3);
 
-        var result = source.TryMoveByTagTo(target, "food.ingredient", targetContext: null, out var error);
+        var result = source.TryMoveByTagTo(target, "food.ingredient", targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.Count(apple), Is.EqualTo(2));
@@ -874,7 +874,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 1);
         source.TryAdd(berry, out _, 1);
 
-        var result = source.TryMoveAllTagsTo(target, new[] { "food:ingredient", fresh }, targetContext: null, out var error);
+        var result = source.TryMoveAllTagsTo(target, new[] { "food:ingredient", fresh }, targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.Count(apple), Is.EqualTo(1));
@@ -901,7 +901,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 1);
         source.TryAdd(berry, out _, 1);
 
-        var result = source.TryMoveAllTagsTo(target, new[] { "food.ingredient", "state" }, targetContext: null, out var error);
+        var result = source.TryMoveAllTagsTo(target, new[] { "food.ingredient", "state" }, targetContext: null, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(target.Count(apple), Is.EqualTo(1));
@@ -921,10 +921,10 @@ public class InventoryTransferExpansionTests
         var target = CreateManager(catalog).CreateInventory();
         source.TryAdd(apple, out _, 1);
 
-        var result = source.TryMoveByTagTo(target, "core:food", targetContext: null, out var error);
+        var result = source.TryMoveByTagTo(target, "core:food", targetContext: null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Transfer contains no items."));
+        Assert.That(failure?.Message, Is.EqualTo("Transfer contains no items."));
         Assert.That(source.Count(apple), Is.EqualTo(1));
     }
 
@@ -939,10 +939,10 @@ public class InventoryTransferExpansionTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 1);
 
-        var result = source.TryMoveWhereTo(target, _ => false, targetContext: null, out var error);
+        var result = source.TryMoveWhereTo(target, _ => false, targetContext: null, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Transfer contains no items."));
+        Assert.That(failure?.Message, Is.EqualTo("Transfer contains no items."));
         Assert.That(source.Count(apple), Is.EqualTo(1));
     }
 
@@ -958,7 +958,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 5);
         target.TryAdd(apple, out _, 1);
 
-        var result = source.TryTransferMaximumTo(target, source.Items[0], 5, null, out var moved, out var error);
+        var result = source.TryTransferMaximumTo(target, source.Items[0], 5, null, out var moved, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(moved, Is.EqualTo(2));
@@ -1001,7 +1001,7 @@ public class InventoryTransferExpansionTests
         source.TryAdd(apple, out _, 3);
         source.TryAdd(berry, out _, 3);
 
-        var result = source.TryMoveMaximumByTagTo(target, fruit, null, out var moved, out var error);
+        var result = source.TryMoveMaximumByTagTo(target, fruit, null, out var moved, out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(moved, Is.EqualTo(4));

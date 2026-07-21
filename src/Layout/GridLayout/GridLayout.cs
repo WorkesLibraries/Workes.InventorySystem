@@ -71,10 +71,10 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
     /// <inheritdoc />
     public bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = new GridLayout<TKey>(Width, Height, PlacementOrder);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -83,14 +83,14 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
+        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out failure))
             return false;
 
         layout = new GridLayout<TKey>(width, height, placementOrder);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -100,10 +100,10 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         layout = null;
-        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out error))
+        if (!TryResolveConfiguration(parameterId, value, out int width, out int height, out var placementOrder, out failure))
             return false;
 
         var newMap = new List<int?>(width * height);
@@ -119,7 +119,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             int y = oldCell / Width;
             if (x >= width || y >= height)
             {
-                error = "Cannot resize grid layout because an occupied cell would be outside the new bounds.";
+                failure = InventoryFailures.Layout("Cannot resize grid layout because an occupied cell would be outside the new bounds.");
                 return false;
             }
 
@@ -136,7 +136,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         });
 
         layout = replacement;
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -146,7 +146,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         out int width,
         out int height,
         out GridPlacementOrder placementOrder,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         width = Width;
         height = Height;
@@ -156,7 +156,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (value is not int widthValue)
             {
-                error = "Parameter 'width' expects value type 'Int32'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'width' expects value type 'Int32'.");
                 return false;
             }
 
@@ -166,7 +166,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (value is not int heightValue)
             {
-                error = "Parameter 'height' expects value type 'Int32'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'height' expects value type 'Int32'.");
                 return false;
             }
 
@@ -176,7 +176,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (value is not GridPlacementOrder placementOrderValue)
             {
-                error = "Parameter 'placementOrder' expects value type 'GridPlacementOrder'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'placementOrder' expects value type 'GridPlacementOrder'.");
                 return false;
             }
 
@@ -184,23 +184,23 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         }
         else
         {
-            error = $"Parameter '{parameterId}' is not supported by GridLayout.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by GridLayout.");
             return false;
         }
 
         if (width <= 0)
         {
-            error = "Grid width must be greater than zero.";
+            failure = InventoryFailures.Layout("Grid width must be greater than zero.");
             return false;
         }
 
         if (height <= 0)
         {
-            error = "Grid height must be greater than zero.";
+            failure = InventoryFailures.Layout("Grid height must be greater than zero.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -282,15 +282,15 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         foreach (var (index, _) in transaction.AmountDeltas)
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
         }
@@ -300,7 +300,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
             removedIndices.Add(index);
@@ -323,19 +323,19 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             {
                 if (itemGridContext.IsMapped)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 if (!IsInRange(itemGridContext.X, itemGridContext.Y))
                 {
-                    error = "Grid position out of range.";
+                    failure = InventoryFailures.Layout("Grid position out of range.");
                     return false;
                 }
 
                 cell = ToCellIndex(itemGridContext.X, itemGridContext.Y);
                 if (!explicitCells.Add(cell))
                 {
-                    error = "Duplicate mapped target cell.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target cell.");
                     return false;
                 }
             }
@@ -344,19 +344,19 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                 cell = FindFirstAvailableCell(simulated);
                 if (cell < 0)
                 {
-                    error = "Not enough empty cells for new instances.";
+                    failure = InventoryFailures.Layout("Not enough empty cells for new instances.");
                     return false;
                 }
             }
             else
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
 
             if (simulated[cell].HasValue)
             {
-                error = "Cell already occupied.";
+                failure = InventoryFailures.Layout("Cell already occupied.");
                 return false;
             }
 
@@ -373,10 +373,10 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
 
         if (context == null)
         {
@@ -386,27 +386,27 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
         if (context is not GridLayoutContext<TKey> gridContext)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (!gridContext.IsMapped)
         {
             if (transaction.Added.Count == 1)
-                return TryCreateAddedCopy(transaction, 0, gridContext, out mappedTransaction, out error);
+                return TryCreateAddedCopy(transaction, 0, gridContext, out mappedTransaction, out failure);
 
             if (transaction.Added.Count == 0 && transaction.AmountDeltas.Count == 1 && transaction.AmountDeltas[0].delta > 0)
             {
                 if (!IsInRange(gridContext.X, gridContext.Y))
                 {
-                    error = "Grid position out of range.";
+                    failure = InventoryFailures.Layout("Grid position out of range.");
                     return false;
                 }
 
                 var cellIndex = _cellMap[ToCellIndex(gridContext.X, gridContext.Y)];
                 if (!cellIndex.HasValue || cellIndex.Value != transaction.AmountDeltas[0].index)
                 {
-                    error = "Merge delta does not match the item at the specified grid position.";
+                    failure = InventoryFailures.Layout("Merge delta does not match the item at the specified grid position.");
                     return false;
                 }
 
@@ -414,7 +414,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                 return true;
             }
 
-            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            failure = InventoryFailures.Layout("Transaction placement context can only target one added entry unless it is a mapped context.");
             return false;
         }
 
@@ -422,7 +422,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         {
             if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
             {
-                error = "Mapped added entry index out of range.";
+                failure = InventoryFailures.Layout("Mapped added entry index out of range.");
                 return false;
             }
         }
@@ -449,28 +449,28 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                     !existingGridContext.IsMapped &&
                     (existingGridContext.X != mappedCell.x || existingGridContext.Y != mappedCell.y))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not GridLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 if (!IsInRange(mappedCell.x, mappedCell.y))
                 {
-                    error = "Grid position out of range.";
+                    failure = InventoryFailures.Layout("Grid position out of range.");
                     return false;
                 }
                 var cell = ToCellIndex(mappedCell.x, mappedCell.y);
                 if (!reservedCells.Add(cell))
                 {
-                    error = "Duplicate mapped target cell.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target cell.");
                     return false;
                 }
                 if (simulated[cell].HasValue)
                 {
-                    error = "Cell already occupied.";
+                    failure = InventoryFailures.Layout("Cell already occupied.");
                     return false;
                 }
                 simulated[cell] = futureStorageIndex + i;
@@ -480,18 +480,18 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             {
                 if (!IsInRange(existingGridContext.X, existingGridContext.Y))
                 {
-                    error = "Grid position out of range.";
+                    failure = InventoryFailures.Layout("Grid position out of range.");
                     return false;
                 }
                 var cell = ToCellIndex(existingGridContext.X, existingGridContext.Y);
                 if (!reservedCells.Add(cell))
                 {
-                    error = "Duplicate mapped target cell.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target cell.");
                     return false;
                 }
                 if (simulated[cell].HasValue)
                 {
-                    error = "Cell already occupied.";
+                    failure = InventoryFailures.Layout("Cell already occupied.");
                     return false;
                 }
                 simulated[cell] = futureStorageIndex + i;
@@ -499,7 +499,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             }
             else if (existingContext != null)
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
             else
@@ -516,7 +516,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             int cell = FindFirstAvailableCell(simulated);
             if (cell < 0)
             {
-                error = "Not enough empty cells for new instances.";
+                failure = InventoryFailures.Layout("Not enough empty cells for new instances.");
                 return false;
             }
 
@@ -534,10 +534,10 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
         for (int i = 0; i < transaction.Added.Count; i++)
         {
@@ -549,12 +549,12 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
                     !existingGridContext.IsMapped &&
                     (existingGridContext.X != newGridContext.X || existingGridContext.Y != newGridContext.Y))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not GridLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, context));
@@ -572,16 +572,16 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         int cell;
         if (context is GridLayoutContext<TKey> gridContext && !gridContext.IsMapped)
         {
             if (!IsInRange(gridContext.X, gridContext.Y))
             {
-                error = "Grid position out of range.";
+                failure = InventoryFailures.Layout("Grid position out of range.");
                 return false;
             }
             cell = ToCellIndex(gridContext.X, gridContext.Y);
@@ -591,19 +591,19 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             cell = FindFirstAvailableCell(_cellMap);
             if (cell < 0)
             {
-                error = "Not enough empty cells for new instances.";
+                failure = InventoryFailures.Layout("Not enough empty cells for new instances.");
                 return false;
             }
         }
         else
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (_cellMap[cell].HasValue)
         {
-            error = "Cell already occupied.";
+            failure = InventoryFailures.Layout("Cell already occupied.");
             return false;
         }
 
@@ -612,17 +612,17 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!IsInRange(fromContext.X, fromContext.Y) || !IsInRange(toContext.X, toContext.Y))
         {
-            error = "Grid position out of range.";
+            failure = InventoryFailures.Layout("Grid position out of range.");
             return false;
         }
 
@@ -630,17 +630,17 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         int toCell = ToCellIndex(toContext.X, toContext.Y);
         if (fromCell == toCell)
         {
-            error = "Cannot move item to itself.";
+            failure = InventoryFailures.Layout("Cannot move item to itself.");
             return false;
         }
         if (!_cellMap[fromCell].HasValue)
         {
-            error = "Source cell has no item.";
+            failure = InventoryFailures.Layout("Source cell has no item.");
             return false;
         }
         if (_cellMap[toCell].HasValue)
         {
-            error = "Target cell is already occupied.";
+            failure = InventoryFailures.Layout("Target cell is already occupied.");
             return false;
         }
 
@@ -651,17 +651,17 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!IsInRange(fromContext.X, fromContext.Y) || !IsInRange(toContext.X, toContext.Y))
         {
-            error = "Grid position out of range.";
+            failure = InventoryFailures.Layout("Grid position out of range.");
             return false;
         }
 
@@ -669,12 +669,12 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
         int toCell = ToCellIndex(toContext.X, toContext.Y);
         if (fromCell == toCell)
         {
-            error = "Cannot swap item with itself.";
+            failure = InventoryFailures.Layout("Cannot swap item with itself.");
             return false;
         }
         if (!_cellMap[fromCell].HasValue || !_cellMap[toCell].HasValue)
         {
-            error = "One or both of the cells has no item.";
+            failure = InventoryFailures.Layout("One or both of the cells has no item.");
             return false;
         }
 
@@ -686,11 +686,11 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
-            error = "Invalid sort context type.";
+            failure = InventoryFailures.Layout("Invalid sort context type.");
             return false;
         }
 
@@ -722,7 +722,7 @@ public class GridLayout<TKey> : IParameterizedRepackableInventoryLayout<TKey>
             occupiedIndex++;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 

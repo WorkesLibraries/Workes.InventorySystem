@@ -5,6 +5,10 @@ namespace Workes.InventorySystem.Core;
 /// </summary>
 public sealed class InventoryOperationException : InventorySystemException
 {
+    /// <summary>
+    /// Creates an inventory operation exception.
+    /// </summary>
+    /// <param name="failure">The structured operation failure.</param>
     public InventoryOperationException(InventoryFailure failure)
         : base(failure)
     {

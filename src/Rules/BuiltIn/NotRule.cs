@@ -29,22 +29,22 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (_inner is IInventorySnapshotRulePolicy<TKey>)
         {
             var snapshot = new InventoryRuleSnapshot<TKey>(inventory, transaction);
-            return CanApply(inventory, transaction, snapshot, out error);
+            return CanApply(inventory, transaction, snapshot, out failure);
         }
 
         var allowed = _inner.CanApply(inventory, transaction, out _);
         if (allowed)
         {
-            error = $"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.";
+            failure = InventoryFailures.Rules($"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -54,7 +54,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var snapshotInner = _inner as IInventorySnapshotRulePolicy<TKey>;
         var allowed = snapshotInner != null
@@ -63,11 +63,11 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
 
         if (allowed)
         {
-            error = $"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.";
+            failure = InventoryFailures.Rules($"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -76,7 +76,7 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var allowed = _inner is IInventoryStructuralRulePolicy<TKey> structuralRule
             ? structuralRule.CanApply(inventory, transaction, out _)
@@ -84,11 +84,11 @@ public class NotRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKe
 
         if (allowed)
         {
-            error = $"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.";
+            failure = InventoryFailures.Rules($"Expected wrapped rule '{_inner.GetType().Name}' to reject the transaction, but it allowed it.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

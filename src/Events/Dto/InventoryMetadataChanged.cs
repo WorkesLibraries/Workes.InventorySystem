@@ -39,8 +39,8 @@ public sealed class InventoryMetadataChanged
         string parameterName)
     {
         var store = new MetadataStore();
-        if (!store.TryReplace(values, out var error))
-            throw new ArgumentException(error?.Message, parameterName);
+        if (!store.TryReplace(values, out var failure))
+            throw new ArgumentException(failure?.Message, parameterName);
         return store;
     }
 }

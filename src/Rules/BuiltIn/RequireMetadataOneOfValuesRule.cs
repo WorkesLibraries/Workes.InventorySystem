@@ -41,24 +41,24 @@ public class RequireMetadataOneOfValuesRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (_, metadata, _) in transaction.Added)
         {
             if (metadata == null || !metadata.AsReadOnly().TryGetValue(_key, out var value))
             {
-                error = $"Expected item metadata '{_key}' to exist and be one of: {_allowedValuesDescription}.";
+                failure = InventoryFailures.Metadata($"Expected item metadata '{_key}' to exist and be one of: {_allowedValuesDescription}.");
                 return false;
             }
 
             if (!_allowedValues.Contains(value!))
             {
-                error = $"Expected item metadata '{_key}' to be one of: {_allowedValuesDescription}, but it was '{value}'.";
+                failure = InventoryFailures.Metadata($"Expected item metadata '{_key}' to be one of: {_allowedValuesDescription}, but it was '{value}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

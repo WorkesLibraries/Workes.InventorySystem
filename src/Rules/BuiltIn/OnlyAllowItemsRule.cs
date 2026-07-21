@@ -41,19 +41,19 @@ public class OnlyAllowItemsRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var allowedDescription = string.Join(", ", _allowed.Select(x => $"{x!.Id}"));
         foreach (var (definition, _, _) in transaction.Added)
         {
             if (!_allowed.Contains(definition))
             {
-                error = $"Expected transaction to only add allowed items. OnlyAllowItemsRule allows: {allowedDescription}, but it attempted to add '{definition.Id}'.";
+                failure = InventoryFailures.Definition($"Expected transaction to only add allowed items. OnlyAllowItemsRule allows: {allowedDescription}, but it attempted to add '{definition.Id}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

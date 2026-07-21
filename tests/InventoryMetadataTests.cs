@@ -20,19 +20,19 @@ public class InventoryMetadataTests
     {
         var metadata = new InventoryMetadata();
 
-        Assert.That(metadata.TryAdd("level", 1, out var error), Is.True);
-        Assert.That(metadata.TryAdd("level", 2, out error), Is.False);
+        Assert.That(metadata.TryAdd("level", 1, out var failure), Is.True);
+        Assert.That(metadata.TryAdd("level", 2, out failure), Is.False);
         Assert.Throws<InventoryOperationException>(() => metadata.Add("level", 2));
-        Assert.That(metadata.TryUpdate<int>("level", value => value + 1, out error), Is.True);
+        Assert.That(metadata.TryUpdate<int>("level", value => value + 1, out failure), Is.True);
         Assert.That(metadata.TryGet<int>("level", out var level), Is.True);
         Assert.That(level, Is.EqualTo(2));
-        Assert.That(metadata.TryUpdate<string>("level", value => value, out error), Is.False);
-        Assert.That(metadata.TryUpdate<int>("missing", value => value, out error), Is.False);
-        Assert.That(metadata.TrySet("nothing", null, out error), Is.True);
+        Assert.That(metadata.TryUpdate<string>("level", value => value, out failure), Is.False);
+        Assert.That(metadata.TryUpdate<int>("missing", value => value, out failure), Is.False);
+        Assert.That(metadata.TrySet("nothing", null, out failure), Is.True);
         Assert.That(metadata.TryGet<string?>("nothing", out var nothing), Is.True);
         Assert.That(nothing, Is.Null);
         Assert.That(metadata.TryGet<int>("nothing", out _), Is.False);
-        Assert.That(metadata.TryRemove("missing", out error), Is.False);
+        Assert.That(metadata.TryRemove("missing", out failure), Is.False);
     }
 
     [Test]
@@ -69,15 +69,15 @@ public class InventoryMetadataTests
         var cycle = new List<object?>();
         cycle.Add(cycle);
 
-        Assert.That(metadata.TrySet("unsupported", dictionary, out var error), Is.False);
-        Assert.That(error?.Message, Does.Contain("not a supported portable snapshot value"));
-        Assert.That(metadata.TrySet("cycle", cycle, out error), Is.False);
-        Assert.That(error?.Message, Does.Contain("cycle"));
+        Assert.That(metadata.TrySet("unsupported", dictionary, out var failure), Is.False);
+        Assert.That(failure?.Message, Does.Contain("not a supported portable snapshot value"));
+        Assert.That(metadata.TrySet("cycle", cycle, out failure), Is.False);
+        Assert.That(failure?.Message, Does.Contain("cycle"));
         Assert.That(metadata.TryGet<int>("kept", out var kept), Is.True);
         Assert.That(kept, Is.EqualTo(1));
         Assert.That(metadata.TryReplace(
             new Dictionary<string, object?> { ["valid"] = 2, ["invalid"] = DayOfWeek.Monday },
-            out error), Is.False);
+            out failure), Is.False);
         Assert.That(metadata.TryGet<int>("kept", out kept), Is.True);
         Assert.That(kept, Is.EqualTo(1));
     }
@@ -219,28 +219,28 @@ public class InventoryMetadataTests
         public bool CanApply(
             Inventory<string> inventory,
             NormalizedInventoryTransaction<string> normalizedTransaction,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             if (inventory.Metadata.TryGet<bool>("blockCapacity", out var blocked) && blocked)
             {
-                error = "Root metadata requested capacity rejection.";
+                failure = InventoryFailures.Metadata("Root metadata requested capacity rejection.");
                 return false;
             }
-            error = null;
+            failure = null;
             return true;
         }
 
         public bool CanAdd(
             Inventory<string> inventory,
             ItemInstance<string> instance,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             if (inventory.Metadata.TryGet<bool>("blockCapacity", out var blocked) && blocked)
             {
-                error = "Root metadata requested capacity rejection.";
+                failure = InventoryFailures.Metadata("Root metadata requested capacity rejection.");
                 return false;
             }
-            error = null;
+            failure = null;
             return true;
         }
     }
@@ -252,14 +252,14 @@ public class InventoryMetadataTests
         public bool CanApply(
             Inventory<string> inventory,
             NormalizedInventoryTransaction<string> transaction,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             if (inventory.Metadata.TryGet<bool>("blockRule", out var blocked) && blocked)
             {
-                error = "Root metadata requested rule rejection.";
+                failure = InventoryFailures.Metadata("Root metadata requested rule rejection.");
                 return false;
             }
-            error = null;
+            failure = null;
             return true;
         }
     }

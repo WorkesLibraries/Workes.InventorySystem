@@ -810,7 +810,7 @@ public class ItemUniverseFoundationTests
         catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(definition, out var error), Is.True);
+        Assert.That(inventory.TryAdd(definition, out var failure), Is.True);
         Assert.That(inventory.Items.Single().Definition.Id, Is.EqualTo(id));
     }
 
@@ -841,7 +841,7 @@ public class ItemUniverseFoundationTests
         catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(definition, out var error), Is.True);
+        Assert.That(inventory.TryAdd(definition, out var failure), Is.True);
         Assert.That(inventory.Items.Single().Definition.Id, Is.EqualTo(42));
     }
 
@@ -1461,7 +1461,7 @@ public class ItemUniverseFoundationTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(axe, out var error), Is.True);
+        Assert.That(inventory.TryAdd(axe, out var failure), Is.True);
     }
 
     [Test]
@@ -1480,6 +1480,6 @@ public class ItemUniverseFoundationTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.That(inventory.TryAdd(axe, out var error), Is.True);
+        Assert.That(inventory.TryAdd(axe, out var failure), Is.True);
     }
 }

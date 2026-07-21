@@ -103,15 +103,15 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         foreach (var (index, _) in transaction.AmountDeltas)
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
         }
@@ -121,7 +121,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
             removedIndices.Add(index);
@@ -142,14 +142,14 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
             {
                 if (entryContext.IsMapped)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
 
                 targetIndex = entryContext.TargetIndex;
                 if (targetIndex < 0 || targetIndex > simulated.Count)
                 {
-                    error = "Target index out of range.";
+                    failure = InventoryFailures.Layout("Target index out of range.");
                     return false;
                 }
             }
@@ -159,7 +159,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
             }
             else
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
 
@@ -176,10 +176,10 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
 
         if (context == null)
         {
@@ -189,7 +189,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
         if (context is not EntryLayoutContext<TKey> entryContext)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -197,7 +197,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         {
             if (transaction.Added.Count == 1)
             {
-                if (!TryCreateAddedCopy(transaction, 0, entryContext, out mappedTransaction, out error))
+                if (!TryCreateAddedCopy(transaction, 0, entryContext, out mappedTransaction, out failure))
                     return false;
                 return true;
             }
@@ -207,14 +207,14 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
                 int targetPos = entryContext.TargetIndex;
                 if (targetPos < 0 || targetPos >= _order.Count)
                 {
-                    error = "Target index out of range.";
+                    failure = InventoryFailures.Layout("Target index out of range.");
                     return false;
                 }
 
                 int itemIndex = _order[targetPos];
                 if (transaction.AmountDeltas[0].index != itemIndex)
                 {
-                    error = "Merge delta does not match the item at the specified entry index.";
+                    failure = InventoryFailures.Layout("Merge delta does not match the item at the specified entry index.");
                     return false;
                 }
 
@@ -222,7 +222,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
                 return true;
             }
 
-            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            failure = InventoryFailures.Layout("Transaction placement context can only target one added entry unless it is a mapped context.");
             return false;
         }
 
@@ -230,7 +230,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         {
             if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
             {
-                error = "Mapped added entry index out of range.";
+                failure = InventoryFailures.Layout("Mapped added entry index out of range.");
                 return false;
             }
         }
@@ -256,12 +256,12 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
                 !existingEntryContext.IsMapped &&
                 existingEntryContext.TargetIndex != adjustedTargetIndex)
             {
-                error = "Transaction placement context conflicts with an added entry context.";
+                failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                 return false;
             }
             if (existingContext != null && existingContext is not EntryLayoutContext<TKey>)
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
             added.Add((instance, mappedContext));
@@ -296,10 +296,10 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
         for (int i = 0; i < transaction.Added.Count; i++)
         {
@@ -311,12 +311,12 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
                     !existingEntryContext.IsMapped &&
                     existingEntryContext.TargetIndex != newEntryContext.TargetIndex)
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not EntryLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, context));
@@ -334,9 +334,9 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         // Entry layout has no capacity limit, but if a context is provided we validate
         // that the requested target index is sensible for this layout.
         if (context is EntryLayoutContext<TKey> entryContext)
@@ -344,7 +344,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
             int targetPos = entryContext.TargetIndex;
             if (targetPos < 0 || targetPos > _order.Count)
             {
-                error = "Target index out of range.";
+                failure = InventoryFailures.Layout("Target index out of range.");
                 return false;
             }
         }
@@ -354,13 +354,13 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         if (contextTo is not EntryLayoutContext<TKey> entryContextTo || contextFrom is not EntryLayoutContext<TKey> entryContextFrom)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -369,13 +369,13 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
         if (fromPos < 0 || fromPos >= _order.Count || targetPos < 0 || targetPos >= _order.Count)
         {
-            error = "Invalid position.";
+            failure = InventoryFailures.Layout("Invalid position.");
             return false;
         }
 
         if (targetPos == fromPos)
         {
-            error = "Cannot move item to the same position.";
+            failure = InventoryFailures.Layout("Cannot move item to the same position.");
             return false;
         }
 
@@ -390,13 +390,13 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         if (contextTo is not EntryLayoutContext<TKey> entryContextTo || contextFrom is not EntryLayoutContext<TKey> entryContextFrom)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
@@ -405,13 +405,13 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
         if (fromPos < 0 || fromPos >= _order.Count || targetPos < 0 || targetPos >= _order.Count)
         {
-            error = "Invalid position.";
+            failure = InventoryFailures.Layout("Invalid position.");
             return false;
         }
 
         if (fromPos == targetPos)
         {
-            error = "Cannot swap item with itself.";
+            failure = InventoryFailures.Layout("Cannot swap item with itself.");
             return false;
         }
 
@@ -424,11 +424,11 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
         if (sortContext is not ItemSortContext<TKey> itemSortContext)
         {
-            error = "Invalid sort context type.";
+            failure = InventoryFailures.Layout("Invalid sort context type.");
             return false;
         }
 
@@ -446,7 +446,7 @@ public class EntryLayout<TKey> : IInventoryLayoutReconciler<TKey>
         foreach (var entry in indexed)
             _order.Add(entry.storageIndex);
 
-        error = null;
+        failure = null;
         return true;
     }
 

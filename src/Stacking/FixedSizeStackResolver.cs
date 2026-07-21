@@ -48,29 +48,29 @@ public class FixedSizeStackResolver<TKey> : IParameterizedStackResolver<TKey>
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         resolver = null;
         if (parameterId != "maxStack")
         {
-            error = $"Parameter '{parameterId}' is not supported by FixedSizeStackResolver.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by FixedSizeStackResolver.");
             return false;
         }
 
         if (value is not int maxStack)
         {
-            error = "Parameter 'maxStack' expects value type 'Int32'.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'maxStack' expects value type 'Int32'.");
             return false;
         }
 
         if (maxStack <= 0)
         {
-            error = "Maximum stack size must be greater than zero.";
+            failure = InventoryFailures.Stacking("Maximum stack size must be greater than zero.");
             return false;
         }
 
         resolver = new FixedSizeStackResolver<TKey>(maxStack);
-        error = null;
+        failure = null;
         return true;
     }
 }

@@ -487,22 +487,22 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>Internal: generates a transaction for adding items. Optional metadata groups by definition+metadata (e.g. 10 apples vs 10 apples[metadata]).</summary>
-    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, InstanceMetadata? metadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
-        error = null;
-        if (!TryValidateRegisteredDefinition(definition, out error))
+        failure = null;
+        if (!TryValidateRegisteredDefinition(definition, out failure))
             return false;
 
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
 
         var prototypeMeta = metadata != null && !metadata.IsEmpty ? CloneMetadata(metadata) : null;
         var prototype = new ItemInstance<TKey>(definition, 1, prototypeMeta);
-        if (!TryResolveMaxStackSize(prototype, out int maxStack, out error))
+        if (!TryResolveMaxStackSize(prototype, out int maxStack, out failure))
             return false;
 
         var amountDeltas = new List<(int index, int delta)>();
@@ -527,14 +527,14 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             int chunk = Math.Min(remaining, maxStack);
             var chunkMeta = metadata != null && !metadata.IsEmpty ? CloneMetadata(metadata) : null;
             var instance = new ItemInstance<TKey>(definition, chunk, chunkMeta);
-            if (!_layout.CanAcceptNewItem(this, instance, context, out error))
+            if (!_layout.CanAcceptNewItem(this, instance, context, out failure))
                 return false;
             added.Add((instance, context));
             remaining -= chunk;
         }
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, new List<(int index, ItemInstance<TKey> instance)>(), added);
-        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out failure) || mappedTx == null)
             return false;
         transaction = mappedTx;
         return true;
@@ -543,84 +543,84 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private static InstanceMetadata CloneMetadata(InstanceMetadata source) =>
         source.Clone();
 
-    private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out InventoryFailure? error)
+    private bool TryValidateRegisteredDefinition(ItemDefinition<TKey>? definition, out InventoryFailure? failure)
     {
         if (definition == null)
         {
-            error = "Item definition cannot be null.";
+            failure = InventoryFailures.Definition("Item definition cannot be null.");
             return false;
         }
 
         if (definition.Id == null || !Manager.Registry.TryGet(definition.Id, out var registeredDefinition))
         {
-            error = $"Item definition '{definition.Id}' is not registered in this inventory's item catalog.";
+            failure = InventoryFailures.Definition($"Item definition '{definition.Id}' is not registered in this inventory's item catalog.");
             return false;
         }
 
         if (!ReferenceEquals(registeredDefinition, definition))
         {
-            error = $"Item definition '{definition.Id}' is not the registered definition instance for this inventory's item catalog.";
+            failure = InventoryFailures.Definition($"Item definition '{definition.Id}' is not the registered definition instance for this inventory's item catalog.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     internal bool TryResolveRegisteredDefinitionId(
         TKey definitionId,
         out ItemDefinition<TKey>? definition,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         definition = null;
 
         if (definitionId == null)
         {
-            error = "Item definition id cannot be null.";
+            failure = InventoryFailures.Definition("Item definition id cannot be null.");
             return false;
         }
 
         try
         {
             definition = Manager.Registry.Resolve(definitionId);
-            error = null;
+            failure = null;
             return true;
         }
         catch (InvalidOperationException ex)
         {
-            error = ex.Message;
+            failure = InventoryFailures.DefinitionUnresolved(ex.Message);
             return false;
         }
     }
 
     private ItemDefinition<TKey> ResolveRegisteredDefinitionId(TKey definitionId)
     {
-        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out var error) || definition == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out var failure) || definition == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
 
         return definition;
     }
 
-    private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    private bool TryValidateTransactionDefinitions(InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
         foreach (var (instance, _) in transaction.Added)
         {
-            if (!TryValidateRegisteredDefinition(instance.Definition, out error))
+            if (!TryValidateRegisteredDefinition(instance.Definition, out failure))
                 return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     internal bool TryApplyMetadataMutation(
         InstanceMetadata metadata,
         InstanceMetadata proposedMetadata,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (metadata == null)
         {
-            error = "Metadata cannot be null.";
+            failure = InventoryFailures.Metadata("Metadata cannot be null.");
             return false;
         }
 
@@ -638,7 +638,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (item == null)
         {
-            error = "Metadata does not belong to this inventory.";
+            failure = InventoryFailures.Metadata("Metadata does not belong to this inventory.");
             return false;
         }
 
@@ -648,12 +648,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             item.Definition,
             item.Amount,
             proposedMetadata.IsEmpty ? null : proposedMetadata);
-        if (!TryResolveMaxStackSize(proposedInstance, out int maxStack, out error))
+        if (!TryResolveMaxStackSize(proposedInstance, out int maxStack, out failure))
             return false;
 
         if (item.Amount > maxStack)
         {
-            error = $"Metadata mutation would make stack amount {item.Amount} exceed maximum stack size {maxStack}.";
+            failure = InventoryFailures.Metadata($"Metadata mutation would make stack amount {item.Amount} exceed maximum stack size {maxStack}.");
             return false;
         }
 
@@ -664,7 +664,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             new List<(int index, ItemInstance<TKey> instance)> { (index, item) },
             new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> { (proposedInstance, context) });
 
-        if (!TryPrepareTransaction(transaction, null, out _, out error))
+        if (!TryPrepareTransaction(transaction, null, out _, out failure))
             return false;
 
         var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
@@ -684,32 +684,32 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             metadataChanged: new[] { metadataChanged },
             affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
             requiresFullRefresh: reconciliation.RequiresFullRefresh));
-        error = null;
+        failure = null;
         return true;
     }
 
     bool IInstanceMetadataOwner.TryApplyMetadataMutation(
         InstanceMetadata metadata,
         InstanceMetadata proposedMetadata,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return TryApplyMetadataMutation(metadata, proposedMetadata, out error);
+        return TryApplyMetadataMutation(metadata, proposedMetadata, out failure);
     }
 
     bool IInventoryMetadataOwner.TryApplyMetadataMutation(
         InventoryMetadata metadata,
         InventoryMetadata proposedMetadata,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (!ReferenceEquals(metadata, Metadata))
         {
-            error = "Metadata does not belong to this inventory.";
+            failure = InventoryFailures.Metadata("Metadata does not belong to this inventory.");
             return false;
         }
 
         var candidate = CreateSimulationClone(this);
         candidate.Metadata.ReplaceDirect(proposedMetadata);
-        if (!TryValidateReplacement(candidate, out _, out error))
+        if (!TryValidateReplacement(candidate, out _, out failure))
             return false;
 
         var before = Metadata.Clone();
@@ -724,7 +724,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             affectedLayoutContexts: reconciliation.AffectedLayoutContexts,
             requiresFullRefresh: reconciliation.RequiresFullRefresh,
             origin: InventoryChangeOrigin.Operation));
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -734,37 +734,37 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string key,
         object? value,
         out ItemInstance<TKey>? metadataStack,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         metadataStack = null;
         if (instance == null)
         {
-            error = "Item instance cannot be null.";
+            failure = InventoryFailures.Validation("Item instance cannot be null.");
             return false;
         }
 
         int index = GetItemIndex(instance);
         if (index < 0)
         {
-            error = "Item not found in inventory.";
+            failure = InventoryFailures.Validation("Item not found in inventory.");
             return false;
         }
 
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
 
         if (amount > instance.Amount)
         {
-            error = "Not enough quantity to split.";
+            failure = InventoryFailures.Validation("Not enough quantity to split.");
             return false;
         }
 
         if (amount == instance.Amount)
         {
-            if (!instance.Metadata.TrySet(key, value, out error))
+            if (!instance.Metadata.TrySet(key, value, out failure))
                 return false;
 
             metadataStack = instance;
@@ -774,12 +774,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         var splitMetadata = instance.Metadata.Clone();
         splitMetadata.SetDirect(key, value);
         var splitInstance = new ItemInstance<TKey>(instance.Definition, amount, splitMetadata);
-        if (!TryResolveMaxStackSize(splitInstance, out int maxStack, out error))
+        if (!TryResolveMaxStackSize(splitInstance, out int maxStack, out failure))
             return false;
 
         if (amount > maxStack)
         {
-            error = $"Split amount {amount} exceeds maximum stack size {maxStack}.";
+            failure = InventoryFailures.Stacking($"Split amount {amount} exceeds maximum stack size {maxStack}.");
             return false;
         }
 
@@ -789,37 +789,37 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             new List<(int index, ItemInstance<TKey> instance)>(),
             new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> { (splitInstance, null) });
 
-        if (!TryPrepareTransaction(transaction, null, out var mappedTransaction, out error) || mappedTransaction == null)
+        if (!TryPrepareTransaction(transaction, null, out var mappedTransaction, out failure) || mappedTransaction == null)
             return false;
 
         ApplyPreparedTransaction(mappedTransaction);
         metadataStack = splitInstance;
-        error = null;
+        failure = null;
         return true;
     }
 
-    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
-        => TryFormulateAdd(definition, amount, context, null, out transaction, out error);
+    internal bool TryFormulateAdd(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
+        => TryFormulateAdd(definition, amount, context, null, out transaction, out failure);
 
     /// <summary>Internal: generates a transaction for removing from a specific instance.</summary>
-    internal bool TryFormulateRemove(ItemInstance<TKey> instance, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    internal bool TryFormulateRemove(ItemInstance<TKey> instance, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
-        error = null;
+        failure = null;
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
         int index = _items.IndexOf(instance);
         if (index == -1)
         {
-            error = "Item not found in inventory.";
+            failure = InventoryFailures.Validation("Item not found in inventory.");
             return false;
         }
         if (instance.Amount < amount)
         {
-            error = "Not enough quantity to remove.";
+            failure = InventoryFailures.Validation("Not enough quantity to remove.");
             return false;
         }
         var amountDeltas = new List<(int index, int delta)>();
@@ -829,31 +829,31 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         else
             amountDeltas.Add((index, -amount));
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out failure) || mappedTx == null)
             return false;
         transaction = mappedTx;
         return true;
     }
 
     /// <summary>Internal: generates a transaction for removing at a storage index.</summary>
-    internal bool TryFormulateRemoveAt(int index, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    internal bool TryFormulateRemoveAt(int index, int amount, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
-        error = null;
+        failure = null;
         if (index < 0 || index >= _items.Count)
         {
-            error = "Index out of range.";
+            failure = InventoryFailures.Validation("Index out of range.");
             return false;
         }
         var inst = _items[index];
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
         if (inst.Amount < amount)
         {
-            error = "Not enough quantity to remove.";
+            failure = InventoryFailures.Validation("Not enough quantity to remove.");
             return false;
         }
         var amountDeltas = new List<(int index, int delta)>();
@@ -863,21 +863,21 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         else
             amountDeltas.Add((index, -amount));
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out failure) || mappedTx == null)
             return false;
         transaction = mappedTx;
         return true;
     }
 
     /// <summary>Internal: generates a transaction for removing by definition. When ignoreMetadata is false, uses first matching instance's metadata as reference.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         if (ignoreMetadata)
-            return TryFormulateRemoveByDefinition(definition, amount, (InstanceMetadata?)null, out transaction, out error);
+            return TryFormulateRemoveByDefinition(definition, amount, (InstanceMetadata?)null, out transaction, out failure);
         transaction = null;
-        error = null;
-        if (definition == null) { error = "Definition cannot be null."; return false; }
-        if (amount <= 0) { error = "Amount must be greater than zero."; return false; }
+        failure = null;
+        if (definition == null) { failure = InventoryFailures.Definition("Definition cannot be null."); return false; }
+        if (amount <= 0) { failure = InventoryFailures.Validation("Amount must be greater than zero."); return false; }
         InstanceMetadata? firstMeta = null;
         for (int i = 0; i < _items.Count; i++)
         {
@@ -886,22 +886,22 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             firstMeta = inst.Metadata;
             break;
         }
-        return TryFormulateRemoveByDefinition(definition, amount, firstMeta, out transaction, out error);
+        return TryFormulateRemoveByDefinition(definition, amount, firstMeta, out transaction, out failure);
     }
 
     /// <summary>Internal: when referenceMetadata is null/empty, any metadata matches; otherwise only instances with structurally equal metadata match.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? referenceMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? referenceMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
-        error = null;
+        failure = null;
         if (definition == null)
         {
-            error = "Definition cannot be null.";
+            failure = InventoryFailures.Definition("Definition cannot be null.");
             return false;
         }
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
         var amountDeltas = new List<(int index, int delta)>();
@@ -926,12 +926,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (remaining > 0)
         {
-            error = "Not enough matching items to remove.";
+            failure = InventoryFailures.Validation("Not enough matching items to remove.");
             return false;
         }
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out failure) || mappedTx == null)
             return false;
         transaction = mappedTx;
         return true;
@@ -941,30 +941,30 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryTransaction<TKey> tx,
         ILayoutContext<TKey>? placementContext,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         if (tx == null)
         {
-            error = "Transaction cannot be null.";
+            failure = InventoryFailures.Transaction("Transaction cannot be null.");
             return false;
         }
         if (tx.Inventory != this)
         {
-            error = "Transaction does not belong to this inventory.";
+            failure = InventoryFailures.Transaction("Transaction does not belong to this inventory.");
             return false;
         }
         if (tx.IsApplied)
         {
-            error = "Transaction has already been applied.";
+            failure = InventoryFailures.Transaction("Transaction has already been applied.");
             return false;
         }
 
-        if (!_layout.TryApplyPlacementContext(this, tx, placementContext, out mappedTransaction, out error) || mappedTransaction == null)
+        if (!_layout.TryApplyPlacementContext(this, tx, placementContext, out mappedTransaction, out failure) || mappedTransaction == null)
             return false;
 
-        if (!ValidateTransactionConstraints(mappedTransaction, out error))
+        if (!ValidateTransactionConstraints(mappedTransaction, out failure))
         {
             mappedTransaction = null;
             return false;
@@ -973,18 +973,18 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out InventoryFailure? error)
+    private bool ValidateTransactionConstraints(InventoryTransaction<TKey> tx, out InventoryFailure? failure)
     {
-        error = null;
-        if (!TryValidateTransactionDefinitions(tx, out error))
+        failure = null;
+        if (!TryValidateTransactionDefinitions(tx, out failure))
             return false;
 
         var normalized = GenerateNormalizedInventoryTransaction(tx);
-        if (!_capacityPolicy.CanApply(this, normalized, out error))
+        if (!_capacityPolicy.CanApply(this, normalized, out failure))
             return false;
-        if (!_rules.CanApply(this, normalized, tx, out error))
+        if (!_rules.CanApply(this, normalized, tx, out failure))
             return false;
-        if (!_layout.CanSatisfyPlacement(this, tx, out error))
+        if (!_layout.CanSatisfyPlacement(this, tx, out failure))
             return false;
         return true;
     }
@@ -994,9 +994,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="rule">The rule to add or replace.</param>
-    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRule(string id, IRulePolicy<TKey> rule, out InventoryFailure? error)
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, out InventoryFailure? failure)
     {
         return TryApplyRuleMutation(
             id,
@@ -1004,7 +1004,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 ? InventoryRuleConfigurationChangeKind.Added
                 : InventoryRuleConfigurationChangeKind.Replaced,
             rules => rules.Set(id, rule),
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -1014,9 +1014,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="rule">The rule to add or replace.</param>
     /// <param name="priority">The rule priority. Higher values run first.</param>
     /// <param name="enabled">Whether the rule participates in validation.</param>
-    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule is applied; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out InventoryFailure? error)
+    public bool TrySetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled, out InventoryFailure? failure)
     {
         return TryApplyRuleMutation(
             id,
@@ -1024,26 +1024,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 ? InventoryRuleConfigurationChangeKind.Added
                 : InventoryRuleConfigurationChangeKind.Replaced,
             rules => rules.Set(id, rule, priority, enabled),
-            out error);
+            out failure);
     }
 
     /// <summary>
     /// Removes an inventory rule by id after validating current contents against the proposed rule set.
     /// </summary>
     /// <param name="id">The rule id.</param>
-    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is removed; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveRule(string id, out InventoryFailure? error)
+    public bool TryRemoveRule(string id, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
-            error = "Rule id cannot be null or empty.";
+            failure = InventoryFailures.Rules("Rule id cannot be null or empty.");
             return false;
         }
 
         if (!Rules.ContainsKey(id))
         {
-            error = $"Rule '{id}' was not found.";
+            failure = InventoryFailures.Rules($"Rule '{id}' was not found.");
             return false;
         }
 
@@ -1051,7 +1051,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             id,
             InventoryRuleConfigurationChangeKind.Removed,
             rules => rules.Remove(id),
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -1059,26 +1059,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="enabled">The new enabled state.</param>
-    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRuleEnabled(string id, bool enabled, out InventoryFailure? error)
+    public bool TrySetRuleEnabled(string id, bool enabled, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
-            error = "Rule id cannot be null or empty.";
+            failure = InventoryFailures.Rules("Rule id cannot be null or empty.");
             return false;
         }
 
         if (!Rules.ContainsKey(id))
         {
-            error = $"Rule '{id}' was not found.";
+            failure = InventoryFailures.Rules($"Rule '{id}' was not found.");
             return false;
         }
 
         var beforeState = _rules.GetRuleStateSnapshot(id);
         if (beforeState != null && beforeState.Enabled == enabled)
         {
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -1086,7 +1086,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             id,
             InventoryRuleConfigurationChangeKind.EnabledChanged,
             rules => rules.TrySetEnabled(id, enabled),
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -1094,26 +1094,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="id">The rule id.</param>
     /// <param name="priority">The new priority. Higher values run first.</param>
-    /// <param name="error">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the rule exists and is updated; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetRulePriority(string id, int priority, out InventoryFailure? error)
+    public bool TrySetRulePriority(string id, int priority, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
-            error = "Rule id cannot be null or empty.";
+            failure = InventoryFailures.Rules("Rule id cannot be null or empty.");
             return false;
         }
 
         if (!Rules.ContainsKey(id))
         {
-            error = $"Rule '{id}' was not found.";
+            failure = InventoryFailures.Rules($"Rule '{id}' was not found.");
             return false;
         }
 
         var beforeState = _rules.GetRuleStateSnapshot(id);
         if (beforeState != null && beforeState.Priority == priority)
         {
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -1121,7 +1121,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             id,
             InventoryRuleConfigurationChangeKind.PriorityChanged,
             rules => rules.TrySetPriority(id, priority),
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -1132,8 +1132,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
     public void SetRule(string id, IRulePolicy<TKey> rule)
     {
-        if (!TrySetRule(id, rule, out var error))
-            ThrowMutationFailure(error, "Rule change failed.");
+        if (!TrySetRule(id, rule, out var failure))
+            ThrowMutationFailure(failure, "Rule change failed.");
     }
 
     /// <summary>
@@ -1146,8 +1146,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The proposed rule set rejects current inventory contents.</exception>
     public void SetRule(string id, IRulePolicy<TKey> rule, int priority, bool enabled)
     {
-        if (!TrySetRule(id, rule, priority, enabled, out var error))
-            ThrowMutationFailure(error, "Rule change failed.");
+        if (!TrySetRule(id, rule, priority, enabled, out var failure))
+            ThrowMutationFailure(failure, "Rule change failed.");
     }
 
     /// <summary>
@@ -1157,8 +1157,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void RemoveRule(string id)
     {
-        if (!TryRemoveRule(id, out var error))
-            ThrowMutationFailure(error, "Rule change failed.");
+        if (!TryRemoveRule(id, out var failure))
+            ThrowMutationFailure(failure, "Rule change failed.");
     }
 
     /// <summary>
@@ -1169,8 +1169,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void SetRuleEnabled(string id, bool enabled)
     {
-        if (!TrySetRuleEnabled(id, enabled, out var error))
-            ThrowMutationFailure(error, "Rule change failed.");
+        if (!TrySetRuleEnabled(id, enabled, out var failure))
+            ThrowMutationFailure(failure, "Rule change failed.");
     }
 
     /// <summary>
@@ -1181,22 +1181,22 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The rule does not exist or the proposed rule set rejects current contents.</exception>
     public void SetRulePriority(string id, int priority)
     {
-        if (!TrySetRulePriority(id, priority, out var error))
-            ThrowMutationFailure(error, "Rule change failed.");
+        if (!TrySetRulePriority(id, priority, out var failure))
+            ThrowMutationFailure(failure, "Rule change failed.");
     }
 
     private bool TryApplyRuleMutation(
         string ruleId,
         InventoryRuleConfigurationChangeKind changeKind,
         Action<RuleContainer<TKey>> mutate,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (mutate == null)
             throw new ArgumentNullException(nameof(mutate));
 
         if (string.IsNullOrWhiteSpace(ruleId))
         {
-            error = "Rule id cannot be null or empty.";
+            failure = InventoryFailures.Rules("Rule id cannot be null or empty.");
             return false;
         }
 
@@ -1209,11 +1209,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         }
         catch (Exception ex) when (ex is ArgumentException || ex is ArgumentNullException)
         {
-            error = ex.Message;
+            failure = InventoryFailures.Rules(ex.Message);
             return false;
         }
 
-        if (!ValidateCurrentContentsAgainstRules(proposedRules, out error))
+        if (!ValidateCurrentContentsAgainstRules(proposedRules, out failure))
             return false;
 
         _rules.ReplaceWith(proposedRules);
@@ -1226,11 +1226,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             currentState,
             previousRules,
             currentRules);
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstRules(RuleContainer<TKey> rules, out InventoryFailure? error)
+    private bool ValidateCurrentContentsAgainstRules(RuleContainer<TKey> rules, out InventoryFailure? failure)
     {
         var validationInventory = new Inventory<TKey>(
             Manager,
@@ -1254,10 +1254,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             added);
         var normalized = validationInventory.GenerateNormalizedInventoryTransaction(transaction);
 
-        if (rules.CanApply(validationInventory, normalized, transaction, out error))
+        if (rules.CanApply(validationInventory, normalized, transaction, out failure))
             return true;
 
-        error = $"Rule change would make current inventory contents invalid: {error}";
+        failure = InventoryFailures.Rules($"Rule change would make current inventory contents invalid: {failure}");
         return false;
     }
 
@@ -1266,10 +1266,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetStackResolverParameter(string parameterId, object? value, out InventoryFailure? error)
-        => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
+    public bool TrySetStackResolverParameter(string parameterId, object? value, out InventoryFailure? failure)
+        => TrySetStackResolverParameter(parameterId, value, InventoryParameterMutationActions.None, out failure);
 
     /// <summary>
     /// Attempts to change a stack resolver parameter after validating current stack amounts, optionally rebuilding current stacks.
@@ -1277,32 +1277,32 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="actions">Actions controlling stack splitting, stack compression, and layout repack.</param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetStackResolverParameter(
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!ValidateParameterId(parameterId, out error))
+        if (!ValidateParameterId(parameterId, out failure))
             return false;
-        if (!ValidateStackResolverMutationActions(actions, out error))
+        if (!ValidateStackResolverMutationActions(actions, out failure))
             return false;
 
         if (_stackResolver is not IParameterizedStackResolver<TKey> parameterized)
         {
-            error = "Current stack resolver does not support runtime parameters.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Current stack resolver does not support runtime parameters.");
             return false;
         }
 
-        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedResolver, out error) || proposedResolver == null)
+        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedResolver, out failure) || proposedResolver == null)
             return false;
 
         var previous = _stackResolver;
         if (actions == InventoryParameterMutationActions.None)
         {
-            if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out error))
+            if (!ValidateCurrentContentsAgainstStackResolver(proposedResolver, out failure))
                 return false;
 
             _stackResolver = proposedResolver;
@@ -1310,16 +1310,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return true;
         }
 
-        if (!TryCreateStackMutationEntries(proposedResolver, actions, out var entries, out var changedShape, out error) || entries == null)
+        if (!TryCreateStackMutationEntries(proposedResolver, actions, out var entries, out var changedShape, out failure) || entries == null)
             return false;
 
         if (HasAction(actions, InventoryParameterMutationActions.RepackLayout))
         {
             var proposedContents = CreateProposedContentsFromStackMutationEntries(entries);
-            if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+            if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out failure) || proposedLayout == null)
                 return false;
 
-            if (!TryValidateProposedContents(proposedContents, proposedResolver, _capacityPolicy, proposedLayout, out error))
+            if (!TryValidateProposedContents(proposedContents, proposedResolver, _capacityPolicy, proposedLayout, out failure))
                 return false;
 
             ApplyConfigurationRebuild(
@@ -1342,7 +1342,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return true;
         }
 
-        if (!TryCreateStackMutationTransaction(entries, out var transaction, out error) || transaction == null)
+        if (!TryCreateStackMutationTransaction(entries, out var transaction, out failure) || transaction == null)
             return false;
 
         ApplyStackParameterMutationTransaction(transaction, previous, proposedResolver, parameterId, value);
@@ -1367,8 +1367,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetStackResolverParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetStackResolverParameter(parameterId, value, actions, out var error))
-            ThrowMutationFailure(error, "Stack resolver parameter change failed.");
+        if (!TrySetStackResolverParameter(parameterId, value, actions, out var failure))
+            ThrowMutationFailure(failure, "Stack resolver parameter change failed.");
     }
 
     /// <summary>
@@ -1376,10 +1376,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out InventoryFailure? error)
-        => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
+    public bool TrySetCapacityPolicyParameter(string parameterId, object? value, out InventoryFailure? failure)
+        => TrySetCapacityPolicyParameter(parameterId, value, InventoryParameterMutationActions.None, out failure);
 
     /// <summary>
     /// Attempts to change a capacity policy parameter after validating current contents against the proposed policy.
@@ -1387,29 +1387,29 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="actions">Mutation actions. Capacity parameter changes reject any action other than <see cref="InventoryParameterMutationActions.None"/>.</param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetCapacityPolicyParameter(
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!ValidateParameterId(parameterId, out error))
+        if (!ValidateParameterId(parameterId, out failure))
             return false;
-        if (!ValidateCapacityMutationActions(actions, out error))
+        if (!ValidateCapacityMutationActions(actions, out failure))
             return false;
 
         if (_capacityPolicy is not IParameterizedCapacityPolicy<TKey> parameterized)
         {
-            error = "Current capacity policy does not support runtime parameters.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Current capacity policy does not support runtime parameters.");
             return false;
         }
 
-        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedPolicy, out error) || proposedPolicy == null)
+        if (!parameterized.TryCreateWithParameter(this, parameterId, value, out var proposedPolicy, out failure) || proposedPolicy == null)
             return false;
 
-        if (!ValidateCurrentContentsAgainstCapacityPolicy(proposedPolicy, out error))
+        if (!ValidateCurrentContentsAgainstCapacityPolicy(proposedPolicy, out failure))
             return false;
 
         var previous = _capacityPolicy;
@@ -1436,8 +1436,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetCapacityPolicyParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetCapacityPolicyParameter(parameterId, value, actions, out var error))
-            ThrowMutationFailure(error, "Capacity policy parameter change failed.");
+        if (!TrySetCapacityPolicyParameter(parameterId, value, actions, out var failure))
+            ThrowMutationFailure(failure, "Capacity policy parameter change failed.");
     }
 
     /// <summary>
@@ -1445,10 +1445,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TrySetLayoutParameter(string parameterId, object? value, out InventoryFailure? error)
-        => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None, out error);
+    public bool TrySetLayoutParameter(string parameterId, object? value, out InventoryFailure? failure)
+        => TrySetLayoutParameter(parameterId, value, InventoryParameterMutationActions.None, out failure);
 
     /// <summary>
     /// Attempts to change a layout parameter after validating current contents, optionally re-packing placements.
@@ -1459,29 +1459,29 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Actions controlling layout repack. Layout parameter changes reject stack mutation actions, and repack requires
     /// the active layout to implement <see cref="IParameterizedRepackableInventoryLayout{TKey}"/>.
     /// </param>
-    /// <param name="error">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the parameter change is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the parameter change is committed; otherwise, <see langword="false"/>.</returns>
     public bool TrySetLayoutParameter(
         string parameterId,
         object? value,
         InventoryParameterMutationActions actions,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!ValidateParameterId(parameterId, out error))
+        if (!ValidateParameterId(parameterId, out failure))
             return false;
-        if (!ValidateLayoutMutationActions(actions, out error))
+        if (!ValidateLayoutMutationActions(actions, out failure))
             return false;
 
         if (_layout is not IParameterizedInventoryLayout<TKey> parameterized)
         {
-            error = "Current layout does not support runtime parameters.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Current layout does not support runtime parameters.");
             return false;
         }
 
-        if (!TryCreateLayoutWithParameter(parameterized, parameterId, value, actions, out var proposedLayout, out error) || proposedLayout == null)
+        if (!TryCreateLayoutWithParameter(parameterized, parameterId, value, actions, out var proposedLayout, out failure) || proposedLayout == null)
             return false;
 
-        if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout) && !ValidateCurrentContentsAgainstLayout(proposedLayout, out error))
+        if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout) && !ValidateCurrentContentsAgainstLayout(proposedLayout, out failure))
             return false;
 
         var previous = _layout;
@@ -1506,7 +1506,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         var repackContextsBefore = CaptureLayoutContextsByInstance();
         var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
         var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
-        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
+        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out failure))
             return false;
 
         ApplyLayoutParameterRepack(
@@ -1537,19 +1537,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The parameter change is rejected.</exception>
     public void SetLayoutParameter(string parameterId, object? value, InventoryParameterMutationActions actions)
     {
-        if (!TrySetLayoutParameter(parameterId, value, actions, out var error))
-            ThrowMutationFailure(error, "Layout parameter change failed.");
+        if (!TrySetLayoutParameter(parameterId, value, actions, out var failure))
+            ThrowMutationFailure(failure, "Layout parameter change failed.");
     }
 
-    private static bool ValidateParameterId(string parameterId, out InventoryFailure? error)
+    private static bool ValidateParameterId(string parameterId, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(parameterId))
         {
-            error = "Parameter id cannot be null or empty.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter id cannot be null or empty.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -1558,7 +1558,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryParameterMutationActions action)
         => (actions & action) == action;
 
-    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
+    private static bool ValidateStackResolverMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? failure)
     {
         var supported =
             InventoryParameterMutationActions.RepackLayout |
@@ -1567,51 +1567,51 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         var unsupported = actions & ~supported;
         if (unsupported != InventoryParameterMutationActions.None)
         {
-            error = $"Stack resolver parameter changes do not support mutation action value '{actions}'.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Stack resolver parameter changes do not support mutation action value '{actions}'.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private static bool ValidateLayoutMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
+    private static bool ValidateLayoutMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? failure)
     {
         var supported = InventoryParameterMutationActions.RepackLayout;
         var unsupported = actions & ~supported;
         if (unsupported != InventoryParameterMutationActions.None)
         {
-            error = "Layout parameter changes only support the RepackLayout mutation action.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Layout parameter changes only support the RepackLayout mutation action.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private static bool ValidateCapacityMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? error)
+    private static bool ValidateCapacityMutationActions(InventoryParameterMutationActions actions, out InventoryFailure? failure)
     {
         if (actions != InventoryParameterMutationActions.None)
         {
-            error = "Capacity policy parameter changes do not support mutation actions.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Capacity policy parameter changes do not support mutation actions.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool TryResolveMaxStackSize(ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? error)
+    private bool TryResolveMaxStackSize(ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? failure)
     {
-        return TryResolveMaxStackSize(_stackResolver, instance, out maxStack, out error);
+        return TryResolveMaxStackSize(_stackResolver, instance, out maxStack, out failure);
     }
 
-    private bool TryResolveMaxStackSize(IStackResolver<TKey> resolver, ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? error)
+    private bool TryResolveMaxStackSize(IStackResolver<TKey> resolver, ItemInstance<TKey> instance, out int maxStack, out InventoryFailure? failure)
     {
         maxStack = 0;
         if (resolver == null)
         {
-            error = "Stack resolver cannot be null.";
+            failure = InventoryFailures.Stacking("Stack resolver cannot be null.");
             return false;
         }
 
@@ -1621,56 +1621,56 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         }
         catch (InvalidOperationException ex)
         {
-            error = ex.Message;
+            failure = InventoryFailures.Stacking(ex.Message);
             return false;
         }
 
         if (maxStack <= 0)
         {
-            error = $"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{instance.Definition.Id}'.";
+            failure = InventoryFailures.Definition($"Stack resolver returned invalid max stack size '{maxStack}' for item definition '{instance.Definition.Id}'.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out InventoryFailure? error)
+    private bool ValidateCurrentContentsAgainstStackResolver(IStackResolver<TKey> resolver, out InventoryFailure? failure)
     {
         foreach (var item in _items)
         {
-            if (!TryResolveMaxStackSize(resolver, item, out int maxStack, out error))
+            if (!TryResolveMaxStackSize(resolver, item, out int maxStack, out failure))
                 return false;
 
             if (item.Amount > maxStack)
             {
-                error = $"Stack resolver parameter change would make current stack '{item.Definition.Id}' amount {item.Amount} exceed max stack size {maxStack}.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter($"Stack resolver parameter change would make current stack '{item.Definition.Id}' amount {item.Amount} exceed max stack size {maxStack}.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool ValidateCurrentContentsAgainstCapacityPolicy(ICapacityPolicy<TKey> policy, out InventoryFailure? error)
+    private bool ValidateCurrentContentsAgainstCapacityPolicy(ICapacityPolicy<TKey> policy, out InventoryFailure? failure)
     {
         var normalized = new NormalizedInventoryTransaction<TKey>(
             new List<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)>(),
             new List<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)>());
 
-        if (policy.CanApply(this, normalized, out error))
+        if (policy.CanApply(this, normalized, out failure))
             return true;
 
-        error = $"Capacity policy parameter change would make current inventory contents invalid: {error}";
+        failure = InventoryFailures.ConfigurationUnsupportedParameter($"Capacity policy parameter change would make current inventory contents invalid: {failure}");
         return false;
     }
 
-    private bool ValidateCurrentContentsAgainstLayout(IInventoryLayout<TKey> layout, out InventoryFailure? error)
+    private bool ValidateCurrentContentsAgainstLayout(IInventoryLayout<TKey> layout, out InventoryFailure? failure)
     {
         if (layout.GetType() != _layout.GetType())
         {
-            error = "Layout parameter change must keep the same layout type.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Layout parameter change must keep the same layout type.");
             return false;
         }
 
@@ -1680,12 +1680,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             var after = layout.GetContextsForStorageIndex(this, storageIndex);
             if (!ContextListsEqual(before, after))
             {
-                error = $"Layout parameter change would not preserve placement for item definition '{_items[storageIndex].Definition.Id}'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter($"Layout parameter change would not preserve placement for item definition '{_items[storageIndex].Definition.Id}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -1753,13 +1753,13 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         InventoryParameterMutationActions actions,
         out List<StackMutationEntry>? entries,
         out bool changedShape,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         entries = CreateCurrentStackMutationEntries();
         changedShape = false;
-        error = null;
+        failure = null;
 
-        if (!TryApplySplitOversizedStacks(entries, resolver, HasAction(actions, InventoryParameterMutationActions.SplitOversizedStacks), out var splitChanged, out error))
+        if (!TryApplySplitOversizedStacks(entries, resolver, HasAction(actions, InventoryParameterMutationActions.SplitOversizedStacks), out var splitChanged, out failure))
         {
             entries = null;
             return false;
@@ -1769,7 +1769,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (HasAction(actions, InventoryParameterMutationActions.CompressCompatibleStacks))
         {
-            if (!TryApplyCompressCompatibleStacks(entries, resolver, out var compressionChanged, out error))
+            if (!TryApplyCompressCompatibleStacks(entries, resolver, out var compressionChanged, out failure))
             {
                 entries = null;
                 return false;
@@ -1801,10 +1801,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         IStackResolver<TKey> resolver,
         bool splitOversizedStacks,
         out bool changedShape,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         changedShape = false;
-        error = null;
+        failure = null;
         int originalEntryCount = entries.Count;
 
         for (int i = 0; i < originalEntryCount; i++)
@@ -1814,7 +1814,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 continue;
 
             var prototype = new ItemInstance<TKey>(entry.Definition, 1, CloneMetadataOrNull(entry.Metadata));
-            if (!TryResolveMaxStackSize(resolver, prototype, out int maxStack, out error))
+            if (!TryResolveMaxStackSize(resolver, prototype, out int maxStack, out failure))
                 return false;
 
             if (entry.Amount <= maxStack)
@@ -1822,7 +1822,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
             if (!splitOversizedStacks)
             {
-                error = $"Stack resolver parameter change would make current stack '{entry.Definition.Id}' amount {entry.Amount} exceed max stack size {maxStack}.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter($"Stack resolver parameter change would make current stack '{entry.Definition.Id}' amount {entry.Amount} exceed max stack size {maxStack}.");
                 return false;
             }
 
@@ -1853,10 +1853,10 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         List<StackMutationEntry> entries,
         IStackResolver<TKey> resolver,
         out bool changedShape,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         changedShape = false;
-        error = null;
+        failure = null;
 
         for (int targetIndex = 0; targetIndex < entries.Count; targetIndex++)
         {
@@ -1865,7 +1865,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 continue;
 
             var targetPrototype = new ItemInstance<TKey>(target.Definition, 1, CloneMetadataOrNull(target.Metadata));
-            if (!TryResolveMaxStackSize(resolver, targetPrototype, out int targetMaxStack, out error))
+            if (!TryResolveMaxStackSize(resolver, targetPrototype, out int targetMaxStack, out failure))
                 return false;
 
             for (int sourceIndex = targetIndex + 1; sourceIndex < entries.Count && target.Amount < targetMaxStack; sourceIndex++)
@@ -1887,7 +1887,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private bool TryCreateStackMutationTransaction(
         IReadOnlyList<StackMutationEntry> entries,
         out InventoryTransaction<TKey>? transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var amountDeltas = new List<(int index, int delta)>();
         var removed = new List<(int index, ItemInstance<TKey> instance)>();
@@ -1913,7 +1913,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         }
 
         var candidate = new InventoryTransaction<TKey>(this, amountDeltas, removed, added);
-        if (!TryPrepareTransaction(candidate, null, out var prepared, out error) || prepared == null)
+        if (!TryPrepareTransaction(candidate, null, out var prepared, out failure) || prepared == null)
         {
             transaction = null;
             return false;
@@ -1965,7 +1965,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         IStackResolver<TKey> stackResolver,
         ICapacityPolicy<TKey> capacityPolicy,
         IInventoryLayout<TKey> layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var validationInventory = new Inventory<TKey>(
             Manager,
@@ -1988,7 +1988,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             new List<(int index, ItemInstance<TKey> instance)>(),
             added);
 
-        return validationInventory.TryPrepareTransaction(transaction, null, out _, out error);
+        return validationInventory.TryPrepareTransaction(transaction, null, out _, out failure);
     }
 
     private bool TryCreateLayoutWithParameter(
@@ -1997,15 +1997,15 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         object? value,
         InventoryParameterMutationActions actions,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (!HasAction(actions, InventoryParameterMutationActions.RepackLayout))
-            return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out error);
+            return parameterized.TryCreateWithParameter(this, parameterId, value, out layout, out failure);
 
         if (parameterized is not IParameterizedRepackableInventoryLayout<TKey> repackable)
         {
             layout = null;
-            error = $"Current layout type '{parameterized.GetType().Name}' does not support parameterized inventory-owned repack.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Current layout type '{parameterized.GetType().Name}' does not support parameterized inventory-owned repack.");
             return false;
         }
 
@@ -2013,19 +2013,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             parameterId,
             value,
             out layout,
-            out error);
+            out failure);
     }
 
-    private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    private bool TryCreateEmptyLayoutLike(IInventoryLayout<TKey> source, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         if (source is not IRepackableInventoryLayout<TKey> repackable)
         {
             layout = null;
-            error = $"Current layout type '{source.GetType().Name}' does not support inventory-owned repack.";
+            failure = InventoryFailures.Layout($"Current layout type '{source.GetType().Name}' does not support inventory-owned repack.");
             return false;
         }
 
-        return repackable.TryCreateEmptyRepackLayout(out layout, out error);
+        return repackable.TryCreateEmptyRepackLayout(out layout, out failure);
     }
 
     private void ApplyConfigurationRebuild(
@@ -2211,40 +2211,40 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>
     /// <param name="normalized">The semantic transaction to convert.</param>
     /// <param name="transaction">The structural transaction when conversion succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when conversion is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when conversion is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out InventoryFailure? error)
+    public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
-        error = null;
+        failure = null;
         if (normalized == null)
         {
-            error = "Normalized transaction cannot be null.";
+            failure = InventoryFailures.Transaction("Normalized transaction cannot be null.");
             return false;
         }
         if (normalized.IsEmpty)
         {
-            error = "Normalized transaction is empty.";
+            failure = InventoryFailures.Transaction("Normalized transaction is empty.");
             return false;
         }
 
         if (normalized.Removed.Count == 0 && normalized.Added.Count == 1)
         {
             var (def, meta, amount) = normalized.Added[0];
-            return TryFormulateAdd(def, amount, null, meta, out transaction, out error);
+            return TryFormulateAdd(def, amount, null, meta, out transaction, out failure);
         }
         if (normalized.Added.Count == 0 && normalized.Removed.Count == 1)
         {
             var (def, meta, amount) = normalized.Removed[0];
-            return TryFormulateRemoveByDefinition(def, amount, meta, out transaction, out error);
+            return TryFormulateRemoveByDefinition(def, amount, meta, out transaction, out failure);
         }
         if (normalized.Added.Count == 0 && normalized.Removed.Count > 1)
         {
-            error = "Normalized transaction with multiple removed definitions is not yet supported for conversion; use a single removed definition.";
+            failure = InventoryFailures.Definition("Normalized transaction with multiple removed definitions is not yet supported for conversion; use a single removed definition.");
             return false;
         }
 
-        error = "Normalized transaction with multiple added definitions is not yet supported for conversion; use single-definition adds or remove-only.";
+        failure = InventoryFailures.Definition("Normalized transaction with multiple added definitions is not yet supported for conversion; use single-definition adds or remove-only.");
         return false;
     }
 
@@ -2293,8 +2293,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             throw new InvalidOperationException("Transaction does not belong to this inventory.");
         if (transaction.IsApplied)
             throw new InvalidOperationException("Transaction has already been applied.");
-        if (!TryCommitTransaction(transaction, out var error))
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryCommitTransaction(transaction, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
     /// <summary>
@@ -2320,35 +2320,35 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         if (builder == null)
             throw new ArgumentNullException(nameof(builder));
 
-        if (!TryCommitTransaction(builder, placementContext, out var error))
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryCommitTransaction(builder, placementContext, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
     /// <summary>
     /// Attempts to execute a transaction after validating all inventory constraints.
     /// </summary>
     /// <param name="transaction">The structural transaction to commit.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        return TryCommitTransaction(transaction, null, out error);
+        return TryCommitTransaction(transaction, null, out failure);
     }
 
-    internal bool CanCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    internal bool CanCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        return TryPrepareTransaction(transaction, null, out _, out error);
+        return TryPrepareTransaction(transaction, null, out _, out failure);
     }
 
     /// <summary>
     /// Attempts to build and commit a transaction builder.
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out InventoryFailure? error)
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out InventoryFailure? failure)
     {
-        return TryCommitTransaction(builder, null, out error);
+        return TryCommitTransaction(builder, null, out failure);
     }
 
     /// <summary>
@@ -2356,20 +2356,20 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out InventoryFailure? error)
+    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out InventoryFailure? failure)
     {
         if (builder == null)
         {
-            error = "Transaction builder cannot be null.";
+            failure = InventoryFailures.Transaction("Transaction builder cannot be null.");
             return false;
         }
 
-        if (!builder.TryBuild(placementContext, out var transaction, out error) || transaction == null)
+        if (!builder.TryBuild(placementContext, out var transaction, out failure) || transaction == null)
             return false;
 
-        return TryCommitTransaction(transaction, out error);
+        return TryCommitTransaction(transaction, out failure);
     }
 
     /// <summary>
@@ -2377,14 +2377,14 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="transaction">The structural transaction to commit.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
     public bool TryCommitTransaction(
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? placementContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!TryPrepareTransaction(transaction, placementContext, out var mappedTransaction, out error) || mappedTransaction == null)
+        if (!TryPrepareTransaction(transaction, placementContext, out var mappedTransaction, out failure) || mappedTransaction == null)
             return false;
 
         ApplyPreparedTransaction(mappedTransaction);
@@ -2396,11 +2396,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="builder">The transfer builder created from this inventory.</param>
     /// <param name="target">The target inventory that would receive the transfer entries.</param>
-    /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
-    public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? error)
+    public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? failure)
     {
-        return CanCommitTransfer(builder, target, null, out error);
+        return CanCommitTransfer(builder, target, null, out failure);
     }
 
     /// <summary>
@@ -2409,26 +2409,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="builder">The transfer builder created from this inventory.</param>
     /// <param name="target">The target inventory that would receive the transfer entries.</param>
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
-    /// <param name="error">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
     public bool CanCommitTransfer(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (builder == null)
         {
-            error = "Transfer builder cannot be null.";
+            failure = InventoryFailures.Transfer("Transfer builder cannot be null.");
             return false;
         }
         if (target == null)
         {
-            error = "Target inventory cannot be null.";
+            failure = InventoryFailures.Transfer("Target inventory cannot be null.");
             return false;
         }
 
-        return InventoryTransfer.CanCommitBuilder(this, builder, target, targetContext, out error);
+        return InventoryTransfer.CanCommitBuilder(this, builder, target, targetContext, out failure);
     }
 
     /// <summary>
@@ -2436,11 +2436,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="builder">The transfer builder created from this inventory.</param>
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? error)
+    public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? failure)
     {
-        return TryCommitTransfer(builder, target, null, out error);
+        return TryCommitTransfer(builder, target, null, out failure);
     }
 
     /// <summary>
@@ -2449,26 +2449,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="builder">The transfer builder created from this inventory.</param>
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
-    /// <param name="error">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
     public bool TryCommitTransfer(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
         ILayoutContext<TKey>? targetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (builder == null)
         {
-            error = "Transfer builder cannot be null.";
+            failure = InventoryFailures.Transfer("Transfer builder cannot be null.");
             return false;
         }
         if (target == null)
         {
-            error = "Target inventory cannot be null.";
+            failure = InventoryFailures.Transfer("Target inventory cannot be null.");
             return false;
         }
 
-        return InventoryTransfer.TryCommitBuilder(this, builder, target, targetContext, out error);
+        return InventoryTransfer.TryCommitBuilder(this, builder, target, targetContext, out failure);
     }
 
     /// <summary>
@@ -2498,8 +2498,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         if (target == null)
             throw new ArgumentNullException(nameof(target));
 
-        if (!TryCommitTransfer(builder, target, targetContext, out var error))
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryCommitTransfer(builder, target, targetContext, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
     /// <summary>
@@ -2510,16 +2510,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!TryValidateOutgoingTransferItem(item, amount, out error))
+        if (!TryValidateOutgoingTransferItem(item, amount, out failure))
             return false;
 
         var builder = InventoryTransfer.From(this);
-        if (!builder.TryRemove(item, amount, out error))
+        if (!builder.TryRemove(item, amount, out failure))
             return false;
 
-        return CanCommitTransfer(builder, target, targetContext, out error);
+        return CanCommitTransfer(builder, target, targetContext, out failure);
     }
 
     /// <summary>
@@ -2530,16 +2530,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> item,
         int amount,
         ILayoutContext<TKey>? targetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        if (!TryValidateOutgoingTransferItem(item, amount, out error))
+        if (!TryValidateOutgoingTransferItem(item, amount, out failure))
             return false;
 
         var builder = InventoryTransfer.From(this);
-        if (!builder.TryRemove(item, amount, out error))
+        if (!builder.TryRemove(item, amount, out failure))
             return false;
 
-        return TryCommitTransfer(builder, target, targetContext, out error);
+        return TryCommitTransfer(builder, target, targetContext, out failure);
     }
 
     /// <summary>
@@ -2551,20 +2551,20 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int amount,
         ILayoutContext<TKey>? targetContext = null)
     {
-        if (!TryTransferTo(target, item, amount, targetContext, out var error))
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryTransferTo(target, item, amount, targetContext, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
-    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out InventoryFailure? error)
+    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out InventoryFailure? failure)
     {
         if (item == null)
         {
-            error = "Item cannot be null.";
+            failure = InventoryFailures.Validation("Item cannot be null.");
             return false;
         }
         if (amount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
 
@@ -2580,25 +2580,25 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (!sourceContainsItem)
         {
-            error = "Item not found in source inventory.";
+            failure = InventoryFailures.Validation("Item not found in source inventory.");
             return false;
         }
         if (item.Amount < amount)
         {
-            error = "Not enough quantity to transfer.";
+            failure = InventoryFailures.Transfer("Not enough quantity to transfer.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <summary>
     /// Attempts to move every item from this source inventory to a target inventory as one all-or-nothing operation.
     /// </summary>
-    public bool TryMoveAllTo(Inventory<TKey> target, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
+    public bool TryMoveAllTo(Inventory<TKey> target, ILayoutContext<TKey>? targetContext, out InventoryFailure? failure)
     {
-        return TryMoveWhereTo(target, _ => true, targetContext, out error);
+        return TryMoveWhereTo(target, _ => true, targetContext, out failure);
     }
 
     /// <summary>
@@ -2608,53 +2608,53 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Inventory<TKey> target,
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (predicate == null)
         {
-            error = "Predicate cannot be null.";
+            failure = InventoryFailures.Validation("Predicate cannot be null.");
             return false;
         }
 
         var builder = InventoryTransfer.From(this);
         foreach (var item in new List<ItemInstance<TKey>>(Items))
         {
-            if (predicate(item) && !builder.TryRemove(item, item.Amount, out error))
+            if (predicate(item) && !builder.TryRemove(item, item.Amount, out failure))
                 return false;
         }
 
-        return TryCommitTransfer(builder, target, targetContext, out error);
+        return TryCommitTransfer(builder, target, targetContext, out failure);
     }
 
     /// <summary>
     /// Attempts to move every item with a catalog-resolved tag from this source inventory to a target inventory.
     /// </summary>
-    public bool TryMoveByTagTo(Inventory<TKey> target, string tagId, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
+    public bool TryMoveByTagTo(Inventory<TKey> target, string tagId, ILayoutContext<TKey>? targetContext, out InventoryFailure? failure)
     {
         if (string.IsNullOrWhiteSpace(tagId))
         {
-            error = "Tag cannot be null.";
+            failure = InventoryFailures.Definition("Tag cannot be null.");
             return false;
         }
 
-        return TryMoveWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out error);
+        return TryMoveWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out failure);
     }
 
     /// <summary>
     /// Attempts to move every item satisfying all catalog-resolved tags from this source inventory to a target inventory.
     /// </summary>
-    public bool TryMoveAllTagsTo(Inventory<TKey> target, string[] tagIds, ILayoutContext<TKey>? targetContext, out InventoryFailure? error)
+    public bool TryMoveAllTagsTo(Inventory<TKey> target, string[] tagIds, ILayoutContext<TKey>? targetContext, out InventoryFailure? failure)
     {
         if (tagIds == null || tagIds.Length == 0)
         {
-            error = "At least one tag is required.";
+            failure = InventoryFailures.Definition("At least one tag is required.");
             return false;
         }
         foreach (var tagId in tagIds)
         {
             if (string.IsNullOrWhiteSpace(tagId))
             {
-                error = "Tags cannot contain null.";
+                failure = InventoryFailures.Definition("Tags cannot contain null.");
                 return false;
             }
 
@@ -2673,7 +2673,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 return true;
             },
             targetContext,
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -2685,17 +2685,17 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int requestedAmount,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         transferredAmount = 0;
         if (requestedAmount <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
         if (item == null)
         {
-            error = "Item cannot be null.";
+            failure = InventoryFailures.Validation("Item cannot be null.");
             return false;
         }
 
@@ -2720,11 +2720,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (best <= 0)
         {
-            error = lastError;
+            failure = lastError;
             return false;
         }
 
-        if (!TryTransferTo(target, item, best, targetContext, out error))
+        if (!TryTransferTo(target, item, best, targetContext, out failure))
         {
             transferredAmount = 0;
             return false;
@@ -2742,12 +2742,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Func<ItemInstance<TKey>, bool> predicate,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         transferredAmount = 0;
         if (predicate == null)
         {
-            error = "Predicate cannot be null.";
+            failure = InventoryFailures.Validation("Predicate cannot be null.");
             return false;
         }
 
@@ -2761,7 +2761,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 transferredAmount += moved;
         }
 
-        error = transferredAmount > 0 ? null : lastError ?? "Transfer contains no items.";
+        failure = transferredAmount > 0 ? null : lastError ?? InventoryFailures.TransferEmpty("Transfer contains no items.");
         return transferredAmount > 0;
     }
 
@@ -2773,16 +2773,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         string tagId,
         ILayoutContext<TKey>? targetContext,
         out int transferredAmount,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         transferredAmount = 0;
         if (string.IsNullOrWhiteSpace(tagId))
         {
-            error = "Tag cannot be null.";
+            failure = InventoryFailures.Definition("Tag cannot be null.");
             return false;
         }
 
-        return TryMoveMaximumWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out error);
+        return TryMoveMaximumWhereTo(target, item => Catalog.Satisfies(item.Definition, tagId), targetContext, out transferredAmount, out failure);
     }
 
     /// <summary>
@@ -2794,16 +2794,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ItemInstance<TKey> otherItem,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (sourceItem == null)
         {
-            error = "First item cannot be null.";
+            failure = InventoryFailures.Validation("First item cannot be null.");
             return false;
         }
         if (otherItem == null)
         {
-            error = "Second item cannot be null.";
+            failure = InventoryFailures.Validation("Second item cannot be null.");
             return false;
         }
 
@@ -2815,7 +2815,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             otherItem.Amount,
             sourceTargetContext,
             otherTargetContext,
-            out error);
+            out failure);
     }
 
     /// <summary>
@@ -2829,9 +2829,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         int otherAmount,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return InventoryTransfer.TrySwap(this, other, sourceItem, sourceAmount, otherItem, otherAmount, sourceTargetContext, otherTargetContext, out error);
+        return InventoryTransfer.TrySwap(this, other, sourceItem, sourceAmount, otherItem, otherAmount, sourceTargetContext, otherTargetContext, out failure);
     }
 
     /// <summary>
@@ -2841,9 +2841,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         Inventory<TKey> other,
         ILayoutContext<TKey>? sourceTargetContext,
         ILayoutContext<TKey>? otherTargetContext,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return InventoryTransfer.TrySwapInventories(this, other, sourceTargetContext, otherTargetContext, out error);
+        return InventoryTransfer.TrySwapInventories(this, other, sourceTargetContext, otherTargetContext, out failure);
     }
 
     private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)
@@ -2971,13 +2971,13 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Attempts to add an amount of an item definition to the inventory.
     /// </summary>
     /// <param name="definition">The item definition to add.</param>
-    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(ItemDefinition<TKey> definition, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(ItemDefinition<TKey> definition, out InventoryFailure? failure, int amount = 1, ILayoutContext<TKey>? context = null)
     {
-        if (!TryFormulateAdd(definition, amount, context, out var tx, out error) || tx == null)
+        if (!TryFormulateAdd(definition, amount, context, out var tx, out failure) || tx == null)
             return false;
         CommitTransaction(tx);
         return true;
@@ -2987,16 +2987,16 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Attempts to add an amount of the item definition resolved from a current or migrated definition id.
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
-    /// <param name="error">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the add is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to add.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
     /// <returns><see langword="true"/> when the item is added and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryAdd(TKey definitionId, out InventoryFailure? error, int amount = 1, ILayoutContext<TKey>? context = null)
+    public bool TryAdd(TKey definitionId, out InventoryFailure? failure, int amount = 1, ILayoutContext<TKey>? context = null)
     {
-        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryAdd(definition, out error, amount, context);
+        return TryAdd(definition, out failure, amount, context);
     }
 
     /// <summary>
@@ -3008,8 +3008,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The add operation is rejected by validation, rules, capacity, or layout.</exception>
     public void Add(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
     {
-        if (!TryAdd(definition, out var error, amount, context))
-            ThrowMutationFailure(error, "Add operation failed.");
+        if (!TryAdd(definition, out var failure, amount, context))
+            ThrowMutationFailure(failure, "Add operation failed.");
     }
 
     /// <summary>
@@ -3021,20 +3021,20 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The id cannot be resolved, or the add is rejected by validation, rules, capacity, or layout.</exception>
     public void Add(TKey definitionId, int amount = 1, ILayoutContext<TKey>? context = null)
     {
-        if (!TryAdd(definitionId, out var error, amount, context))
-            ThrowMutationFailure(error, "Add operation failed.");
+        if (!TryAdd(definitionId, out var failure, amount, context))
+            ThrowMutationFailure(failure, "Add operation failed.");
     }
 
     /// <summary>
     /// Attempts to remove an amount from a specific item instance.
     /// </summary>
     /// <param name="instance">The item instance to remove from.</param>
-    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemove(ItemInstance<TKey> instance, out InventoryFailure? error, int amount = 1)
+    public bool TryRemove(ItemInstance<TKey> instance, out InventoryFailure? failure, int amount = 1)
     {
-        if (!TryFormulateRemove(instance, amount, out var tx, out error) || tx == null)
+        if (!TryFormulateRemove(instance, amount, out var tx, out failure) || tx == null)
             return false;
         CommitTransaction(tx);
         return true;
@@ -3048,20 +3048,20 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void Remove(ItemInstance<TKey> instance, int amount = 1)
     {
-        if (!TryRemove(instance, out var error, amount))
-            ThrowMutationFailure(error, "Remove operation failed.");
+        if (!TryRemove(instance, out var failure, amount))
+            ThrowMutationFailure(failure, "Remove operation failed.");
     }
 
     /// <summary>
     /// Attempts to remove an amount from the item at a storage index.
     /// </summary>
     /// <param name="index">The storage index to remove from.</param>
-    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveAtStorageIndex(int index, out InventoryFailure? error, int amount = 1)
+    public bool TryRemoveAtStorageIndex(int index, out InventoryFailure? failure, int amount = 1)
     {
-        if (!TryFormulateRemoveAt(index, amount, out var tx, out error) || tx == null)
+        if (!TryFormulateRemoveAt(index, amount, out var tx, out failure) || tx == null)
             return false;
         CommitTransaction(tx);
         return true;
@@ -3075,8 +3075,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveAtStorageIndex(int index, int amount = 1)
     {
-        if (!TryRemoveAtStorageIndex(index, out var error, amount))
-            ThrowMutationFailure(error, "Remove operation failed.");
+        if (!TryRemoveAtStorageIndex(index, out var failure, amount))
+            ThrowMutationFailure(failure, "Remove operation failed.");
     }
 
     /// <summary>
@@ -3085,11 +3085,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definition">The item definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
-    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? error)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? failure)
     {
-        if (!TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out error) || tx == null)
+        if (!TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out failure) || tx == null)
             return false;
         CommitTransaction(tx);
         return true;
@@ -3101,14 +3101,14 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
     /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
-    /// <param name="error">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? error)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? failure)
     {
-        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out error) || definition == null)
+        if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out error);
+        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure);
     }
 
     /// <summary>
@@ -3120,8 +3120,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
     {
-        if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var error))
-            ThrowMutationFailure(error, "Remove operation failed.");
+        if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
     }
 
     /// <summary>
@@ -3133,8 +3133,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The id cannot be resolved, or the removal is rejected by validation, rules, capacity, or layout.</exception>
     public void RemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata)
     {
-        if (!TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var error))
-            ThrowMutationFailure(error, "Remove operation failed.");
+        if (!TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
     }
 
     /// <summary>
@@ -3142,17 +3142,17 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="contextFrom">The source layout context.</param>
     /// <param name="contextTo">The destination layout context.</param>
-    /// <param name="error">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         var item = _layout.GetItemAt(this, contextFrom);
 
         if (item == null)
         {
-            error = "Item not found in inventory.";
+            failure = InventoryFailures.Validation("Item not found in inventory.");
             return false;
         }
 
@@ -3162,7 +3162,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             : new List<ILayoutContext<TKey>> { contextFrom };
         var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
 
-        if (!_layout.TryMove(this, contextFrom, contextTo, out error))
+        if (!_layout.TryMove(this, contextFrom, contextTo, out failure))
             return false;
 
         var reconciliation = ReconcileLayoutAfterMutation();
@@ -3210,8 +3210,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The move is rejected by validation or layout.</exception>
     public void Move(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
     {
-        if (!TryMove(contextFrom, contextTo, out var error))
-            ThrowMutationFailure(error, "Move operation failed.");
+        if (!TryMove(contextFrom, contextTo, out var failure))
+            ThrowMutationFailure(failure, "Move operation failed.");
     }
 
     /// <summary>
@@ -3219,18 +3219,18 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="contextFrom">The first layout context.</param>
     /// <param name="contextTo">The second layout context.</param>
-    /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the swap succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TrySwap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
 
         var itemFrom = _layout.GetItemAt(this, contextFrom);
         var itemTo = _layout.GetItemAt(this, contextTo);
 
         if (itemFrom == null || itemTo == null)
         {
-            error = "One or both of the items not found in inventory.";
+            failure = InventoryFailures.Validation("One or both of the items not found in inventory.");
             return false;
         }
 
@@ -3244,7 +3244,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             : new List<ILayoutContext<TKey>> { contextTo };
         var layoutContextsBefore = CaptureLayoutContextsForReconciliation();
 
-        if (!_layout.TrySwap(this, contextFrom, contextTo, out error))
+        if (!_layout.TrySwap(this, contextFrom, contextTo, out failure))
         {
             return false;
         }
@@ -3279,8 +3279,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The swap is rejected by validation or layout.</exception>
     public void Swap(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo)
     {
-        if (!TrySwap(contextFrom, contextTo, out var error))
-            ThrowMutationFailure(error, "Swap operation failed.");
+        if (!TrySwap(contextFrom, contextTo, out var failure))
+            ThrowMutationFailure(failure, "Swap operation failed.");
     }
 
     /// <summary>
@@ -3288,47 +3288,47 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="contextFrom">The source stack layout context.</param>
     /// <param name="contextTo">The destination stack layout context.</param>
-    /// <param name="error">A consumer-facing reason when the merge move is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the merge move is rejected; otherwise, <see langword="null"/>.</param>
     /// <param name="amount">Optional exact amount to move; when omitted, as much as possible is moved.</param>
     /// <returns><see langword="true"/> when the merge move succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryMergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error, int? amount = null)
+    public bool TryMergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure, int? amount = null)
     {
-        error = null;
+        failure = null;
 
         var itemFrom = _layout.GetItemAt(this, contextFrom);
         var itemTo = _layout.GetItemAt(this, contextTo);
 
         if (itemFrom == null || itemTo == null)
         {
-            error = "One or both of the items not found in inventory.";
+            failure = InventoryFailures.Validation("One or both of the items not found in inventory.");
             return false;
         }
 
         if (!itemFrom.IsStackCompatible(itemTo))
         {
-            error = "Items are not stack compatible.";
+            failure = InventoryFailures.Stacking("Items are not stack compatible.");
             return false;
         }
 
         if (amount.HasValue && amount.Value <= 0)
         {
-            error = "Amount must be greater than zero.";
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
             return false;
         }
 
         if (amount.HasValue && amount.Value > itemFrom.Amount)
         {
-            error = "Not enough quantity to move.";
+            failure = InventoryFailures.Validation("Not enough quantity to move.");
             return false;
         }
 
         int targetStack = itemTo.Amount;
-        if (!TryResolveMaxStackSize(itemTo, out int targetMaxStack, out error))
+        if (!TryResolveMaxStackSize(itemTo, out int targetMaxStack, out failure))
             return false;
 
         if (targetStack == targetMaxStack)
         {
-            error = "Target stack is already at max size, no items can be moved.";
+            failure = InventoryFailures.Stacking("Target stack is already at max size, no items can be moved.");
             return false;
         }
 
@@ -3336,7 +3336,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         if (amount.HasValue && room < amount.Value)
         {
-            error = "Not enough room in target stack to move the requested amount.";
+            failure = InventoryFailures.Stacking("Not enough room in target stack to move the requested amount.");
             return false;
         }
 
@@ -3354,7 +3354,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             amountDeltas.Add((GetItemIndex(itemFrom), -amountToMove));
 
         var tx = new InventoryTransaction<TKey>(this, amountDeltas, removed, new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
-        if (!TryPrepareTransaction(tx, null, out var mappedTx, out error) || mappedTx == null)
+        if (!TryPrepareTransaction(tx, null, out var mappedTx, out failure) || mappedTx == null)
             return false;
         ApplyPreparedTransaction(mappedTx);
         return true;
@@ -3369,34 +3369,34 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The merge move is rejected by validation, rules, capacity, or layout.</exception>
     public void MergeMove(ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, int? amount = null)
     {
-        if (!TryMergeMove(contextFrom, contextTo, out var error, amount))
-            ThrowMutationFailure(error, "Merge move operation failed.");
+        if (!TryMergeMove(contextFrom, contextTo, out var failure, amount))
+            ThrowMutationFailure(failure, "Merge move operation failed.");
     }
 
     /// <summary>
     /// Attempts to rebuild current layout placement in current layout order using normal auto-placement.
     /// </summary>
-    /// <param name="error">A consumer-facing reason when repack is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when repack is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when layout repack succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Repacking preserves inventory item instances and storage order. It changes layout placement only.
     /// Repack is not sorting and does not use item comparer ordering.
     /// The active layout must implement <see cref="IRepackableInventoryLayout{TKey}"/>.
     /// </remarks>
-    public bool TryRepackLayout(out InventoryFailure? error)
+    public bool TryRepackLayout(out InventoryFailure? failure)
     {
         var before = CaptureLayoutContextsByInstance();
         var orderedStorageIndices = GetStorageIndicesInCurrentLayoutOrder();
         var proposedContents = CreateCurrentContentsSnapshotInCurrentLayoutOrder();
 
-        if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out error) || proposedLayout == null)
+        if (!TryCreateEmptyLayoutLike(_layout, out var proposedLayout, out failure) || proposedLayout == null)
             return false;
 
-        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out error))
+        if (!TryValidateProposedContents(proposedContents, _stackResolver, _capacityPolicy, proposedLayout, out failure))
             return false;
 
         ApplyLayoutRepack(proposedLayout, orderedStorageIndices, before);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -3406,26 +3406,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The repack operation is rejected.</exception>
     public void RepackLayout()
     {
-        if (!TryRepackLayout(out var error))
-            ThrowMutationFailure(error, "Layout repack failed.");
+        if (!TryRepackLayout(out var failure))
+            ThrowMutationFailure(failure, "Layout repack failed.");
     }
 
     /// <summary>
     /// Attempts to sort the current layout without mutating inventory storage order.
     /// </summary>
     /// <param name="comparer">The item comparer used to order placed items.</param>
-    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
-    public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out InventoryFailure? error)
+    public bool TrySortLayout(IComparer<ItemInstance<TKey>> comparer, out InventoryFailure? failure)
     {
         if (comparer == null)
         {
-            error = "Comparer cannot be null.";
+            failure = InventoryFailures.Validation("Comparer cannot be null.");
             return false;
         }
 
-        return TrySortLayout(new ItemSortContext<TKey>(comparer), out error);
+        return TrySortLayout(new ItemSortContext<TKey>(comparer), out failure);
     }
 
     /// <summary>
@@ -3435,26 +3435,26 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(IComparer<ItemInstance<TKey>> comparer)
     {
-        if (!TrySortLayout(comparer, out var error))
-            ThrowMutationFailure(error, "Sort operation failed.");
+        if (!TrySortLayout(comparer, out var failure))
+            ThrowMutationFailure(failure, "Sort operation failed.");
     }
 
     /// <summary>
     /// Attempts to sort the current layout without mutating inventory storage order.
     /// </summary>
     /// <param name="comparison">The item comparison used to order placed items.</param>
-    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Sorting changes only the current layout placement and reports moved layout contexts through <see cref="Changed"/>.</remarks>
-    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out InventoryFailure? error)
+    public bool TrySortLayout(Comparison<ItemInstance<TKey>> comparison, out InventoryFailure? failure)
     {
         if (comparison == null)
         {
-            error = "Comparer cannot be null.";
+            failure = InventoryFailures.Validation("Comparer cannot be null.");
             return false;
         }
 
-        return TrySortLayout(ItemSortContext<TKey>.FromComparison(comparison), out error);
+        return TrySortLayout(ItemSortContext<TKey>.FromComparison(comparison), out failure);
     }
 
     /// <summary>
@@ -3464,27 +3464,27 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(Comparison<ItemInstance<TKey>> comparison)
     {
-        if (!TrySortLayout(comparison, out var error))
-            ThrowMutationFailure(error, "Sort operation failed.");
+        if (!TrySortLayout(comparison, out var failure))
+            ThrowMutationFailure(failure, "Sort operation failed.");
     }
 
     /// <summary>
     /// Attempts to sort the current layout using layout-specific sorting instructions.
     /// </summary>
     /// <param name="sortContext">The sort context interpreted by the current layout.</param>
-    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Layouts interpret sort contexts themselves; inventory storage order is not changed.</remarks>
-    public bool TrySortLayout(IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySortLayout(IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
         if (sortContext == null)
         {
-            error = "Sort context cannot be null.";
+            failure = InventoryFailures.Layout("Sort context cannot be null.");
             return false;
         }
 
         var before = CaptureLayoutContextsByInstance();
-        if (!_layout.TrySort(this, sortContext, out error))
+        if (!_layout.TrySort(this, sortContext, out failure))
             return false;
 
         var reconciliation = ReconcileLayoutAfterMutation();
@@ -3498,7 +3498,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 requiresFullRefresh: reconciliation.RequiresFullRefresh));
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -3509,13 +3509,13 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">The sort is rejected by validation or layout.</exception>
     public void SortLayout(IInventorySortContext<TKey> sortContext)
     {
-        if (!TrySortLayout(sortContext, out var error))
-            ThrowMutationFailure(error, "Sort operation failed.");
+        if (!TrySortLayout(sortContext, out var failure))
+            ThrowMutationFailure(failure, "Sort operation failed.");
     }
 
-    private static void ThrowMutationFailure(InventoryFailure? error, string fallbackMessage)
+    private static void ThrowMutationFailure(InventoryFailure? failure, string fallbackMessage)
     {
-        throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(fallbackMessage));
+        throw new InventoryOperationException(failure ?? InventoryFailures.Layout(fallbackMessage));
     }
 
     private Dictionary<ItemInstance<TKey>, IReadOnlyList<ILayoutContext<TKey>>>? CaptureLayoutContextsForReconciliation()
@@ -3681,17 +3681,17 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         for (int index = _items.Count - 1; index >= 0; index--)
         {
             if (!builder.TryRemoveAtStorageIndex(index, out var removeError, _items[index].Amount))
-                throw new InventoryOperationException(removeError ?? InventoryFailure.FromMessage(null));
+                throw new InventoryOperationException(removeError ?? InventoryFailures.Unknown());
         }
 
         foreach (var (definition, amount, context) in validEntries)
         {
             if (!builder.TryAdd(definition, out var addError, amount, context))
-                throw new InventoryOperationException(addError ?? InventoryFailure.FromMessage(null));
+                throw new InventoryOperationException(addError ?? InventoryFailures.Unknown());
         }
 
-        if (!builder.TryBuild(null, out var transaction, out var error) || transaction == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!builder.TryBuild(null, out var transaction, out var failure) || transaction == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
 
         ApplyPreparedTransaction(transaction, cleared: _items.Count > 0);
     }
@@ -3705,8 +3705,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </exception>
     public InventorySnapshot CaptureSnapshot()
     {
-        if (!TryCaptureSnapshot(out var snapshot, out var error) || snapshot == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryCaptureSnapshot(out var snapshot, out var failure) || snapshot == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
         return snapshot;
     }
 
@@ -3714,11 +3714,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// Attempts to capture a portable, deeply detached inventory snapshot.
     /// </summary>
     /// <param name="snapshot">The complete snapshot when capture succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when capture fails; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when capture fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when every persisted value and layout state was captured.</returns>
-    public bool TryCaptureSnapshot(out InventorySnapshot? snapshot, out InventoryFailure? error)
+    public bool TryCaptureSnapshot(out InventorySnapshot? snapshot, out InventoryFailure? failure)
     {
-        return InventorySnapshotCapture.TryCapture(this, out snapshot, out error);
+        return InventorySnapshotCapture.TryCapture(this, out snapshot, out failure);
     }
 
     /// <summary>
@@ -3775,9 +3775,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
                 metadata.RestoreMetadata(serializedItem.Metadata);
             }
 
-            builder.TryAdd(definition, serializedItem.Amount, null, metadata, out var error);
-            if (strict && error != null)
-                throw new InvalidOperationException($"Failed to deserialize item {serializedItem.DefinitionId}: {error}");
+            builder.TryAdd(definition, serializedItem.Amount, null, metadata, out var failure);
+            if (strict && failure != null)
+                throw new InvalidOperationException($"Failed to deserialize item {serializedItem.DefinitionId}: {failure}");
         }
         CommitTransaction(builder);
 

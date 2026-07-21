@@ -32,7 +32,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var failures = new List<string>(_rules.Length);
 
@@ -45,7 +45,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
 
             if (rule.CanApply(inventory, transaction, out var childError))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -66,7 +66,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
             snapshot ??= new InventoryRuleSnapshot<TKey>(inventory, transaction);
             if (snapshotRule.CanApply(inventory, transaction, snapshot, out var childError))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -76,7 +76,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
                 : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = InventoryFailure.Create(
+        failure = InventoryFailure.Create(
             InventoryFailureKind.Rules,
             InventoryFailureCodes.RulesRejected,
             "OrRule expected at least one nested rule to allow the transaction, but none did. " +
@@ -91,7 +91,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var failures = new List<string>(_rules.Length);
 
@@ -103,7 +103,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
 
             if (rule.CanApply(inventory, transaction, out var childError))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -121,7 +121,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
 
             if (snapshotRule.CanApply(inventory, transaction, snapshot, out var childError))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -131,7 +131,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
                 : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = InventoryFailure.Create(
+        failure = InventoryFailure.Create(
             InventoryFailureKind.Rules,
             InventoryFailureCodes.RulesRejected,
             "OrRule expected at least one nested rule to allow the transaction, but none did. " +
@@ -145,7 +145,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var failures = new List<string>(_rules.Length);
         var normalized = inventory.GenerateNormalizedInventoryTransaction(transaction);
@@ -158,7 +158,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
 
             if (allowed)
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -168,7 +168,7 @@ public class OrRule<TKey> : IRulePolicy<TKey>, IInventorySnapshotRulePolicy<TKey
                 : $"'{ruleName}' rejected: {childError.Message}");
         }
 
-        error = InventoryFailure.Create(
+        failure = InventoryFailure.Create(
             InventoryFailureKind.Rules,
             InventoryFailureCodes.RulesRejected,
             "OrRule expected at least one nested rule to allow the transaction, but none did. " +

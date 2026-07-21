@@ -29,16 +29,16 @@ public class MaxUniqueItemsRule<TKey> : InventorySnapshotRulePolicy<TKey>
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var uniqueCount = snapshot.UniqueDefinitionCount;
         if (uniqueCount > _maxUniqueDefinitions)
         {
-            error = $"Expected inventory to contain at most {_maxUniqueDefinitions} different item definition(s) after the transaction, but it would contain {uniqueCount}.";
+            failure = InventoryFailures.Definition($"Expected inventory to contain at most {_maxUniqueDefinitions} different item definition(s) after the transaction, but it would contain {uniqueCount}.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

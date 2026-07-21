@@ -27,18 +27,18 @@ public class WeightCapacityPolicyExampleTests
         var inventory = CreateInventory(new WeightCapacityPolicy<string>(Weight, maxWeight: 5), sword, potion, shield, feather);
         var operations = new StringBuilder();
 
-        AppendOperation(operations, "add sword x1", inventory.TryAdd(sword, out var error), error?.Message);
-        AppendOperation(operations, "add potion x2", inventory.TryAdd(potion, out error, 2), error?.Message);
-        AppendOperation(operations, "add shield x1", inventory.TryAdd(shield, out error), error?.Message);
-        AppendOperation(operations, "add feather x10", inventory.TryAdd(feather, out error, 10), error?.Message);
+        AppendOperation(operations, "add sword x1", inventory.TryAdd(sword, out var failure), failure);
+        AppendOperation(operations, "add potion x2", inventory.TryAdd(potion, out failure, 2), failure);
+        AppendOperation(operations, "add shield x1", inventory.TryAdd(shield, out failure), failure);
+        AppendOperation(operations, "add feather x10", inventory.TryAdd(feather, out failure, 10), failure);
 
         WriteExample("Capacity", "WeightCapacityPolicyExample.txt", Describe(inventory, operations.ToString()));
     }
 
-    private static void AppendOperation(StringBuilder builder, string label, bool accepted, InventoryFailure? error)
+    private static void AppendOperation(StringBuilder builder, string label, bool accepted, InventoryFailure? failure)
     {
         builder.Append(label).Append(": ");
-        builder.AppendLine(accepted ? "accepted" : "rejected - " + error);
+        builder.AppendLine(accepted ? "accepted" : "rejected - " + failure);
     }
 
     private static string Describe(Inventory<string> inventory, string operations)

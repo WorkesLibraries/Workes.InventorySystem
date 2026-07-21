@@ -17,9 +17,9 @@ public class DefinitionValidationException : InventorySystemException
     /// <summary>
     /// Creates a definition validation exception with a message.
     /// </summary>
-    /// <param name="message">The validation error message.</param>
+    /// <param name="message">The validation failure message.</param>
     public DefinitionValidationException(string message)
-        : this(InventoryFailure.FromMessage(message, InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid))
+        : this(InventoryFailure.Create(InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid, message))
     {
     }
 
@@ -35,10 +35,10 @@ public class DefinitionValidationException : InventorySystemException
     /// <summary>
     /// Creates a definition validation exception with a message and inner exception.
     /// </summary>
-    /// <param name="message">The validation error message.</param>
+    /// <param name="message">The validation failure message.</param>
     /// <param name="innerException">The exception that caused this validation exception.</param>
     public DefinitionValidationException(string message, Exception innerException)
-        : base(InventoryFailure.FromMessage(message, InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid), innerException)
+        : base(InventoryFailure.Create(InventoryFailureKind.Definition, InventoryFailureCodes.DefinitionInvalid, message), innerException)
     {
     }
 }

@@ -19,7 +19,7 @@ public class LayoutContextExampleTests
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateManager(new SlotLayout<string>(5), apple).CreateInventory();
 
-        var placed = inventory.TryAdd(apple, out var error, 5, SlotLayoutContext<string>.Single(3));
+        var placed = inventory.TryAdd(apple, out var failure, 5, SlotLayoutContext<string>.Single(3));
 
         Assert.That(placed, Is.True);
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(3))!.Amount, Is.EqualTo(5));
@@ -40,8 +40,8 @@ public class LayoutContextExampleTests
             .Add(0, 3)
             .Add(1, 4)
             .Build();
-        var built = builder.TryBuild(context, out var transaction, out var error);
-        var committed = built && inventory.TryCommitTransaction(transaction!, out error);
+        var built = builder.TryBuild(context, out var transaction, out var failure);
+        var committed = built && inventory.TryCommitTransaction(transaction!, out failure);
 
         Assert.That(committed, Is.True);
         WriteOutput("MappedMultiAddTransaction.txt", DescribeSlots(inventory, 5));

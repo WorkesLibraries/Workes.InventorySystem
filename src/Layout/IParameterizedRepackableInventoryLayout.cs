@@ -18,11 +18,11 @@ public interface IParameterizedRepackableInventoryLayout<TKey> :
     /// <param name="parameterId">The parameter id.</param>
     /// <param name="value">The proposed parameter value.</param>
     /// <param name="layout">The empty configured layout when creation succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when an empty parameterized repack target was created; otherwise, <see langword="false"/>.</returns>
     bool TryCreateEmptyRepackLayoutWithParameter(
         string parameterId,
         object? value,
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

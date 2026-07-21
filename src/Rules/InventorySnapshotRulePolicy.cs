@@ -22,10 +22,10 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var snapshot = new InventoryRuleSnapshot<TKey>(inventory, transaction);
-        return CanApply(inventory, transaction, snapshot, out error);
+        return CanApply(inventory, transaction, snapshot, out failure);
     }
 
     /// <inheritdoc />
@@ -34,9 +34,9 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return CanApplyWithSnapshot(inventory, transaction, snapshot, out error);
+        return CanApplyWithSnapshot(inventory, transaction, snapshot, out failure);
     }
 
     /// <summary>
@@ -45,11 +45,11 @@ public abstract class InventorySnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IIn
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
     /// <param name="snapshot">A lazy projected view of inventory quantities after the transaction.</param>
-    /// <param name="error">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction satisfies the rule; otherwise, <see langword="false"/>.</returns>
     protected abstract bool CanApplyWithSnapshot(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

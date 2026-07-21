@@ -47,7 +47,7 @@ public class EquipmentLoadoutWorkflowExampleTests
             .Add(3, "trinket")
             .Build();
 
-        Assert.That(lootBag.TryCommitTransfer(transfer, equipment, placement, out var error), Is.True);
+        Assert.That(lootBag.TryCommitTransfer(transfer, equipment, placement, out var failure), Is.True);
 
         WriteExample("EquipmentLayout", "EquipmentLoadoutWorkflowExample.txt", RenderLoadout(equipment));
     }
@@ -66,14 +66,14 @@ public class EquipmentLoadoutWorkflowExampleTests
         equipment.TryAdd(sword, out _, 1, EquipmentLayoutContext<string>.Single("main-hand"));
         var before = RenderSlot(equipment, "head") + "\n" + RenderSlot(equipment, "main-hand");
 
-        var accepted = equipment.TryAdd(helmet, out var error, 1, EquipmentLayoutContext<string>.Single("main-hand"));
+        var accepted = equipment.TryAdd(helmet, out var failure, 1, EquipmentLayoutContext<string>.Single("main-hand"));
 
         Assert.That(accepted, Is.False);
         Assert.That(RenderSlot(equipment, "head") + "\n" + RenderSlot(equipment, "main-hand"), Is.EqualTo(before));
         WriteExample("EquipmentLayout", "EquipmentRejectedPlacementExample.txt",
             $"attempt: iron_helmet -> main-hand\n" +
             $"accepted: {accepted}\n" +
-            $"error: {error}\n\n" +
+            $"failure: {failure}\n\n" +
             "unchanged loadout\n" +
             before);
     }

@@ -7,6 +7,15 @@ namespace Workes.InventorySystem.Core;
 /// </summary>
 public sealed class InventoryFailure : IEquatable<InventoryFailure>
 {
+    /// <summary>
+    /// Creates a structured inventory failure.
+    /// </summary>
+    /// <param name="kind">Broad failure category.</param>
+    /// <param name="code">Stable machine-readable failure code.</param>
+    /// <param name="message">Human-readable failure message.</param>
+    /// <param name="component">Optional component that produced or wrapped the failure.</param>
+    /// <param name="source">Optional stable source identifier, such as a rule id.</param>
+    /// <param name="cause">Optional nested lower-level failure.</param>
     public InventoryFailure(
         InventoryFailureKind kind,
         string code,
@@ -28,13 +37,29 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         Cause = cause;
     }
 
+    /// <summary>Broad failure category.</summary>
     public InventoryFailureKind Kind { get; }
+    /// <summary>Stable machine-readable failure code.</summary>
     public string Code { get; }
+    /// <summary>Human-readable failure message.</summary>
     public string Message { get; }
+    /// <summary>Optional component that produced or wrapped the failure.</summary>
     public string? Component { get; }
+    /// <summary>Optional stable source identifier, such as a rule id.</summary>
     public string? Source { get; }
+    /// <summary>Optional nested lower-level failure.</summary>
     public InventoryFailure? Cause { get; }
 
+    /// <summary>
+    /// Creates a structured inventory failure.
+    /// </summary>
+    /// <param name="kind">Broad failure category.</param>
+    /// <param name="code">Stable machine-readable failure code.</param>
+    /// <param name="message">Human-readable failure message.</param>
+    /// <param name="component">Optional component that produced or wrapped the failure.</param>
+    /// <param name="source">Optional stable source identifier, such as a rule id.</param>
+    /// <param name="cause">Optional nested lower-level failure.</param>
+    /// <returns>The created failure.</returns>
     public static InventoryFailure Create(
         InventoryFailureKind kind,
         string code,
@@ -44,6 +69,16 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         InventoryFailure? cause = null) =>
         new(kind, code, message, component, source, cause);
 
+    /// <summary>
+    /// Creates a higher-level failure that preserves a lower-level cause.
+    /// </summary>
+    /// <param name="kind">Broad failure category.</param>
+    /// <param name="code">Stable machine-readable failure code.</param>
+    /// <param name="message">Human-readable wrapping message.</param>
+    /// <param name="cause">Optional lower-level cause.</param>
+    /// <param name="component">Optional component that wrapped the failure.</param>
+    /// <param name="source">Optional stable source identifier, such as a rule id.</param>
+    /// <returns>The wrapped failure.</returns>
     public static InventoryFailure Wrap(
         InventoryFailureKind kind,
         string code,
@@ -53,6 +88,13 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         string? source = null) =>
         new(kind, code, cause == null ? message : $"{message}: {cause.Message}", component, source, cause);
 
+    /// <summary>
+    /// Converts an exception from an expected extension path into a structured failure.
+    /// </summary>
+    /// <param name="exception">The exception to convert.</param>
+    /// <param name="kind">Failure category to use for non-inventory exceptions.</param>
+    /// <param name="code">Optional stable code to use for non-inventory exceptions.</param>
+    /// <returns>The structured failure.</returns>
     public static InventoryFailure FromException(Exception exception, InventoryFailureKind kind = InventoryFailureKind.Extension, string? code = null)
     {
         if (exception == null)
@@ -63,20 +105,10 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         return new InventoryFailure(kind, code ?? InventoryFailureCodes.ExtensionRejected, exception.Message);
     }
 
-    public static InventoryFailure FromMessage(string? message, InventoryFailureKind kind = InventoryFailureKind.Unknown, string? code = null)
-    {
-        var resolvedKind = kind == InventoryFailureKind.Unknown ? InferKind(message) : kind;
-        return new InventoryFailure(
-            resolvedKind,
-            code ?? InferCode(resolvedKind, message),
-            string.IsNullOrWhiteSpace(message) ? "Inventory operation failed." : message!);
-    }
-
-    public static implicit operator InventoryFailure?(string? message)
-    {
-        return message == null ? null : FromMessage(message);
-    }
-
+    /// <summary>
+    /// Returns the human-readable message with concise cause context when present.
+    /// </summary>
+    /// <returns>The displayable failure string.</returns>
     public override string ToString()
     {
         if (Cause == null)
@@ -85,6 +117,11 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         return $"{Message} Cause: {Cause.Message}";
     }
 
+    /// <summary>
+    /// Determines whether this failure is structurally equal to another failure.
+    /// </summary>
+    /// <param name="other">The other failure.</param>
+    /// <returns><see langword="true"/> when all failure fields are equal.</returns>
     public bool Equals(InventoryFailure? other)
     {
         if (other == null)
@@ -98,11 +135,13 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
                Equals(Cause, other.Cause);
     }
 
+    /// <inheritdoc />
     public override bool Equals(object? obj)
     {
         return Equals(obj as InventoryFailure);
     }
 
+    /// <inheritdoc />
     public override int GetHashCode()
     {
         unchecked
@@ -117,71 +156,4 @@ public sealed class InventoryFailure : IEquatable<InventoryFailure>
         }
     }
 
-    private static string InferCode(InventoryFailureKind kind, string? message)
-    {
-        if (message != null)
-        {
-            if (message.IndexOf("definition", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.DefinitionInvalid;
-            if (message.IndexOf("metadata", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.MetadataRejected;
-            if (message.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.CapacityRejected;
-            if (message.IndexOf("rule", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.RulesRejected;
-            if (message.IndexOf("layout", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                message.IndexOf("context", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                message.IndexOf("placement", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.LayoutRejected;
-            if (message.IndexOf("transfer", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.TransferRejected;
-            if (message.IndexOf("snapshot", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.SnapshotRejected;
-            if (message.IndexOf("parameter", StringComparison.OrdinalIgnoreCase) >= 0)
-                return InventoryFailureCodes.ConfigurationRejected;
-        }
-
-        return kind switch
-        {
-            InventoryFailureKind.Definition => InventoryFailureCodes.DefinitionInvalid,
-            InventoryFailureKind.Metadata => InventoryFailureCodes.MetadataRejected,
-            InventoryFailureKind.Stacking => InventoryFailureCodes.StackingRejected,
-            InventoryFailureKind.Capacity => InventoryFailureCodes.CapacityRejected,
-            InventoryFailureKind.Rules => InventoryFailureCodes.RulesRejected,
-            InventoryFailureKind.Layout => InventoryFailureCodes.LayoutRejected,
-            InventoryFailureKind.Transfer => InventoryFailureCodes.TransferRejected,
-            InventoryFailureKind.Transaction => InventoryFailureCodes.TransactionRejected,
-            InventoryFailureKind.Persistence => InventoryFailureCodes.PersistenceRejected,
-            InventoryFailureKind.Snapshot => InventoryFailureCodes.SnapshotRejected,
-            InventoryFailureKind.Configuration => InventoryFailureCodes.ConfigurationRejected,
-            InventoryFailureKind.Extension => InventoryFailureCodes.ExtensionRejected,
-            InventoryFailureKind.Validation => InventoryFailureCodes.ValidationRejected,
-            _ => InventoryFailureCodes.Unknown
-        };
-    }
-
-    private static InventoryFailureKind InferKind(string? message)
-    {
-        if (message == null)
-            return InventoryFailureKind.Unknown;
-        if (message.IndexOf("definition", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Definition;
-        if (message.IndexOf("metadata", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Metadata;
-        if (message.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Capacity;
-        if (message.IndexOf("rule", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Rules;
-        if (message.IndexOf("layout", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            message.IndexOf("context", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            message.IndexOf("placement", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Layout;
-        if (message.IndexOf("transfer", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Transfer;
-        if (message.IndexOf("snapshot", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Snapshot;
-        if (message.IndexOf("parameter", StringComparison.OrdinalIgnoreCase) >= 0)
-            return InventoryFailureKind.Configuration;
-        return InventoryFailureKind.Unknown;
-    }
 }

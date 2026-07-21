@@ -24,7 +24,7 @@ public interface IRulePolicy<TKey>
     /// </summary>
     /// <param name="inventory">The inventory that would receive the transaction.</param>
     /// <param name="transaction">The semantic transaction grouped by item definition and metadata.</param>
-    /// <param name="error">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the rule rejects the transaction; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction satisfies the rule; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Rules should prefer transaction-only checks for performance. Rules that need an inventory-wide view can use
@@ -33,5 +33,5 @@ public interface IRulePolicy<TKey>
     bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

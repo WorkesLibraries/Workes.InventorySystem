@@ -67,103 +67,103 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? error)
+    public bool CanApply(Inventory<TKey> inventory, NormalizedInventoryTransaction<TKey> normalizedTransaction, out InventoryFailure? failure)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
         if (normalizedTransaction == null)
             throw new ArgumentNullException(nameof(normalizedTransaction));
 
-        if (!TryCalculateCurrentWeight(inventory, out double currentWeight, out error))
+        if (!TryCalculateCurrentWeight(inventory, out double currentWeight, out failure))
             return false;
-        if (!TryCalculateWeight(normalizedTransaction.Added, out double addedWeight, out error))
+        if (!TryCalculateWeight(normalizedTransaction.Added, out double addedWeight, out failure))
             return false;
-        if (!TryCalculateWeight(normalizedTransaction.Removed, out double removedWeight, out error))
+        if (!TryCalculateWeight(normalizedTransaction.Removed, out double removedWeight, out failure))
             return false;
 
         if (currentWeight + addedWeight - removedWeight > MaxWeight)
         {
-            error = "Capacity exceeded.";
+            failure = InventoryFailures.Capacity("Capacity exceeded.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? error)
+    public bool CanAdd(Inventory<TKey> inventory, ItemInstance<TKey> instance, out InventoryFailure? failure)
     {
         if (inventory == null)
             throw new ArgumentNullException(nameof(inventory));
         if (instance == null)
             throw new ArgumentNullException(nameof(instance));
 
-        if (!TryCalculateCurrentWeight(inventory, out double currentWeight, out error))
+        if (!TryCalculateCurrentWeight(inventory, out double currentWeight, out failure))
             return false;
-        if (!TryGetWeight(instance.Definition, out double itemWeight, out error))
+        if (!TryGetWeight(instance.Definition, out double itemWeight, out failure))
             return false;
 
         if (currentWeight + itemWeight * instance.Amount > MaxWeight)
         {
-            error = "Capacity exceeded.";
+            failure = InventoryFailures.Capacity("Capacity exceeded.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool TryCalculateCurrentWeight(Inventory<TKey> inventory, out double weight, out InventoryFailure? error)
+    private bool TryCalculateCurrentWeight(Inventory<TKey> inventory, out double weight, out InventoryFailure? failure)
     {
         weight = 0;
         foreach (var item in inventory.Items)
         {
-            if (!TryGetWeight(item.Definition, out double itemWeight, out error))
+            if (!TryGetWeight(item.Definition, out double itemWeight, out failure))
                 return false;
 
             weight += itemWeight * item.Amount;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     private bool TryCalculateWeight(
         System.Collections.Generic.IReadOnlyList<(ItemDefinition<TKey> definition, InstanceMetadata? metadata, int amount)> entries,
         out double weight,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         weight = 0;
         foreach (var (definition, _, amount) in entries)
         {
-            if (!TryGetWeight(definition, out double itemWeight, out error))
+            if (!TryGetWeight(definition, out double itemWeight, out failure))
                 return false;
 
             weight += itemWeight * amount;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
-    private bool TryGetWeight(ItemDefinition<TKey> definition, out double weight, out InventoryFailure? error)
+    private bool TryGetWeight(ItemDefinition<TKey> definition, out double weight, out InventoryFailure? failure)
     {
         if (definition.Attributes.TryGet(WeightAttributeId, out weight))
         {
-            error = null;
+            failure = null;
             return true;
         }
 
         if (TreatMissingWeightAsZero)
         {
             weight = 0;
-            error = null;
+            failure = null;
             return true;
         }
 
-        error = "Item weight attribute missing.";
+        failure = InventoryFailures.Capacity("Item weight attribute missing.");
         return false;
     }
 
@@ -174,25 +174,25 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
         string parameterId,
         object? value,
         out ICapacityPolicy<TKey>? policy,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         policy = null;
         if (parameterId == "maxWeight")
         {
             if (!TryGetDouble(value, out double maxWeight))
             {
-                error = "Parameter 'maxWeight' expects value type 'Double'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'maxWeight' expects value type 'Double'.");
                 return false;
             }
 
             if (maxWeight < 0)
             {
-                error = "Maximum weight cannot be negative.";
+                failure = InventoryFailures.Capacity("Maximum weight cannot be negative.");
                 return false;
             }
 
             policy = new WeightCapacityPolicy<TKey>(WeightAttributeId, maxWeight, TreatMissingWeightAsZero);
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -200,16 +200,16 @@ public sealed class WeightCapacityPolicy<TKey> : IParameterizedCapacityPolicy<TK
         {
             if (value is not bool treatMissingWeightAsZero)
             {
-                error = "Parameter 'treatMissingWeightAsZero' expects value type 'Boolean'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'treatMissingWeightAsZero' expects value type 'Boolean'.");
                 return false;
             }
 
             policy = new WeightCapacityPolicy<TKey>(WeightAttributeId, MaxWeight, treatMissingWeightAsZero);
-            error = null;
+            failure = null;
             return true;
         }
 
-        error = $"Parameter '{parameterId}' is not supported by WeightCapacityPolicy.";
+        failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by WeightCapacityPolicy.");
         return false;
     }
 

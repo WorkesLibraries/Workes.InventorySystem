@@ -18,7 +18,7 @@ public class ItemPredicateRule<TKey> : IRulePolicy<TKey>
     /// Creates an item predicate rule.
     /// </summary>
     /// <param name="predicate">The predicate that must accept each added item definition and metadata pair.</param>
-    /// <param name="errorMessage">The error message prefix used when validation fails.</param>
+    /// <param name="errorMessage">The failure message prefix used when validation fails.</param>
     /// <param name="id">Optional rule id override.</param>
     /// <exception cref="ArgumentNullException"><paramref name="predicate"/> is <see langword="null"/>.</exception>
     public ItemPredicateRule(
@@ -36,18 +36,18 @@ public class ItemPredicateRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (definition, metadata, _) in transaction.Added)
         {
             if (!_predicate(definition, metadata))
             {
-                error = $"{_errorMessage}. Item '{definition.Id}' did not satisfy the predicate.";
+                failure = InventoryFailures.Definition($"{_errorMessage}. Item '{definition.Id}' did not satisfy the predicate.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

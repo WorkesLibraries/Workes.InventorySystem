@@ -47,8 +47,8 @@ public class UiRefreshFromAffectedContextsExampleTests
             refreshLog.Add("refresh cells: " + string.Join(", ", cells));
         };
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
-        Assert.That(inventory.TryAdd(crate, out error, 1, MultiCellGridLayoutContext<string>.Single(0, 2)), Is.True);
+        Assert.That(inventory.TryAdd(table, out var failure, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
+        Assert.That(inventory.TryAdd(crate, out failure, 1, MultiCellGridLayoutContext<string>.Single(0, 2)), Is.True);
         inventory.ReplaceContents(new (ItemDefinition<string> definition, int amount, ILayoutContext<string>? context)[]
         {
             (chest, 1, MultiCellGridLayoutContext<string>.Single(0, 0)),

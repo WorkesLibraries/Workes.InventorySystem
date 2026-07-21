@@ -44,7 +44,7 @@ public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var requiredTagsDescription = string.Join(", ", _tagIds);
         foreach (var (definition, _, _) in transaction.Added)
@@ -53,13 +53,13 @@ public class RequireAllTagsRule<TKey> : IRulePolicy<TKey>
             {
                 if (!inventory.Catalog.Satisfies(definition, tagId))
                 {
-                    error = $"Expected item to have all required tags ({requiredTagsDescription}), but it was missing '{tagId}'.";
+                    failure = InventoryFailures.Definition($"Expected item to have all required tags ({requiredTagsDescription}), but it was missing '{tagId}'.");
                     return false;
                 }
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

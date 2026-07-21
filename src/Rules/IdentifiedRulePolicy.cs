@@ -36,9 +36,9 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return _inner.CanApply(inventory, transaction, out error);
+        return _inner.CanApply(inventory, transaction, out failure);
     }
 
     /// <inheritdoc />
@@ -46,12 +46,12 @@ public sealed class IdentifiedRulePolicy<TKey> : IRulePolicy<TKey>, IInventorySt
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (_inner is IInventoryStructuralRulePolicy<TKey> structuralRule)
-            return structuralRule.CanApply(inventory, transaction, out error);
+            return structuralRule.CanApply(inventory, transaction, out failure);
 
-        error = null;
+        failure = null;
         return true;
     }
 }

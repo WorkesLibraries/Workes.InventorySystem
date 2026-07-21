@@ -43,7 +43,7 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var requiredTagsDescription = string.Join(", ", _tagIds);
         foreach (var (definition, _, _) in transaction.Added)
@@ -60,12 +60,12 @@ public class RequireAnyTagRule<TKey> : IRulePolicy<TKey>
 
             if (!hasAny)
             {
-                error = $"Expected item to have at least one of the required tags ({requiredTagsDescription}), but it had none.";
+                failure = InventoryFailures.Definition($"Expected item to have at least one of the required tags ({requiredTagsDescription}), but it had none.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

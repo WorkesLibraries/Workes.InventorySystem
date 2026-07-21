@@ -67,7 +67,7 @@ public class ItemInstance<TKey>
     /// <param name="key">The metadata key to add or replace.</param>
     /// <param name="value">The metadata value.</param>
     /// <param name="metadataStack">The stack that received the metadata when the operation succeeds.</param>
-    /// <param name="error">A consumer-facing reason when the operation is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the operation is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the operation succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>This operation is routed through the owning inventory and fails when the instance is not inventory-owned.</remarks>
     public bool TrySplitAndSetMetadata(
@@ -75,16 +75,16 @@ public class ItemInstance<TKey>
         string key,
         object? value,
         out ItemInstance<TKey>? metadataStack,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         metadataStack = null;
         if (Owner == null)
         {
-            error = "Item instance does not belong to an inventory.";
+            failure = InventoryFailures.Validation("Item instance does not belong to an inventory.");
             return false;
         }
 
-        return Owner.TrySplitAndSetMetadata(this, amount, key, value, out metadataStack, out error);
+        return Owner.TrySplitAndSetMetadata(this, amount, key, value, out metadataStack, out failure);
     }
 
     /// <summary>
@@ -98,8 +98,8 @@ public class ItemInstance<TKey>
     /// <remarks>This operation is routed through the owning inventory.</remarks>
     public ItemInstance<TKey> SplitAndSetMetadata(int amount, string key, object? value)
     {
-        if (!TrySplitAndSetMetadata(amount, key, value, out var metadataStack, out var error) || metadataStack == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TrySplitAndSetMetadata(amount, key, value, out var metadataStack, out var failure) || metadataStack == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
 
         return metadataStack;
     }

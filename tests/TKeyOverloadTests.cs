@@ -56,7 +56,7 @@ public class TKeyOverloadTests
         var coin = new ItemDefinition<int>(100);
         var inventory = CreateInventory(new SlotLayout<int>(2), coin);
 
-        Assert.That(inventory.TryAdd(100, out var error, amount: 3, context: SlotLayoutContext<int>.Single(1)), Is.True);
+        Assert.That(inventory.TryAdd(100, out var failure, amount: 3, context: SlotLayoutContext<int>.Single(1)), Is.True);
 
         Assert.That(inventory.Count(100), Is.EqualTo(3));
         Assert.That(inventory.GetItemAt(SlotLayoutContext<int>.Single(1))!.Definition, Is.SameAs(coin));
@@ -104,7 +104,7 @@ public class TKeyOverloadTests
 
         var builder = InventoryTransaction<string>.From(inventory);
 
-        Assert.That(builder.TryAdd("apple", amount: 1, context: null, metadata, out var error), Is.True);
+        Assert.That(builder.TryAdd("apple", amount: 1, context: null, metadata, out var failure), Is.True);
         Assert.That(inventory.TryCommitTransaction(builder, out var commitError), Is.True);
         Assert.That(inventory.Items[0].Metadata.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("polished"));
@@ -129,7 +129,7 @@ public class TKeyOverloadTests
 
         var builder = InventoryTransfer.From(source);
 
-        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 3, ignoreMetadata: true, out var error), Is.True);
+        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 3, ignoreMetadata: true, out var failure), Is.True);
         Assert.That(source.TryCommitTransfer(builder, target, out var commitError), Is.True);
 
         Assert.That(source.Count("apple"), Is.EqualTo(2));

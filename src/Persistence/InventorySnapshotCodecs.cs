@@ -35,9 +35,9 @@ public static class InventorySnapshotCodecs
     public static bool TryEncode<T>(
         T value,
         out SnapshotEncodedValue? encoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return TryEncodeObject(value, out encoded, out error);
+        return TryEncodeObject(value, out encoded, out failure);
     }
 
     /// <summary>
@@ -45,8 +45,8 @@ public static class InventorySnapshotCodecs
     /// </summary>
     public static SnapshotEncodedValue Encode<T>(T value)
     {
-        if (!TryEncode(value, out var encoded, out var error) || encoded == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryEncode(value, out var encoded, out var failure) || encoded == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
         return encoded;
     }
 
@@ -56,61 +56,62 @@ public static class InventorySnapshotCodecs
     public static bool TryDecode<T>(
         SnapshotEncodedValue encoded,
         out T value,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         value = default!;
-        if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out error) || detached == null)
+        if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out failure) || detached == null)
             return false;
 
         if (detached.CodecId == NullCodecId)
         {
             if (default(T) is not null)
             {
-                error = $"Snapshot null cannot be decoded as non-nullable type '{typeof(T).FullName}'.";
+                failure = InventoryFailures.Snapshot($"Snapshot null cannot be decoded as non-nullable type '{typeof(T).FullName}'.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
 
-        if (!TryGetAdapter(typeof(T), out var adapter, out error) || adapter == null)
+        if (!TryGetAdapter(typeof(T), out var adapter, out failure) || adapter == null)
             return false;
         if (!string.Equals(adapter.FormatId, detached.CodecId, StringComparison.Ordinal))
         {
-            error =
-                $"Snapshot codec '{detached.CodecId}' does not match the assigned codec " +
-                $"'{adapter.FormatId}' for type '{typeof(T).FullName}'.";
+            failure =
+                InventoryFailures.SnapshotCodecRejected(
+                    $"Snapshot codec '{detached.CodecId}' does not match the assigned codec " +
+                    $"'{adapter.FormatId}' for type '{typeof(T).FullName}'.");
             return false;
         }
         if (detached.Data.Kind == SnapshotValueKind.Null)
         {
             if (default(T) is not null)
             {
-                error = $"Snapshot null cannot be decoded as non-nullable type '{typeof(T).FullName}'.";
+                failure = InventoryFailures.Snapshot($"Snapshot null cannot be decoded as non-nullable type '{typeof(T).FullName}'.");
                 return false;
             }
-            error = null;
+            failure = null;
             return true;
         }
 
         object? decoded;
         try
         {
-            if (!adapter.TryDecode(detached.Data, detached.CodecVersion, out decoded, out error))
+            if (!adapter.TryDecode(detached.Data, detached.CodecVersion, out decoded, out failure))
             {
-                error ??= $"Snapshot codec '{adapter.FormatId}' rejected version {detached.CodecVersion} data.";
+                failure ??= InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' rejected version {detached.CodecVersion} data.");
                 return false;
             }
         }
         catch (Exception ex)
         {
-            error = $"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}";
+            failure = InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}");
             return false;
         }
         if (decoded is not T typed)
         {
-            error = $"Snapshot codec '{adapter.FormatId}' returned an incompatible value.";
+            failure = InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' returned an incompatible value.");
             return false;
         }
 
@@ -121,47 +122,47 @@ public static class InventorySnapshotCodecs
     internal static bool TryDecodeRuntime(
         SnapshotEncodedValue encoded,
         out object? value,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return TryDecodeRuntime(encoded, out value, out _, out error);
+        return TryDecodeRuntime(encoded, out value, out _, out failure);
     }
 
     internal static bool TryDecodeRuntime(
         SnapshotEncodedValue encoded,
         out object? value,
         out Type? valueType,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         value = null;
         valueType = null;
-        if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out error) || detached == null)
+        if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out failure) || detached == null)
             return false;
         if (detached.CodecId == NullCodecId)
         {
-            error = null;
+            failure = null;
             return true;
         }
 
-        if (!TryGetAdapterById(detached.CodecId, out var adapter, out error) || adapter == null)
+        if (!TryGetAdapterById(detached.CodecId, out var adapter, out failure) || adapter == null)
             return false;
         valueType = adapter.ValueType;
         if (detached.Data.Kind == SnapshotValueKind.Null)
         {
             if (adapter.ValueType.IsValueType && Nullable.GetUnderlyingType(adapter.ValueType) == null)
             {
-                error = $"Snapshot null cannot be decoded as non-nullable type '{adapter.ValueType.FullName}'.";
+                failure = InventoryFailures.Snapshot($"Snapshot null cannot be decoded as non-nullable type '{adapter.ValueType.FullName}'.");
                 return false;
             }
             value = null;
-            error = null;
+            failure = null;
             return true;
         }
 
         try
         {
-            if (!adapter.TryDecode(detached.Data, detached.CodecVersion, out value, out error))
+            if (!adapter.TryDecode(detached.Data, detached.CodecVersion, out value, out failure))
             {
-                error ??= $"Snapshot codec '{adapter.FormatId}' rejected version {detached.CodecVersion} data.";
+                failure ??= InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' rejected version {detached.CodecVersion} data.");
                 return false;
             }
             return true;
@@ -169,7 +170,7 @@ public static class InventorySnapshotCodecs
         catch (Exception ex)
         {
             value = null;
-                error = $"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}";
+                failure = InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' failed to decode data: {ex.Message}");
                 return false;
         }
     }
@@ -183,7 +184,7 @@ public static class InventorySnapshotCodecs
     internal static bool TryEncodeObject(
         object? value,
         out SnapshotEncodedValue? encoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         encoded = null;
         if (value == null)
@@ -194,37 +195,37 @@ public static class InventorySnapshotCodecs
                 CodecVersion = 1,
                 Data = SnapshotValue.Null()
             };
-            error = null;
+            failure = null;
             return true;
         }
 
         var type = value.GetType();
         if (type == typeof(object))
         {
-            error = "Literal System.Object values are not portable snapshot values.";
+            failure = InventoryFailures.Snapshot("Literal System.Object values are not portable snapshot values.");
             return false;
         }
-        if (!TryGetAdapter(type, out var adapter, out error) || adapter == null)
+        if (!TryGetAdapter(type, out var adapter, out failure) || adapter == null)
             return false;
 
         bool trackReference = !type.IsValueType && type != typeof(string);
         var path = t_encodingPath ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
         if (trackReference && !path.Add(value))
         {
-            error = $"Snapshot value graph contains a cycle at type '{type.FullName}'.";
+            failure = InventoryFailures.Snapshot($"Snapshot value graph contains a cycle at type '{type.FullName}'.");
             return false;
         }
 
         try
         {
-            if (!adapter.TryEncode(value, out var data, out error) || data == null)
+            if (!adapter.TryEncode(value, out var data, out failure) || data == null)
             {
-                error ??= $"Snapshot codec '{adapter.FormatId}' rejected the value.";
+                failure ??= InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' rejected the value.");
                 return false;
             }
-            if (!SnapshotValueValidator.TryClone(data, out var detached, out error) || detached == null)
+            if (!SnapshotValueValidator.TryClone(data, out var detached, out failure) || detached == null)
             {
-                error = $"Snapshot codec '{adapter.FormatId}' produced invalid data: {error}";
+                failure = InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' produced invalid data: {failure}");
                 return false;
             }
 
@@ -238,7 +239,7 @@ public static class InventorySnapshotCodecs
         }
         catch (Exception ex)
         {
-            error = $"Snapshot codec '{adapter.FormatId}' failed to encode '{type.FullName}': {ex.Message}";
+            failure = InventoryFailures.Snapshot($"Snapshot codec '{adapter.FormatId}' failed to encode '{type.FullName}': {ex.Message}");
             return false;
         }
         finally
@@ -253,30 +254,30 @@ public static class InventorySnapshotCodecs
     internal static bool TryEncodeKey<TKey>(
         TKey value,
         out SnapshotEncodedValue? encoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (value is null)
         {
             encoded = null;
-            error = "Inventory definition ids cannot be null.";
+            failure = InventoryFailures.Definition("Inventory definition ids cannot be null.");
             return false;
         }
 
         if (HasRegisteredAdapter(typeof(TKey)))
-            return TryEncode(value, out encoded, out error);
+            return TryEncode(value, out encoded, out failure);
 
-        return CustomKeyCodecCache<TKey>.TryEncode(value, out encoded, out error);
+        return CustomKeyCodecCache<TKey>.TryEncode(value, out encoded, out failure);
     }
 
     internal static bool TryDecodeKey<TKey>(
         SnapshotEncodedValue encoded,
         out TKey value,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (HasRegisteredAdapter(typeof(TKey)))
-            return TryDecode(encoded, out value, out error);
+            return TryDecode(encoded, out value, out failure);
 
-        return CustomKeyCodecCache<TKey>.TryDecode(encoded, out value, out error);
+        return CustomKeyCodecCache<TKey>.TryDecode(encoded, out value, out failure);
     }
 
     private static bool HasRegisteredAdapter(Type type)
@@ -289,17 +290,17 @@ public static class InventorySnapshotCodecs
         object? value,
         Type declaredType,
         out SnapshotEncodedValue? encoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (value != null)
-            return TryEncodeObject(value, out encoded, out error);
+            return TryEncodeObject(value, out encoded, out failure);
         if (declaredType.IsValueType && Nullable.GetUnderlyingType(declaredType) == null)
         {
             encoded = null;
-            error = $"Null cannot be encoded as non-nullable declared type '{declaredType.FullName}'.";
+            failure = InventoryFailures.Snapshot($"Null cannot be encoded as non-nullable declared type '{declaredType.FullName}'.");
             return false;
         }
-        if (!TryGetAdapter(declaredType, out var adapter, out error) || adapter == null)
+        if (!TryGetAdapter(declaredType, out var adapter, out failure) || adapter == null)
         {
             encoded = null;
             return false;
@@ -313,25 +314,25 @@ public static class InventorySnapshotCodecs
         return true;
     }
 
-    private static bool TryGetAdapter(Type type, out ICodecAdapter? adapter, out InventoryFailure? error)
+    private static bool TryGetAdapter(Type type, out ICodecAdapter? adapter, out InventoryFailure? failure)
     {
         lock (s_gate)
         {
             if (s_byType.TryGetValue(type, out adapter))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
             if (type == typeof(object))
             {
-                error = "Literal System.Object values are not portable snapshot values.";
+                failure = InventoryFailures.Snapshot("Literal System.Object values are not portable snapshot values.");
                 return false;
             }
 
             if (type.IsEnum)
             {
-                error = $"Snapshot values of enum type '{type.FullName}' are unsupported.";
+                failure = InventoryFailures.Snapshot($"Snapshot values of enum type '{type.FullName}' are unsupported.");
                 return false;
             }
 
@@ -339,7 +340,7 @@ public static class InventorySnapshotCodecs
             {
                 if (type.GetArrayRank() != 1)
                 {
-                    error = $"Only one-dimensional snapshot arrays are supported; '{type.FullName}' has rank {type.GetArrayRank()}.";
+                    failure = InventoryFailures.Snapshot($"Only one-dimensional snapshot arrays are supported; '{type.FullName}' has rank {type.GetArrayRank()}.");
                     return false;
                 }
 
@@ -347,7 +348,7 @@ public static class InventorySnapshotCodecs
                     typeof(ArrayCodec<>),
                     type.GetElementType()!,
                     out adapter,
-                    out error);
+                    out failure);
             }
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
@@ -356,10 +357,10 @@ public static class InventorySnapshotCodecs
                     typeof(ListCodec<>),
                     type.GetGenericArguments()[0],
                     out adapter,
-                    out error);
+                    out failure);
             }
 
-            error = $"CLR type '{type.FullName}' is not a supported portable snapshot value.";
+            failure = InventoryFailures.Snapshot($"CLR type '{type.FullName}' is not a supported portable snapshot value.");
             return false;
         }
     }
@@ -368,14 +369,14 @@ public static class InventorySnapshotCodecs
         Type openCodecType,
         Type elementType,
         out ICodecAdapter? adapter,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         try
         {
             var codecType = openCodecType.MakeGenericType(elementType);
             adapter = (ICodecAdapter)Activator.CreateInstance(codecType)!;
             RegisterAdapter(adapter, allowReservedId: true);
-            error = null;
+            failure = null;
             return true;
         }
         catch (Exception ex)
@@ -384,8 +385,7 @@ public static class InventorySnapshotCodecs
             var cause = ex is System.Reflection.TargetInvocationException && ex.InnerException != null
                 ? ex.InnerException
                 : ex;
-            error =
-                $"Snapshot collection element type '{elementType.FullName}' is unsupported: {cause.Message}";
+            failure = InventoryFailures.Snapshot($"Snapshot collection element type '{elementType.FullName}' is unsupported: {cause.Message}");
             return false;
         }
     }
@@ -393,13 +393,13 @@ public static class InventorySnapshotCodecs
     private static bool TryGetAdapterById(
         string formatId,
         out ICodecAdapter? adapter,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         lock (s_gate)
         {
             if (s_byId.TryGetValue(formatId, out adapter))
             {
-                error = null;
+                failure = null;
                 return true;
             }
 
@@ -414,7 +414,7 @@ public static class InventorySnapshotCodecs
                     continue;
 
                 string childId = Uri.UnescapeDataString(formatId.Substring(candidate.prefix.Length));
-                if (!TryGetAdapterById(childId, out var childAdapter, out error) || childAdapter == null)
+                if (!TryGetAdapterById(childId, out var childAdapter, out failure) || childAdapter == null)
                 {
                     adapter = null;
                     return false;
@@ -428,22 +428,22 @@ public static class InventorySnapshotCodecs
                 catch (Exception ex)
                 {
                     adapter = null;
-                    error = $"Snapshot collection codec id '{formatId}' is malformed: {ex.Message}";
+                    failure = InventoryFailures.Snapshot($"Snapshot collection codec id '{formatId}' is malformed: {ex.Message}");
                     return false;
                 }
                 if (!string.Equals(adapter.FormatId, formatId, StringComparison.Ordinal))
                 {
                     adapter = null;
-                    error = $"Snapshot collection codec id '{formatId}' is malformed.";
+                    failure = InventoryFailures.Snapshot($"Snapshot collection codec id '{formatId}' is malformed.");
                     return false;
                 }
                 RegisterAdapter(adapter, allowReservedId: true);
-                error = null;
+                failure = null;
                 return true;
             }
 
             adapter = null;
-            error = $"Snapshot codec '{formatId}' is not registered.";
+            failure = InventoryFailures.Snapshot($"Snapshot codec '{formatId}' is not registered.");
             return false;
         }
     }
@@ -478,25 +478,25 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<char>(
             "workes.inventory.value.char",
             value => SnapshotValue.String(((int)value).ToString("X4", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out char decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out char decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int code) ||
                     code < char.MinValue || code > char.MaxValue)
-                    return Fail("Snapshot char payload is invalid.", out error);
+                    return Fail("Snapshot char payload is invalid.", out failure);
                 decoded = (char)code;
                 return true;
             }));
         RegisterBuiltIn(new DelegateCodec<bool>(
             "workes.inventory.value.boolean",
             SnapshotValue.Boolean,
-            (SnapshotValue value, out bool decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out bool decoded, out InventoryFailure? failure) =>
             {
                 decoded = value.BooleanValue;
                 if (value.Kind != SnapshotValueKind.Boolean)
-                    return Fail("Snapshot Boolean payload is invalid.", out error);
-                error = null;
+                    return Fail("Snapshot Boolean payload is invalid.", out failure);
+                failure = null;
                 return true;
             }));
 
@@ -513,12 +513,12 @@ public static class InventorySnapshotCodecs
             "workes.inventory.value.single",
             value => SnapshotValue.String(
                 BitConverter.ToUInt32(BitConverter.GetBytes(value), 0).ToString("X8", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out float decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out float decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !uint.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint bits))
-                    return Fail("Snapshot Single payload is invalid.", out error);
+                    return Fail("Snapshot Single payload is invalid.", out failure);
                 decoded = BitConverter.ToSingle(BitConverter.GetBytes(bits), 0);
                 return true;
             }));
@@ -526,12 +526,12 @@ public static class InventorySnapshotCodecs
             "workes.inventory.value.double",
             value => SnapshotValue.String(
                 unchecked((ulong)BitConverter.DoubleToInt64Bits(value)).ToString("X16", CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out double decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out double decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !ulong.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong bits))
-                    return Fail("Snapshot Double payload is invalid.", out error);
+                    return Fail("Snapshot Double payload is invalid.", out failure);
                 decoded = BitConverter.Int64BitsToDouble(unchecked((long)bits));
                 return true;
             }));
@@ -540,42 +540,42 @@ public static class InventorySnapshotCodecs
             value => SnapshotValue.String(string.Join(
                 ",",
                 decimal.GetBits(value).Select(part => unchecked((uint)part).ToString("X8", CultureInfo.InvariantCulture)))),
-            (SnapshotValue value, out decimal decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out decimal decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error))
+                if (!TryReadString(value, out var text, out failure))
                     return false;
                 var parts = text.Split(',');
                 var bits = new int[4];
                 if (parts.Length != 4)
-                    return Fail("Snapshot Decimal payload is invalid.", out error);
+                    return Fail("Snapshot Decimal payload is invalid.", out failure);
                 for (int i = 0; i < parts.Length; i++)
                 {
                     if (!uint.TryParse(parts[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint part))
-                        return Fail("Snapshot Decimal payload is invalid.", out error);
+                        return Fail("Snapshot Decimal payload is invalid.", out failure);
                     bits[i] = unchecked((int)part);
                 }
                 try
                 {
                     decoded = new decimal(bits);
-                    error = null;
+                    failure = null;
                     return true;
                 }
                 catch (ArgumentException)
                 {
-                    return Fail("Snapshot Decimal payload is invalid.", out error);
+                    return Fail("Snapshot Decimal payload is invalid.", out failure);
                 }
             }));
         RegisterBuiltIn(new DelegateCodec<Guid>(
             "workes.inventory.value.guid",
             value => SnapshotValue.String(value.ToString("D")),
-            (SnapshotValue value, out Guid decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out Guid decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !Guid.TryParseExact(text, "D", out decoded))
-                    return Fail("Snapshot Guid payload is invalid.", out error);
-                error = null;
+                    return Fail("Snapshot Guid payload is invalid.", out failure);
+                failure = null;
                 return true;
             }));
         RegisterBuiltIn(new DelegateCodec<DateTime>(
@@ -593,12 +593,12 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<TimeSpan>(
             "workes.inventory.value.timespan",
             value => SnapshotValue.String(value.Ticks.ToString(CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out TimeSpan decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out TimeSpan decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks))
-                    return Fail("Snapshot TimeSpan payload is invalid.", out error);
+                    return Fail("Snapshot TimeSpan payload is invalid.", out failure);
                 decoded = TimeSpan.FromTicks(ticks);
                 return true;
             }));
@@ -611,13 +611,13 @@ public static class InventorySnapshotCodecs
         RegisterBuiltIn(new DelegateCodec<T>(
             ReservedPrefix + "value." + suffix,
             value => SnapshotValue.String(value.ToString(null, CultureInfo.InvariantCulture)),
-            (SnapshotValue value, out T decoded, out InventoryFailure? error) =>
+            (SnapshotValue value, out T decoded, out InventoryFailure? failure) =>
             {
                 decoded = default;
-                if (!TryReadString(value, out var text, out error) ||
+                if (!TryReadString(value, out var text, out failure) ||
                     !parser(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out decoded))
-                    return Fail($"Snapshot {typeof(T).Name} payload is invalid.", out error);
-                error = null;
+                    return Fail($"Snapshot {typeof(T).Name} payload is invalid.", out failure);
+                failure = null;
                 return true;
             }));
     }
@@ -625,42 +625,42 @@ public static class InventorySnapshotCodecs
     private static bool TryDecodeDateTime(
         SnapshotValue value,
         out DateTime decoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         decoded = default;
-        if (!TrySplitPair(value, out long ticks, out int kind, out error) ||
+        if (!TrySplitPair(value, out long ticks, out int kind, out failure) ||
             kind < (int)DateTimeKind.Unspecified ||
             kind > (int)DateTimeKind.Local)
-            return Fail("Snapshot DateTime payload is invalid.", out error);
+            return Fail("Snapshot DateTime payload is invalid.", out failure);
         try
         {
             decoded = new DateTime(ticks, (DateTimeKind)kind);
-            error = null;
+            failure = null;
             return true;
         }
         catch (ArgumentOutOfRangeException)
         {
-            return Fail("Snapshot DateTime payload is invalid.", out error);
+            return Fail("Snapshot DateTime payload is invalid.", out failure);
         }
     }
 
     private static bool TryDecodeDateTimeOffset(
         SnapshotValue value,
         out DateTimeOffset decoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         decoded = default;
-        if (!TrySplitPair(value, out long ticks, out int offsetMinutes, out error))
+        if (!TrySplitPair(value, out long ticks, out int offsetMinutes, out failure))
             return false;
         try
         {
             decoded = new DateTimeOffset(ticks, TimeSpan.FromMinutes(offsetMinutes));
-            error = null;
+            failure = null;
             return true;
         }
         catch (ArgumentException)
         {
-            return Fail("Snapshot DateTimeOffset payload is invalid.", out error);
+            return Fail("Snapshot DateTimeOffset payload is invalid.", out failure);
         }
     }
 
@@ -668,27 +668,27 @@ public static class InventorySnapshotCodecs
         SnapshotValue value,
         out long first,
         out int second,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         first = default;
         second = default;
-        if (!TryReadString(value, out var text, out error))
+        if (!TryReadString(value, out var text, out failure))
             return false;
         var parts = text.Split(':');
         if (parts.Length != 2 ||
             !long.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out first) ||
             !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out second))
-            return Fail("Snapshot paired scalar payload is invalid.", out error);
+            return Fail("Snapshot paired scalar payload is invalid.", out failure);
         return true;
     }
 
     private static bool RequireString(
         SnapshotValue value,
         out string decoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         decoded = string.Empty;
-        if (!TryReadString(value, out var text, out error))
+        if (!TryReadString(value, out var text, out failure))
             return false;
         decoded = text;
         return true;
@@ -697,26 +697,26 @@ public static class InventorySnapshotCodecs
     private static bool TryReadString(
         SnapshotValue value,
         out string text,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         text = string.Empty;
         if (value.Kind != SnapshotValueKind.String || value.StringValue == null)
-            return Fail("Snapshot string payload is invalid.", out error);
+            return Fail("Snapshot string payload is invalid.", out failure);
         text = value.StringValue;
-        error = null;
+        failure = null;
         return true;
     }
 
-    private static bool Fail(string message, out InventoryFailure? error)
+    private static bool Fail(string message, out InventoryFailure? failure)
     {
-        error = message;
+        failure = InventoryFailures.SnapshotCodecRejected(message);
         return false;
     }
 
     private static string CollectionId(string kind, Type elementType)
     {
-        if (!TryGetAdapter(elementType, out var adapter, out var error) || adapter == null)
-            throw new InventoryOperationException(error ?? InventoryFailure.FromMessage(null));
+        if (!TryGetAdapter(elementType, out var adapter, out var failure) || adapter == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
         return ReservedPrefix + "value." + kind + "." + Uri.EscapeDataString(adapter.FormatId);
     }
 
@@ -732,15 +732,15 @@ public static class InventorySnapshotCodecs
     private delegate bool TryDecodeDelegate<T>(
         SnapshotValue value,
         out T decoded,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 
     private interface ICodecAdapter
     {
         Type ValueType { get; }
         string FormatId { get; }
         int CurrentVersion { get; }
-        bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error);
-        bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error);
+        bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? failure);
+        bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? failure);
     }
 
     private sealed class CodecAdapter<T> : ICodecAdapter
@@ -756,21 +756,21 @@ public static class InventorySnapshotCodecs
         public string FormatId => _codec.FormatId;
         public int CurrentVersion => _codec.CurrentVersion;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? failure)
         {
             if (value is not T typed)
             {
                 encoded = null;
-                error = $"Snapshot codec '{FormatId}' received an incompatible CLR value.";
+                failure = InventoryFailures.Snapshot($"Snapshot codec '{FormatId}' received an incompatible CLR value.");
                 return false;
             }
-            return _codec.TryEncode(typed, out encoded, out error);
+            return _codec.TryEncode(typed, out encoded, out failure);
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? failure)
         {
             value = null;
-            if (!_codec.TryDecode(encoded, version, out var decoded, out error))
+            if (!_codec.TryDecode(encoded, version, out var decoded, out failure))
                 return false;
             value = decoded;
             return true;
@@ -795,19 +795,19 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; }
         public int CurrentVersion => 1;
 
-        public bool TryEncode(T value, out SnapshotValue? encoded, out InventoryFailure? error)
+        public bool TryEncode(T value, out SnapshotValue? encoded, out InventoryFailure? failure)
         {
             encoded = _encode(value);
-            error = null;
+            failure = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out T value, out InventoryFailure? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out T value, out InventoryFailure? failure)
         {
             value = default!;
             if (version != CurrentVersion)
-                return Fail($"Snapshot codec '{FormatId}' does not support version {version}.", out error);
-            return _decode(encoded, out value, out error);
+                return Fail($"Snapshot codec '{FormatId}' does not support version {version}.", out failure);
+            return _decode(encoded, out value, out failure);
         }
     }
 
@@ -816,9 +816,9 @@ public static class InventorySnapshotCodecs
         public string FormatId => ReservedPrefix + "value.dynamic";
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? failure)
         {
-            if (!TryEncodeObject(value, out var child, out error) || child == null)
+            if (!TryEncodeObject(value, out var child, out failure) || child == null)
             {
                 encoded = null;
                 return false;
@@ -830,15 +830,15 @@ public static class InventorySnapshotCodecs
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object value, out InventoryFailure? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object value, out InventoryFailure? failure)
         {
             value = null!;
             if (version != CurrentVersion ||
                 encoded.Kind != SnapshotValueKind.Object ||
                 encoded.Properties.Count != 1 ||
                 encoded.Properties[0].Name != "value")
-                return Fail("Snapshot dynamic-object payload is invalid.", out error);
-            if (!TryDecodeRuntime(encoded.Properties[0].Value, out var decoded, out error))
+                return Fail("Snapshot dynamic-object payload is invalid.", out failure);
+            if (!TryDecodeRuntime(encoded.Properties[0].Value, out var decoded, out failure))
                 return false;
             value = decoded!;
             return true;
@@ -851,13 +851,13 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; } = CollectionId("array", typeof(T));
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? failure)
         {
             var array = (T[])value;
             var items = new List<SnapshotEncodedValue>(array.Length);
             foreach (var item in array)
             {
-                if (!TryEncodeObject(item, out var child, out error) || child == null)
+                if (!TryEncodeObject(item, out var child, out failure) || child == null)
                 {
                     encoded = null;
                     return false;
@@ -865,23 +865,23 @@ public static class InventorySnapshotCodecs
                 items.Add(child);
             }
             encoded = SnapshotValue.List(items);
-            error = null;
+            failure = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? failure)
         {
             value = null;
             if (version != CurrentVersion || encoded.Kind != SnapshotValueKind.List)
-                return Fail($"Snapshot array codec '{FormatId}' received invalid data.", out error);
+                return Fail($"Snapshot array codec '{FormatId}' received invalid data.", out failure);
             var result = new T[encoded.Items.Count];
             for (int i = 0; i < result.Length; i++)
             {
-                if (!TryDecodeElement(encoded.Items[i], out result[i], out error))
+                if (!TryDecodeElement(encoded.Items[i], out result[i], out failure))
                     return false;
             }
             value = result;
-            error = null;
+            failure = null;
             return true;
         }
     }
@@ -892,13 +892,13 @@ public static class InventorySnapshotCodecs
         public string FormatId { get; } = CollectionId("list", typeof(T));
         public int CurrentVersion => 1;
 
-        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? error)
+        public bool TryEncode(object value, out SnapshotValue? encoded, out InventoryFailure? failure)
         {
             var list = (List<T>)value;
             var items = new List<SnapshotEncodedValue>(list.Count);
             foreach (var item in list)
             {
-                if (!TryEncodeObject(item, out var child, out error) || child == null)
+                if (!TryEncodeObject(item, out var child, out failure) || child == null)
                 {
                     encoded = null;
                     return false;
@@ -906,24 +906,24 @@ public static class InventorySnapshotCodecs
                 items.Add(child);
             }
             encoded = SnapshotValue.List(items);
-            error = null;
+            failure = null;
             return true;
         }
 
-        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? error)
+        public bool TryDecode(SnapshotValue encoded, int version, out object? value, out InventoryFailure? failure)
         {
             value = null;
             if (version != CurrentVersion || encoded.Kind != SnapshotValueKind.List)
-                return Fail($"Snapshot list codec '{FormatId}' received invalid data.", out error);
+                return Fail($"Snapshot list codec '{FormatId}' received invalid data.", out failure);
             var result = new List<T>(encoded.Items.Count);
             foreach (var child in encoded.Items)
             {
-                if (!TryDecodeElement(child, out T item, out error))
+                if (!TryDecodeElement(child, out T item, out failure))
                     return false;
                 result.Add(item);
             }
             value = result;
-            error = null;
+            failure = null;
             return true;
         }
     }
@@ -931,19 +931,19 @@ public static class InventorySnapshotCodecs
     private static bool TryDecodeElement<T>(
         SnapshotEncodedValue encoded,
         out T value,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         value = default!;
-        if (!TryDecodeRuntime(encoded, out var decoded, out error))
+        if (!TryDecodeRuntime(encoded, out var decoded, out failure))
             return false;
         if (decoded == null)
         {
             if (default(T) is not null)
-                return Fail($"Snapshot null cannot be assigned to collection element type '{typeof(T).FullName}'.", out error);
+                return Fail($"Snapshot null cannot be assigned to collection element type '{typeof(T).FullName}'.", out failure);
             return true;
         }
         if (decoded is not T typed)
-            return Fail($"Snapshot value type '{decoded.GetType().FullName}' cannot be assigned to '{typeof(T).FullName}'.", out error);
+            return Fail($"Snapshot value type '{decoded.GetType().FullName}' cannot be assigned to '{typeof(T).FullName}'.", out failure);
         value = typed;
         return true;
     }
@@ -951,7 +951,7 @@ public static class InventorySnapshotCodecs
     private static class CustomKeyCodecCache<TKey>
     {
         private static readonly IInventorySnapshotKeyCodec<TKey>? s_codec;
-        private static readonly string? s_configurationError;
+        private static readonly InventoryFailure? s_configurationError;
 
         static CustomKeyCodecCache()
         {
@@ -959,15 +959,17 @@ public static class InventorySnapshotCodecs
             if (attribute == null)
             {
                 s_configurationError =
-                    $"Custom inventory key type '{typeof(TKey).FullName}' must declare " +
-                    $"InventorySnapshotKeyCodecAttribute.";
+                    InventoryFailures.SnapshotMissingCodec(
+                        $"Custom inventory key type '{typeof(TKey).FullName}' must declare " +
+                        $"InventorySnapshotKeyCodecAttribute.");
                 return;
             }
             if (!typeof(IInventorySnapshotKeyCodec<TKey>).IsAssignableFrom(attribute.CodecType))
             {
                 s_configurationError =
-                    $"Snapshot key codec '{attribute.CodecType.FullName}' does not implement " +
-                    $"IInventorySnapshotKeyCodec<{typeof(TKey).FullName}>.";
+                    InventoryFailures.SnapshotCodecRejected(
+                        $"Snapshot key codec '{attribute.CodecType.FullName}' does not implement " +
+                        $"IInventorySnapshotKeyCodec<{typeof(TKey).FullName}>.");
                 return;
             }
 
@@ -978,18 +980,19 @@ public static class InventorySnapshotCodecs
             catch (Exception ex)
             {
                 s_configurationError =
-                    $"Snapshot key codec '{attribute.CodecType.FullName}' could not be created: {ex.Message}";
+                    InventoryFailures.SnapshotCodecRejected(
+                        $"Snapshot key codec '{attribute.CodecType.FullName}' could not be created: {ex.Message}");
                 return;
             }
 
             if (s_codec == null || s_configurationError != null)
-                s_configurationError = $"Snapshot key codec '{attribute.CodecType.FullName}' could not be created.";
+                s_configurationError = InventoryFailures.SnapshotCodecRejected($"Snapshot key codec '{attribute.CodecType.FullName}' could not be created.");
             else if (string.IsNullOrWhiteSpace(s_codec.FormatId))
-                s_configurationError = "Snapshot key codec format id cannot be null or empty.";
+                s_configurationError = InventoryFailures.SnapshotCodecRejected("Snapshot key codec format id cannot be null or empty.");
             else if (s_codec.FormatId.StartsWith(ReservedPrefix, StringComparison.Ordinal))
-                s_configurationError = $"Snapshot key codec id prefix '{ReservedPrefix}' is reserved by the package.";
+                s_configurationError = InventoryFailures.SnapshotCodecRejected($"Snapshot key codec id prefix '{ReservedPrefix}' is reserved by the package.");
             else if (s_codec.CurrentVersion <= 0)
-                s_configurationError = "Snapshot key codec version must be positive.";
+                s_configurationError = InventoryFailures.SnapshotCodecRejected("Snapshot key codec version must be positive.");
             else
             {
                 lock (s_gate)
@@ -998,14 +1001,15 @@ public static class InventorySnapshotCodecs
                         !string.Equals(existingId, s_codec.FormatId, StringComparison.Ordinal))
                     {
                         s_configurationError =
-                            $"Custom key type '{typeof(TKey).FullName}' is already associated with codec id '{existingId}'.";
+                            InventoryFailures.SnapshotCodecRejected($"Custom key type '{typeof(TKey).FullName}' is already associated with codec id '{existingId}'.");
                     }
                     else if (s_customKeyTypesById.TryGetValue(s_codec.FormatId, out var existingType) &&
                              existingType != typeof(TKey))
                     {
                         s_configurationError =
-                            $"Snapshot key codec id '{s_codec.FormatId}' is already associated with " +
-                            $"'{existingType.FullName}'.";
+                            InventoryFailures.SnapshotCodecRejected(
+                                $"Snapshot key codec id '{s_codec.FormatId}' is already associated with " +
+                                $"'{existingType.FullName}'.");
                     }
                     else
                     {
@@ -1019,25 +1023,25 @@ public static class InventorySnapshotCodecs
         internal static bool TryEncode(
             TKey value,
             out SnapshotEncodedValue? encoded,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             encoded = null;
             if (s_codec == null || s_configurationError != null)
             {
-                error = s_configurationError;
+                failure = s_configurationError ?? InventoryFailures.SnapshotMissingCodec();
                 return false;
             }
 
             try
             {
-                if (!s_codec.TryEncode(value, out var data, out error) || data == null)
+                if (!s_codec.TryEncode(value, out var data, out failure) || data == null)
                 {
-                    error ??= $"Snapshot key codec '{s_codec.FormatId}' rejected the key.";
+                    failure ??= InventoryFailures.Snapshot($"Snapshot key codec '{s_codec.FormatId}' rejected the key.");
                     return false;
                 }
-                if (!SnapshotValueValidator.TryClone(data, out var detached, out error) || detached == null)
+                if (!SnapshotValueValidator.TryClone(data, out var detached, out failure) || detached == null)
                 {
-                    error = $"Snapshot key codec '{s_codec.FormatId}' produced invalid data: {error}";
+                    failure = InventoryFailures.Snapshot($"Snapshot key codec '{s_codec.FormatId}' produced invalid data: {failure}");
                     return false;
                 }
                 encoded = new SnapshotEncodedValue
@@ -1050,7 +1054,7 @@ public static class InventorySnapshotCodecs
             }
             catch (Exception ex)
             {
-                error = $"Snapshot key codec '{s_codec.FormatId}' failed to encode a key: {ex.Message}";
+                failure = InventoryFailures.Snapshot($"Snapshot key codec '{s_codec.FormatId}' failed to encode a key: {ex.Message}");
                 return false;
             }
         }
@@ -1058,34 +1062,33 @@ public static class InventorySnapshotCodecs
         internal static bool TryDecode(
             SnapshotEncodedValue encoded,
             out TKey value,
-            out InventoryFailure? error)
+            out InventoryFailure? failure)
         {
             value = default!;
             if (s_codec == null)
             {
-                error = s_configurationError;
+                failure = s_configurationError ?? InventoryFailures.SnapshotMissingCodec();
                 return false;
             }
-            if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out error) || detached == null)
+            if (!SnapshotValueValidator.TryCloneEncoded(encoded, out var detached, out failure) || detached == null)
                 return false;
             if (!string.Equals(detached.CodecId, s_codec.FormatId, StringComparison.Ordinal))
             {
-                error =
-                    $"Snapshot codec '{detached.CodecId}' does not match key codec '{s_codec.FormatId}'.";
+                failure = InventoryFailures.Snapshot($"Snapshot codec '{detached.CodecId}' does not match key codec '{s_codec.FormatId}'.");
                 return false;
             }
             try
             {
-                if (!s_codec.TryDecode(detached.Data, detached.CodecVersion, out value, out error))
+                if (!s_codec.TryDecode(detached.Data, detached.CodecVersion, out value, out failure))
                 {
-                    error ??= $"Snapshot key codec '{s_codec.FormatId}' rejected version {detached.CodecVersion}.";
+                    failure ??= InventoryFailures.Snapshot($"Snapshot key codec '{s_codec.FormatId}' rejected version {detached.CodecVersion}.");
                     return false;
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                error = $"Snapshot key codec '{s_codec.FormatId}' failed to decode a key: {ex.Message}";
+                failure = InventoryFailures.Snapshot($"Snapshot key codec '{s_codec.FormatId}' failed to decode a key: {ex.Message}");
                 return false;
             }
         }
@@ -1097,40 +1100,40 @@ internal static class SnapshotValueValidator
     public static bool TryClone(
         SnapshotValue? value,
         out SnapshotValue? clone,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return TryClone(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out error);
+        return TryClone(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out failure);
     }
 
     public static bool TryCloneEncoded(
         SnapshotEncodedValue? value,
         out SnapshotEncodedValue? clone,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return TryCloneEncoded(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out error);
+        return TryCloneEncoded(value, new HashSet<object>(ReferenceEqualityComparer.Instance), out clone, out failure);
     }
 
     private static bool TryClone(
         SnapshotValue? value,
         HashSet<object> path,
         out SnapshotValue? clone,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         clone = null;
         if (value == null)
         {
-            error = "Snapshot value cannot be null.";
+            failure = InventoryFailures.Snapshot("Snapshot value cannot be null.");
             return false;
         }
         if (!path.Add(value))
         {
-            error = "Snapshot value graph contains a cycle.";
+            failure = InventoryFailures.Snapshot("Snapshot value graph contains a cycle.");
             return false;
         }
         if (value.Items == null || value.Properties == null)
         {
             path.Remove(value);
-            error = "Snapshot value collections cannot be null.";
+            failure = InventoryFailures.Snapshot("Snapshot value collections cannot be null.");
             return false;
         }
 
@@ -1148,43 +1151,43 @@ internal static class SnapshotValueValidator
                 case SnapshotValueKind.Null:
                     if (value.StringValue != null || value.Items.Count != 0 || value.Properties.Count != 0)
                     {
-                        error = "Snapshot null value contains incompatible payload data.";
+                        failure = InventoryFailures.Snapshot("Snapshot null value contains incompatible payload data.");
                         return false;
                     }
                     break;
                 case SnapshotValueKind.Boolean:
                     if (value.StringValue != null || value.Items.Count != 0 || value.Properties.Count != 0)
                     {
-                        error = "Snapshot Boolean value contains incompatible payload data.";
+                        failure = InventoryFailures.Snapshot("Snapshot Boolean value contains incompatible payload data.");
                         return false;
                     }
                     break;
                 case SnapshotValueKind.String:
                     if (value.StringValue == null)
                     {
-                        error = "Snapshot string value cannot be null.";
+                        failure = InventoryFailures.Snapshot("Snapshot string value cannot be null.");
                         return false;
                     }
                     if (value.Items.Count != 0 || value.Properties.Count != 0)
                     {
-                        error = "Snapshot string value contains incompatible child data.";
+                        failure = InventoryFailures.Snapshot("Snapshot string value contains incompatible child data.");
                         return false;
                     }
                     break;
                 case SnapshotValueKind.List:
                     if (value.Items == null)
                     {
-                        error = "Snapshot list items cannot be null.";
+                        failure = InventoryFailures.Snapshot("Snapshot list items cannot be null.");
                         return false;
                     }
                     if (value.StringValue != null || value.Properties.Count != 0)
                     {
-                        error = "Snapshot list value contains incompatible payload data.";
+                        failure = InventoryFailures.Snapshot("Snapshot list value contains incompatible payload data.");
                         return false;
                     }
                     foreach (var item in value.Items)
                     {
-                        if (!TryCloneEncoded(item, path, out var itemClone, out error) || itemClone == null)
+                        if (!TryCloneEncoded(item, path, out var itemClone, out failure) || itemClone == null)
                             return false;
                         clone.Items.Add(itemClone);
                     }
@@ -1192,12 +1195,12 @@ internal static class SnapshotValueValidator
                 case SnapshotValueKind.Object:
                     if (value.Properties == null)
                     {
-                        error = "Snapshot object properties cannot be null.";
+                        failure = InventoryFailures.Snapshot("Snapshot object properties cannot be null.");
                         return false;
                     }
                     if (value.StringValue != null || value.Items.Count != 0)
                     {
-                        error = "Snapshot object value contains incompatible payload data.";
+                        failure = InventoryFailures.Snapshot("Snapshot object value contains incompatible payload data.");
                         return false;
                     }
                     var names = new HashSet<string>(StringComparer.Ordinal);
@@ -1205,25 +1208,25 @@ internal static class SnapshotValueValidator
                     {
                         if (property == null || string.IsNullOrWhiteSpace(property.Name))
                         {
-                            error = "Snapshot object property names cannot be null or empty.";
+                            failure = InventoryFailures.Snapshot("Snapshot object property names cannot be null or empty.");
                             return false;
                         }
                         if (!names.Add(property.Name))
                         {
-                            error = $"Snapshot object property '{property.Name}' is duplicated.";
+                            failure = InventoryFailures.Snapshot($"Snapshot object property '{property.Name}' is duplicated.");
                             return false;
                         }
-                        if (!TryCloneEncoded(property.Value, path, out var propertyClone, out error) || propertyClone == null)
+                        if (!TryCloneEncoded(property.Value, path, out var propertyClone, out failure) || propertyClone == null)
                             return false;
                         clone.Properties.Add(new SnapshotNamedValue { Name = property.Name, Value = propertyClone });
                     }
                     break;
                 default:
-                    error = $"Snapshot value kind '{value.Kind}' is unsupported.";
+                    failure = InventoryFailures.Snapshot($"Snapshot value kind '{value.Kind}' is unsupported.");
                     return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
         finally
@@ -1236,24 +1239,24 @@ internal static class SnapshotValueValidator
         SnapshotEncodedValue? value,
         HashSet<object> path,
         out SnapshotEncodedValue? clone,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         clone = null;
         if (value == null ||
             string.IsNullOrWhiteSpace(value.CodecId) ||
             value.CodecVersion <= 0)
         {
-            error = "Encoded snapshot values require a codec id and positive version.";
+            failure = InventoryFailures.Snapshot("Encoded snapshot values require a codec id and positive version.");
             return false;
         }
         if (!path.Add(value))
         {
-            error = "Encoded snapshot value graph contains a cycle.";
+            failure = InventoryFailures.Snapshot("Encoded snapshot value graph contains a cycle.");
             return false;
         }
         try
         {
-            if (!TryClone(value.Data, path, out var data, out error) || data == null)
+            if (!TryClone(value.Data, path, out var data, out failure) || data == null)
                 return false;
             clone = new SnapshotEncodedValue
             {

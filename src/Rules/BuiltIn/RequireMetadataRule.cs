@@ -31,18 +31,18 @@ public class RequireMetadataRule<TKey> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (_, metadata, _) in transaction.Added)
         {
             if (metadata == null || !metadata.TryGet<object>(_key, out var val) || !Equals(val, _value))
             {
-                error = $"Expected item metadata '{_key}' to equal '{_value}'.";
+                failure = InventoryFailures.Metadata($"Expected item metadata '{_key}' to equal '{_value}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }

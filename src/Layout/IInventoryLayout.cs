@@ -93,14 +93,14 @@ public interface IInventoryLayout<TKey>
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="transaction">The structural transaction being validated.</param>
-    /// <param name="error">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the layout can satisfy placement; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Implementations must validate against the final transaction state: removals
     /// are applied before additions, amount deltas do not create new layout
     /// positions, and added-entry contexts are authoritative for new placements.
     /// </remarks>
-    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error);
+    bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure);
 
     /// <summary>
     /// Applies a transaction-level placement context to the transaction.
@@ -109,7 +109,7 @@ public interface IInventoryLayout<TKey>
     /// <param name="transaction">The structural transaction to map.</param>
     /// <param name="context">Optional transaction-level placement context.</param>
     /// <param name="mappedTransaction">The mapped transaction when context application succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when context application is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when context application is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the context is valid for the transaction; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Mapping is layout-owned. Transaction-level mapping should target
@@ -123,7 +123,7 @@ public interface IInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 
     /// <summary>
     /// Validates whether a new item instance can be placed.
@@ -131,9 +131,9 @@ public interface IInventoryLayout<TKey>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="instance">The item instance being placed.</param>
     /// <param name="context">Optional layout-specific placement context.</param>
-    /// <param name="error">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when placement is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the instance can be placed; otherwise, <see langword="false"/>.</returns>
-    bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error);
+    bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure);
 
     /// <summary>
     /// Moves an item between two layout contexts.
@@ -141,9 +141,9 @@ public interface IInventoryLayout<TKey>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="contextFrom">The source layout context.</param>
     /// <param name="contextTo">The destination layout context.</param>
-    /// <param name="error">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the move is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the move succeeds; otherwise, <see langword="false"/>.</returns>
-    bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error);
+    bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure);
 
     /// <summary>
     /// Swaps two items between layout contexts.
@@ -151,23 +151,23 @@ public interface IInventoryLayout<TKey>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="contextFrom">The first layout context.</param>
     /// <param name="contextTo">The second layout context.</param>
-    /// <param name="error">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when the swap is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the swap succeeds; otherwise, <see langword="false"/>.</returns>
-    bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error);
+    bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure);
 
     /// <summary>
     /// Sorts the layout's placement state without mutating inventory storage order.
     /// </summary>
     /// <param name="inventory">The inventory using this layout.</param>
     /// <param name="sortContext">The layout-specific sort context.</param>
-    /// <param name="error">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when sorting is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when sorting succeeds; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Sorting changes layout placement only and never mutates inventory storage order.
     /// Layouts interpret sort contexts themselves so complex layouts can support
     /// richer strategies than simple item comparison.
     /// </remarks>
-    bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error);
+    bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure);
 
     /// <summary>
     /// Notifies the layout that the inventory added an item at the specified storage index.

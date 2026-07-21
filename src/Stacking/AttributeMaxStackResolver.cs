@@ -84,36 +84,36 @@ public sealed class AttributeMaxStackResolver<TKey> : IParameterizedStackResolve
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         resolver = null;
         if (parameterId != "missingAttributeMaxStack")
         {
-            error = $"Parameter '{parameterId}' is not supported by AttributeMaxStackResolver.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by AttributeMaxStackResolver.");
             return false;
         }
 
         if (value == null)
         {
             resolver = new AttributeMaxStackResolver<TKey>(MaxStackAttributeId, null);
-            error = null;
+            failure = null;
             return true;
         }
 
         if (value is not int missingAttributeMaxStack)
         {
-            error = "Parameter 'missingAttributeMaxStack' expects value type 'Int32' or null.";
+            failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'missingAttributeMaxStack' expects value type 'Int32' or null.");
             return false;
         }
 
         if (missingAttributeMaxStack <= 0)
         {
-            error = "Missing-attribute fallback must be greater than zero.";
+            failure = InventoryFailures.Stacking("Missing-attribute fallback must be greater than zero.");
             return false;
         }
 
         resolver = new AttributeMaxStackResolver<TKey>(MaxStackAttributeId, missingAttributeMaxStack);
-        error = null;
+        failure = null;
         return true;
     }
 }

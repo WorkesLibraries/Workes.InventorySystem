@@ -36,16 +36,16 @@ public interface IInventorySnapshotKeyCodec<TKey>
     int CurrentVersion { get; }
 
     /// <summary>Attempts to encode a key.</summary>
-    bool TryEncode(TKey value, out SnapshotValue? encoded, out InventoryFailure? error);
+    bool TryEncode(TKey value, out SnapshotValue? encoded, out InventoryFailure? failure);
 
     /// <summary>Attempts to decode a supported historical version.</summary>
-    bool TryDecode(SnapshotValue encoded, int version, out TKey value, out InventoryFailure? error);
+    bool TryDecode(SnapshotValue encoded, int version, out TKey value, out InventoryFailure? failure);
 }
 
 internal interface ISnapshotValueCodec<T>
 {
     string FormatId { get; }
     int CurrentVersion { get; }
-    bool TryEncode(T value, out SnapshotValue? encoded, out InventoryFailure? error);
-    bool TryDecode(SnapshotValue encoded, int version, out T value, out InventoryFailure? error);
+    bool TryEncode(T value, out SnapshotValue? encoded, out InventoryFailure? failure);
+    bool TryDecode(SnapshotValue encoded, int version, out T value, out InventoryFailure? failure);
 }

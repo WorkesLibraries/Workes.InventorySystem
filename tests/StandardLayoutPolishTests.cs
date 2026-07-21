@@ -27,8 +27,8 @@ public class StandardLayoutPolishTests
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 5), apple);
 
         Assert.That(inventory.TryAdd(apple, out var firstError, 2), Is.True, firstError?.Message);
-        Assert.That(inventory.TryAdd(apple, out var error, 1), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(inventory.TryAdd(apple, out var failure, 1), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
     }
 
     [Test]
@@ -37,7 +37,7 @@ public class StandardLayoutPolishTests
         var feather = new ItemDefinition<string>("feather");
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 0), feather);
 
-        Assert.That(inventory.TryAdd(feather, out var error, 5), Is.True);
+        Assert.That(inventory.TryAdd(feather, out var failure, 5), Is.True);
     }
 
     [Test]
@@ -46,8 +46,8 @@ public class StandardLayoutPolishTests
         var feather = new ItemDefinition<string>("feather");
         var inventory = CreateInventory(new EntryLayout<string>(), new WeightCapacityPolicy<string>(Weight, 10, treatMissingWeightAsZero: false), feather);
 
-        Assert.That(inventory.TryAdd(feather, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Item weight attribute missing."));
+        Assert.That(inventory.TryAdd(feather, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Item weight attribute missing."));
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class StandardLayoutPolishTests
             Assert.That(args.AffectedLayoutContexts, Has.Count.EqualTo(4));
         };
 
-        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error);
+        var result = inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var failure);
 
         Assert.That(result, Is.True);
         Assert.That(inventory.Items[0].Definition.Id, Is.EqualTo("sword"));
@@ -88,7 +88,7 @@ public class StandardLayoutPolishTests
             new EquipmentSlot<string>("main-hand", weapon));
         var inventory = CreateInventory(layout, new UnlimitedCapacityPolicy<string>(), new[] { weapon, armor }, sword, helmet);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
@@ -103,7 +103,7 @@ public class StandardLayoutPolishTests
             new[] { weapon },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -116,7 +116,7 @@ public class StandardLayoutPolishTests
             new[] { "gear.weapon.sword" },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -187,7 +187,7 @@ public class StandardLayoutPolishTests
             new UnlimitedCapacityPolicy<string>(),
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error), Is.True);
+        Assert.That(inventory.TryAdd(sword, out var failure), Is.True);
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
     }
 
@@ -205,8 +205,8 @@ public class StandardLayoutPolishTests
             sword,
             helmet);
 
-        Assert.That(inventory.TryAdd(helmet, out var error), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(inventory.TryAdd(helmet, out var failure), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible equipment slot available."));
     }
 
     [Test]
@@ -246,7 +246,7 @@ public class StandardLayoutPolishTests
             new UnlimitedCapacityPolicy<string>(),
             apple);
 
-        Assert.That(inventory.TryAdd(apple, out var error), Is.True);
+        Assert.That(inventory.TryAdd(apple, out var failure), Is.True);
     }
 
     [Test]
@@ -293,8 +293,8 @@ public class StandardLayoutPolishTests
             new[] { weapon, armor },
             sword);
 
-        Assert.That(inventory.TryAdd(sword, out var error, 1, EquipmentLayoutContext<string>.Single("head")), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("No compatible equipment slot available."));
+        Assert.That(inventory.TryAdd(sword, out var failure, 1, EquipmentLayoutContext<string>.Single("head")), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("No compatible equipment slot available."));
     }
 
     [Test]
@@ -315,8 +315,8 @@ public class StandardLayoutPolishTests
         builder.TryAdd(helmet, out _, 1);
         var context = EquipmentLayoutContext<string>.Map().Add(0, "main-hand").Add(1, "head").Build();
 
-        Assert.That(builder.TryBuild(context, out var transaction, out var error), Is.True);
-        Assert.That(inventory.TryCommitTransaction(transaction!, out error), Is.True);
+        Assert.That(builder.TryBuild(context, out var transaction, out var failure), Is.True);
+        Assert.That(inventory.TryCommitTransaction(transaction!, out failure), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("head"))!.Definition.Id, Is.EqualTo("helmet"));
         Assert.That(inventory.Layout.GetItemAt(inventory, EquipmentLayoutContext<string>.Single("main-hand"))!.Definition.Id, Is.EqualTo("sword"));
@@ -333,7 +333,7 @@ public class StandardLayoutPolishTests
         IReadOnlyList<ILayoutContext<string>>? addedContexts = null;
         inventory.Changed += (_, args) => addedContexts = args.Added[0].LayoutContexts;
 
-        Assert.That(inventory.TryAdd(table, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
+        Assert.That(inventory.TryAdd(table, out var failure, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.True);
 
         Assert.That(addedContexts, Is.Not.Null);
         Assert.That(addedContexts!, Has.Count.EqualTo(2));
@@ -353,8 +353,8 @@ public class StandardLayoutPolishTests
             crate);
         inventory.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 0));
 
-        Assert.That(inventory.TryAdd(crate, out var error, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.False);
-        Assert.That(error?.Message, Is.EqualTo("Grid cells already occupied."));
+        Assert.That(inventory.TryAdd(crate, out var failure, 1, MultiCellGridLayoutContext<string>.Single(1, 0)), Is.False);
+        Assert.That(failure?.Message, Is.EqualTo("Grid cells already occupied."));
     }
 
     [Test]
@@ -370,7 +370,7 @@ public class StandardLayoutPolishTests
         inventory.TryAdd(wide, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
         inventory.TryAdd(apple, out _, 1, MultiCellGridLayoutContext<string>.Single(0, 1));
 
-        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var error), Is.True);
+        Assert.That(inventory.TrySortLayout((a, b) => string.CompareOrdinal(a.Definition.Id, b.Definition.Id), out var failure), Is.True);
 
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(0, 0))!.Definition.Id, Is.EqualTo("apple"));
         Assert.That(inventory.Layout.GetItemAt(inventory, MultiCellGridLayoutContext<string>.Single(1, 0))!.Definition.Id, Is.EqualTo("wide"));

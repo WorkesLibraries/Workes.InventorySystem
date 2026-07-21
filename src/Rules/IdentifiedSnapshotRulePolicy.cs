@@ -37,9 +37,9 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return _innerRule.CanApply(inventory, transaction, out error);
+        return _innerRule.CanApply(inventory, transaction, out failure);
     }
 
     /// <inheritdoc />
@@ -48,9 +48,9 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
         InventoryRuleSnapshot<TKey> snapshot,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
-        return _innerSnapshot.CanApply(inventory, transaction, snapshot, out error);
+        return _innerSnapshot.CanApply(inventory, transaction, snapshot, out failure);
     }
 
     /// <inheritdoc />
@@ -58,12 +58,12 @@ public sealed class IdentifiedSnapshotRulePolicy<TKey> : IRulePolicy<TKey>, IInv
     public bool CanApply(
         Inventory<TKey> inventory,
         InventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         if (_innerRule is IInventoryStructuralRulePolicy<TKey> structuralRule)
-            return structuralRule.CanApply(inventory, transaction, out error);
+            return structuralRule.CanApply(inventory, transaction, out failure);
 
-        error = null;
+        failure = null;
         return true;
     }
 }

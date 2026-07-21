@@ -92,31 +92,31 @@ public sealed class MultipliedAttributeStackResolver<TKey> : IParameterizedStack
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         resolver = null;
         if (parameterId == "multiplier")
         {
             if (value is not double multiplier)
             {
-                error = "Parameter 'multiplier' expects value type 'Double'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'multiplier' expects value type 'Double'.");
                 return false;
             }
 
             if (double.IsNaN(multiplier) || double.IsInfinity(multiplier))
             {
-                error = "Multiplier must be a finite number.";
+                failure = InventoryFailures.Stacking("Multiplier must be a finite number.");
                 return false;
             }
 
             if (multiplier <= 0)
             {
-                error = "Multiplier must be greater than zero.";
+                failure = InventoryFailures.Stacking("Multiplier must be greater than zero.");
                 return false;
             }
 
             resolver = new MultipliedAttributeStackResolver<TKey>(BaseStackAttributeId, multiplier, MissingAttributeBaseStack);
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -125,28 +125,28 @@ public sealed class MultipliedAttributeStackResolver<TKey> : IParameterizedStack
             if (value == null)
             {
                 resolver = new MultipliedAttributeStackResolver<TKey>(BaseStackAttributeId, Multiplier, null);
-                error = null;
+                failure = null;
                 return true;
             }
 
             if (value is not int missingAttributeBaseStack)
             {
-                error = "Parameter 'missingAttributeBaseStack' expects value type 'Int32' or null.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'missingAttributeBaseStack' expects value type 'Int32' or null.");
                 return false;
             }
 
             if (missingAttributeBaseStack <= 0)
             {
-                error = "Missing-attribute fallback must be greater than zero.";
+                failure = InventoryFailures.Stacking("Missing-attribute fallback must be greater than zero.");
                 return false;
             }
 
             resolver = new MultipliedAttributeStackResolver<TKey>(BaseStackAttributeId, Multiplier, missingAttributeBaseStack);
-            error = null;
+            failure = null;
             return true;
         }
 
-        error = $"Parameter '{parameterId}' is not supported by MultipliedAttributeStackResolver.";
+        failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by MultipliedAttributeStackResolver.");
         return false;
     }
 

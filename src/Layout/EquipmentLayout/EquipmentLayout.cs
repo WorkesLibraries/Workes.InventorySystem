@@ -143,14 +143,14 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? error)
+    public bool CanSatisfyPlacement(Inventory<TKey> inventory, InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         foreach (var (index, _) in transaction.AmountDeltas)
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
         }
@@ -160,7 +160,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         {
             if (index < 0 || index >= inventory.Items.Count)
             {
-                error = "Index out of range.";
+                failure = InventoryFailures.Layout("Index out of range.");
                 return false;
             }
             removedIndices.Add(index);
@@ -182,22 +182,22 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
             {
                 if (equipmentContext.IsMapped)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 if (!TryGetSlotIndex(equipmentContext.SlotId, out slotIndex))
                 {
-                    error = "Equipment slot not found.";
+                    failure = InventoryFailures.Layout("Equipment slot not found.");
                     return false;
                 }
                 if (!explicitSlots.Add(slotIndex))
                 {
-                    error = "Duplicate mapped target equipment slot.";
+                    failure = InventoryFailures.Layout("Duplicate mapped target equipment slot.");
                     return false;
                 }
                 if (!CanSlotAccept(inventory, _slots[slotIndex], instance.Definition))
                 {
-                    error = "No compatible equipment slot available.";
+                    failure = InventoryFailures.Layout("No compatible equipment slot available.");
                     return false;
                 }
             }
@@ -206,19 +206,19 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
                 slotIndex = FindFirstCompatibleEmptySlot(inventory, simulated, instance.Definition);
                 if (slotIndex < 0)
                 {
-                    error = "No compatible equipment slot available.";
+                    failure = InventoryFailures.Layout("No compatible equipment slot available.");
                     return false;
                 }
             }
             else
             {
-                error = "Invalid context type.";
+                failure = InventoryFailures.Layout("Invalid context type.");
                 return false;
             }
 
             if (simulated[slotIndex].HasValue)
             {
-                error = "Equipment slot already occupied.";
+                failure = InventoryFailures.Layout("Equipment slot already occupied.");
                 return false;
             }
 
@@ -235,10 +235,10 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         if (context == null)
         {
             mappedTransaction = transaction;
@@ -247,25 +247,25 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
         if (context is not EquipmentLayoutContext<TKey> equipmentContext)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (!equipmentContext.IsMapped)
         {
             if (transaction.Added.Count == 1)
-                return TryCreateAddedCopy(transaction, 0, equipmentContext, out mappedTransaction, out error);
+                return TryCreateAddedCopy(transaction, 0, equipmentContext, out mappedTransaction, out failure);
 
             if (transaction.Added.Count == 0 && transaction.AmountDeltas.Count == 1 && transaction.AmountDeltas[0].delta > 0)
             {
                 if (!TryGetSlotIndex(equipmentContext.SlotId, out int slotIndex))
                 {
-                    error = "Equipment slot not found.";
+                    failure = InventoryFailures.Layout("Equipment slot not found.");
                     return false;
                 }
                 if (!_slotMap[slotIndex].HasValue || _slotMap[slotIndex]!.Value != transaction.AmountDeltas[0].index)
                 {
-                    error = "Merge delta does not match the item at the specified equipment slot.";
+                    failure = InventoryFailures.Layout("Merge delta does not match the item at the specified equipment slot.");
                     return false;
                 }
 
@@ -273,7 +273,7 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
                 return true;
             }
 
-            error = "Transaction placement context can only target one added entry unless it is a mapped context.";
+            failure = InventoryFailures.Layout("Transaction placement context can only target one added entry unless it is a mapped context.");
             return false;
         }
 
@@ -282,12 +282,12 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         {
             if (pair.Key < 0 || pair.Key >= transaction.Added.Count)
             {
-                error = "Mapped added entry index out of range.";
+                failure = InventoryFailures.Layout("Mapped added entry index out of range.");
                 return false;
             }
             if (!targetSlots.Add(pair.Value))
             {
-                error = "Duplicate mapped target equipment slot.";
+                failure = InventoryFailures.Layout("Duplicate mapped target equipment slot.");
                 return false;
             }
         }
@@ -303,12 +303,12 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
                     !existingEquipmentContext.IsMapped &&
                     !string.Equals(existingEquipmentContext.SlotId, mappedSlot, StringComparison.Ordinal))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not EquipmentLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, mappedContext));
@@ -326,111 +326,111 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? error)
+    public bool CanAcceptNewItem(Inventory<TKey> inventory, ItemInstance<TKey> instance, ILayoutContext<TKey>? context, out InventoryFailure? failure)
     {
         if (context is EquipmentLayoutContext<TKey> equipmentContext && !equipmentContext.IsMapped)
         {
             if (!TryGetSlotIndex(equipmentContext.SlotId, out int slotIndex))
             {
-                error = "Equipment slot not found.";
+                failure = InventoryFailures.Layout("Equipment slot not found.");
                 return false;
             }
             if (_slotMap[slotIndex].HasValue)
             {
-                error = "Equipment slot already occupied.";
+                failure = InventoryFailures.Layout("Equipment slot already occupied.");
                 return false;
             }
             if (!CanSlotAccept(inventory, _slots[slotIndex], instance.Definition))
             {
-                error = "No compatible equipment slot available.";
+                failure = InventoryFailures.Layout("No compatible equipment slot available.");
                 return false;
             }
 
-            error = null;
+            failure = null;
             return true;
         }
 
         if (context != null)
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
 
         if (FindFirstCompatibleEmptySlot(inventory, _slotMap, instance.Definition) < 0)
         {
-            error = "No compatible equipment slot available.";
+            failure = InventoryFailures.Layout("No compatible equipment slot available.");
             return false;
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TryMove(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!TryGetSlotIndex(fromContext.SlotId, out int fromSlot) || !TryGetSlotIndex(toContext.SlotId, out int toSlot))
         {
-            error = "Equipment slot not found.";
+            failure = InventoryFailures.Layout("Equipment slot not found.");
             return false;
         }
         if (fromSlot == toSlot)
         {
-            error = "Cannot move item to itself.";
+            failure = InventoryFailures.Layout("Cannot move item to itself.");
             return false;
         }
         if (!_slotMap[fromSlot].HasValue)
         {
-            error = "Source equipment slot has no item.";
+            failure = InventoryFailures.Layout("Source equipment slot has no item.");
             return false;
         }
         if (_slotMap[toSlot].HasValue)
         {
-            error = "Equipment slot already occupied.";
+            failure = InventoryFailures.Layout("Equipment slot already occupied.");
             return false;
         }
 
         var item = inventory.Items[_slotMap[fromSlot]!.Value];
         if (!CanSlotAccept(inventory, _slots[toSlot], item.Definition))
         {
-            error = "No compatible equipment slot available.";
+            failure = InventoryFailures.Layout("No compatible equipment slot available.");
             return false;
         }
 
         _slotMap[toSlot] = _slotMap[fromSlot];
         _slotMap[fromSlot] = null;
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? error)
+    public bool TrySwap(Inventory<TKey> inventory, ILayoutContext<TKey> contextFrom, ILayoutContext<TKey> contextTo, out InventoryFailure? failure)
     {
         if (!TryGetSingleContext(contextFrom, out var fromContext) || !TryGetSingleContext(contextTo, out var toContext))
         {
-            error = "Invalid context type.";
+            failure = InventoryFailures.Layout("Invalid context type.");
             return false;
         }
         if (!TryGetSlotIndex(fromContext.SlotId, out int fromSlot) || !TryGetSlotIndex(toContext.SlotId, out int toSlot))
         {
-            error = "Equipment slot not found.";
+            failure = InventoryFailures.Layout("Equipment slot not found.");
             return false;
         }
         if (fromSlot == toSlot)
         {
-            error = "Cannot swap item with itself.";
+            failure = InventoryFailures.Layout("Cannot swap item with itself.");
             return false;
         }
         if (!_slotMap[fromSlot].HasValue || !_slotMap[toSlot].HasValue)
         {
-            error = "One or both of the equipment slots has no item.";
+            failure = InventoryFailures.Layout("One or both of the equipment slots has no item.");
             return false;
         }
 
@@ -439,22 +439,22 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         if (!CanSlotAccept(inventory, _slots[fromSlot], toItem.Definition) ||
             !CanSlotAccept(inventory, _slots[toSlot], fromItem.Definition))
         {
-            error = "No compatible equipment slot available.";
+            failure = InventoryFailures.Layout("No compatible equipment slot available.");
             return false;
         }
 
         var temp = _slotMap[fromSlot];
         _slotMap[fromSlot] = _slotMap[toSlot];
         _slotMap[toSlot] = temp;
-        error = null;
+        failure = null;
         return true;
     }
 
     /// <inheritdoc />
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? error)
+    public bool TrySort(Inventory<TKey> inventory, IInventorySortContext<TKey> sortContext, out InventoryFailure? failure)
     {
-        error = "Layout does not support sorting.";
+        failure = InventoryFailures.Layout("Layout does not support sorting.");
         return false;
     }
 
@@ -612,10 +612,10 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
         int addedIndex,
         ILayoutContext<TKey> context,
         out InventoryTransaction<TKey>? mappedTransaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         mappedTransaction = null;
-        error = null;
+        failure = null;
         var added = new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>();
         for (int i = 0; i < transaction.Added.Count; i++)
         {
@@ -627,12 +627,12 @@ public sealed class EquipmentLayout<TKey> : IInventoryLayout<TKey>
                     !existingEquipmentContext.IsMapped &&
                     !string.Equals(existingEquipmentContext.SlotId, newEquipmentContext.SlotId, StringComparison.Ordinal))
                 {
-                    error = "Transaction placement context conflicts with an added entry context.";
+                    failure = InventoryFailures.Layout("Transaction placement context conflicts with an added entry context.");
                     return false;
                 }
                 if (existingContext != null && existingContext is not EquipmentLayoutContext<TKey>)
                 {
-                    error = "Invalid context type.";
+                    failure = InventoryFailures.Layout("Invalid context type.");
                     return false;
                 }
                 added.Add((instance, context));

@@ -84,25 +84,25 @@ public sealed class ConditionalMaxStackResolver<TKey> : IParameterizedStackResol
         string parameterId,
         object? value,
         out IStackResolver<TKey>? resolver,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         resolver = null;
         if (parameterId == "maxStack")
         {
             if (value is not int maxStack)
             {
-                error = "Parameter 'maxStack' expects value type 'Int32'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'maxStack' expects value type 'Int32'.");
                 return false;
             }
 
             if (maxStack <= 0)
             {
-                error = "Maximum stack size must be greater than zero.";
+                failure = InventoryFailures.Stacking("Maximum stack size must be greater than zero.");
                 return false;
             }
 
             resolver = new ConditionalMaxStackResolver<TKey>(StackableAttributeId, maxStack, MissingAttributeIsStackable);
-            error = null;
+            failure = null;
             return true;
         }
 
@@ -110,16 +110,16 @@ public sealed class ConditionalMaxStackResolver<TKey> : IParameterizedStackResol
         {
             if (value is not bool missingAttributeIsStackable)
             {
-                error = "Parameter 'missingAttributeIsStackable' expects value type 'Boolean'.";
+                failure = InventoryFailures.ConfigurationUnsupportedParameter("Parameter 'missingAttributeIsStackable' expects value type 'Boolean'.");
                 return false;
             }
 
             resolver = new ConditionalMaxStackResolver<TKey>(StackableAttributeId, MaxStack, missingAttributeIsStackable);
-            error = null;
+            failure = null;
             return true;
         }
 
-        error = $"Parameter '{parameterId}' is not supported by ConditionalMaxStackResolver.";
+        failure = InventoryFailures.ConfigurationUnsupportedParameter($"Parameter '{parameterId}' is not supported by ConditionalMaxStackResolver.");
         return false;
     }
 }

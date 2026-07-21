@@ -15,9 +15,9 @@ public interface IRepackableInventoryLayout<TKey> : IInventoryLayout<TKey>
     /// Attempts to create an empty layout configured like this layout for inventory-owned repack.
     /// </summary>
     /// <param name="layout">The empty configured layout when creation succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="error">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
+    /// <param name="failure">A consumer-facing reason when creation fails; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when an empty repack target was created; otherwise, <see langword="false"/>.</returns>
     bool TryCreateEmptyRepackLayout(
         out IInventoryLayout<TKey>? layout,
-        out InventoryFailure? error);
+        out InventoryFailure? failure);
 }

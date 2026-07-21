@@ -187,7 +187,7 @@ public class AttributeFocusedItemUniverseExampleTests
                 weight => weight <= 6,
                 "Expected weight to be 6 or less"));
         var lightweightInventory = CreateManager(catalog, lightweightRules).CreateInventory();
-        var lightweightResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
+        var lightweightResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)>
         {
             EvaluateAdd(lightweightInventory, ironKnife),
             EvaluateAdd(lightweightInventory, axe),
@@ -208,7 +208,7 @@ public class AttributeFocusedItemUniverseExampleTests
                 10,
                 14));
         var damageInventory = CreateManager(catalog, damageRules).CreateInventory();
-        var damageResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)>
+        var damageResults = new List<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)>
         {
             EvaluateAdd(damageInventory, ironKnife),
             EvaluateAdd(damageInventory, obsidianKnife),
@@ -253,12 +253,12 @@ public class AttributeFocusedItemUniverseExampleTests
             );
     }
 
-    private static (ItemDefinition<string> definition, bool accepted, InventoryFailure? error) EvaluateAdd(
+    private static (ItemDefinition<string> definition, bool accepted, InventoryFailure? failure) EvaluateAdd(
         Inventory<string> inventory,
         ItemDefinition<string> definition)
     {
-        var accepted = inventory.TryAdd(definition, out var error);
-        return (definition, accepted, error?.Message);
+        var accepted = inventory.TryAdd(definition, out var failure);
+        return (definition, accepted, failure);
     }
 
     private static void AssertHasAttributes(ItemDefinition<string> definition, params string[] attributes)
@@ -279,8 +279,8 @@ public class AttributeFocusedItemUniverseExampleTests
         ItemDefinition<string> highestDamageDefinition,
         int highestDamage,
         int totalMaterialCraftingValue,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> lightweightResults,
-        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? error)> damageResults)
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)> lightweightResults,
+        IReadOnlyCollection<(ItemDefinition<string> definition, bool accepted, InventoryFailure? failure)> damageResults)
     {
         var outputDirectory = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "ItemUniverseFoundation");
         Directory.CreateDirectory(outputDirectory);
@@ -332,17 +332,17 @@ public class AttributeFocusedItemUniverseExampleTests
 
     private static void AppendRuleResult(
         StringBuilder builder,
-        (ItemDefinition<string> definition, bool accepted, InventoryFailure? error) result,
+        (ItemDefinition<string> definition, bool accepted, InventoryFailure? failure) result,
         string indent)
     {
         builder.Append(indent);
         builder.Append(result.definition.Id);
         builder.Append(": ");
         builder.Append(result.accepted ? "accepted" : "rejected");
-        if (!result.accepted && !string.IsNullOrWhiteSpace(result.error?.Message))
+        if (!result.accepted && !string.IsNullOrWhiteSpace(result.failure?.Message))
         {
             builder.Append(" (");
-            builder.Append(result.error.Message);
+            builder.Append(result.failure.Message);
             builder.Append(')');
         }
         builder.AppendLine();

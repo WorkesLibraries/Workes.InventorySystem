@@ -19,7 +19,7 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotCaptureContext<TKey> context,
         IEnumerable<int?> storageIndices,
         out SnapshotEncodedValue? encoded,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         var references = new List<object?>();
         foreach (var storageIndex in storageIndices)
@@ -33,13 +33,13 @@ internal static class BuiltInLayoutSnapshot
                 !context.TryGetEntryId(context.Inventory.Items[storageIndex.Value], out var entryId))
             {
                 encoded = null;
-                error = "Layout state references an item that is not part of the captured inventory.";
+                failure = InventoryFailures.Layout("Layout state references an item that is not part of the captured inventory.");
                 return false;
             }
             references.Add(entryId);
         }
         encoded = Encode(references);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -51,33 +51,33 @@ internal static class BuiltInLayoutSnapshot
         Func<int, ILayoutContext<TKey>> contextFactory,
         Func<IReadOnlyDictionary<string, SnapshotEncodedValue>, int, bool> validateShape,
         out InventoryLayoutSnapshotCandidate<TKey>? candidate,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         candidate = null;
         var snapshot = context.Snapshot;
         if (!string.Equals(snapshot.Kind, expectedKind, StringComparison.Ordinal))
         {
-            error = $"Layout codec '{expectedKind}' cannot decode layout kind '{snapshot.Kind}'.";
+            failure = InventoryFailures.Layout($"Layout codec '{expectedKind}' cannot decode layout kind '{snapshot.Kind}'.");
             return false;
         }
         if (snapshot.DataVersion != Version || snapshot.Data.Kind != SnapshotValueKind.Object)
         {
-            error = $"Layout '{expectedKind}' requires object data version {Version}.";
+            failure = InventoryFailures.Layout($"Layout '{expectedKind}' requires object data version {Version}.");
             return false;
         }
-        if (!SnapshotValueValidator.TryClone(snapshot.Data, out var detached, out error) || detached == null)
+        if (!SnapshotValueValidator.TryClone(snapshot.Data, out var detached, out failure) || detached == null)
             return false;
 
         var properties = detached.Properties.ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
         if (!properties.TryGetValue(referenceProperty, out var encodedReferences) ||
-            !InventorySnapshotCodecs.TryDecode(encodedReferences, out List<object?> references, out error))
+            !InventorySnapshotCodecs.TryDecode(encodedReferences, out List<object?> references, out failure))
         {
-            error = $"Layout '{expectedKind}' has invalid '{referenceProperty}' references: {error}";
+            failure = InventoryFailures.Layout($"Layout '{expectedKind}' has invalid '{referenceProperty}' references: {failure}");
             return false;
         }
         if (!validateShape(properties, references.Count))
         {
-            error = $"Layout '{expectedKind}' has malformed shape data.";
+            failure = InventoryFailures.Layout($"Layout '{expectedKind}' has malformed shape data.");
             return false;
         }
 
@@ -88,21 +88,21 @@ internal static class BuiltInLayoutSnapshot
                 continue;
             if (references[index] is not string entryId || !context.TryGetEntry(entryId, out _))
             {
-                error = $"Layout '{expectedKind}' references unknown entry id at position {index}.";
+                failure = InventoryFailures.Layout($"Layout '{expectedKind}' references unknown entry id at position {index}.");
                 return false;
             }
             if (!contexts.TryGetValue(entryId, out var itemContexts))
                 contexts.Add(entryId, itemContexts = new List<ILayoutContext<TKey>>());
             else if (!allowRepeatedEntries)
             {
-                error = $"Layout '{expectedKind}' maps entry '{entryId}' more than once.";
+                failure = InventoryFailures.Layout($"Layout '{expectedKind}' maps entry '{entryId}' more than once.");
                 return false;
             }
             itemContexts.Add(contextFactory(index));
         }
         if (contexts.Count != context.EntryCount)
         {
-            error = $"Layout '{expectedKind}' must place every snapshot entry.";
+            failure = InventoryFailures.Layout($"Layout '{expectedKind}' must place every snapshot entry.");
             return false;
         }
 
@@ -115,7 +115,7 @@ internal static class BuiltInLayoutSnapshot
             snapshot.DataVersion,
             detached,
             readonlyContexts);
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -145,14 +145,14 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotRestoreContext<TKey> context,
         string propertyName,
         out List<int?> indices,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         indices = new List<int?>();
-        error = null;
+        failure = null;
         if (!TryProperty(context.Candidate, propertyName, out var encoded) ||
-            !InventorySnapshotCodecs.TryDecode(encoded!, out List<object?> references, out error))
+            !InventorySnapshotCodecs.TryDecode(encoded!, out List<object?> references, out failure))
         {
-            error = $"Layout snapshot property '{propertyName}' is invalid: {error}";
+            failure = InventoryFailures.Layout($"Layout snapshot property '{propertyName}' is invalid: {failure}");
             return false;
         }
         foreach (var reference in references)
@@ -165,12 +165,12 @@ internal static class BuiltInLayoutSnapshot
             if (reference is not string entryId ||
                 !context.StorageIndices.TryGetValue(entryId, out int storageIndex))
             {
-                error = $"Layout snapshot property '{propertyName}' references an unknown entry.";
+                failure = InventoryFailures.Layout($"Layout snapshot property '{propertyName}' references an unknown entry.");
                 return false;
             }
             indices.Add(storageIndex);
         }
-        error = null;
+        failure = null;
         return true;
     }
 
@@ -178,14 +178,14 @@ internal static class BuiltInLayoutSnapshot
         InventoryLayoutSnapshotRestoreContext<TKey> context,
         string name,
         out TValue value,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         value = default!;
-        error = null;
+        failure = null;
         if (!TryProperty(context.Candidate, name, out var encoded) ||
-            !InventorySnapshotCodecs.TryDecode(encoded!, out value, out error))
+            !InventorySnapshotCodecs.TryDecode(encoded!, out value, out failure))
         {
-            error = $"Layout snapshot property '{name}' is invalid: {error}";
+            failure = InventoryFailures.Layout($"Layout snapshot property '{name}' is invalid: {failure}");
             return false;
         }
         return true;
@@ -198,37 +198,37 @@ internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotC
     public string LayoutKind => "workes.inventory.layout.entry";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not EntryLayout<TKey> layout ||
             layout.GetPersistentData() is not EntryLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.Order.Select(value => (int?)value), out var order, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.Order.Select(value => (int?)value), out var order, out failure))
         {
             data = null;
-            error ??= "Entry layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Entry layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[] { BuiltInLayoutSnapshot.Property("order", order!) });
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error) =>
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure) =>
         BuiltInLayoutSnapshot.TryDecode(
             context, LayoutKind, "order", false,
             index => new EntryLayoutContext<TKey>(index),
             (_, count) => count == context.EntryCount,
-            out candidate, out error);
+            out candidate, out failure);
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not EntryLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "order", out var indices, out error) ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "order", out var indices, out failure) ||
             indices.Any(index => !index.HasValue))
         {
-            error ??= "Exact entry-layout restoration requires compatible entry layout data.";
+            failure ??= InventoryFailures.Layout("Exact entry-layout restoration requires compatible entry layout data.");
             return false;
         }
         var restored = target.Clone();
@@ -241,11 +241,11 @@ internal sealed class EntryLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotC
         }
         catch (Exception ex)
         {
-            error = $"Exact entry-layout restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact entry-layout restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -256,33 +256,33 @@ internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
     public string LayoutKind => "workes.inventory.layout.slot";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not SlotLayout<TKey> layout ||
             layout.GetPersistentData() is not SlotLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out failure))
         {
             data = null;
-            error ??= "Slot layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Slot layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[] { BuiltInLayoutSnapshot.Property("slots", slots!) });
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error) =>
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure) =>
         BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "slots", false,
-            index => new SlotLayoutContext<TKey>(index), (_, _) => true, out candidate, out error);
+            index => new SlotLayoutContext<TKey>(index), (_, _) => true, out candidate, out failure);
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not SlotLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error))
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out failure))
         {
-            error ??= "Exact slot-layout restoration requires compatible slot data.";
+            failure ??= InventoryFailures.Layout("Exact slot-layout restoration requires compatible slot data.");
             return false;
         }
         var restored = target.Clone();
@@ -292,11 +292,11 @@ internal sealed class SlotLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
         }
         catch (Exception ex)
         {
-            error = $"Exact slot-layout restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact slot-layout restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -307,15 +307,15 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
     public string LayoutKind => "workes.inventory.layout.grid";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not GridLayout<TKey> layout ||
             layout.GetPersistentData() is not GridLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.CellMap, out var cells, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.CellMap, out var cells, out failure))
         {
             data = null;
-            error ??= "Grid layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Grid layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[]
@@ -328,7 +328,7 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure)
     {
         int width = 0;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "cells", false,
@@ -342,21 +342,21 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
                     !InventorySnapshotCodecs.TryDecode(order, out string orderName, out _))
                     return false;
                 return Enum.TryParse<GridPlacementOrder>(orderName, false, out _);
-            }, out candidate, out error);
+            }, out candidate, out failure);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not GridLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out error) ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out failure) ||
             !Enum.TryParse(orderName, false, out GridPlacementOrder order))
         {
-            error ??= "Exact grid-layout restoration requires compatible grid data.";
+            failure ??= InventoryFailures.Layout("Exact grid-layout restoration requires compatible grid data.");
             return false;
         }
         var restored = target.Clone();
@@ -372,11 +372,11 @@ internal sealed class GridLayoutSnapshotCodec<TKey> : IInventoryLayoutSnapshotCo
         }
         catch (Exception ex)
         {
-            error = $"Exact grid-layout restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact grid-layout restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -387,15 +387,15 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
     public string LayoutKind => "workes.inventory.layout.multi-cell-grid";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not MultiCellGridLayout<TKey> layout ||
             layout.GetPersistentData() is not MultiCellGridLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.CellMap, out var cells, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.CellMap, out var cells, out failure))
         {
             data = null;
-            error ??= "Multi-cell grid layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Multi-cell grid layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[]
@@ -409,7 +409,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure)
     {
         int width = 0;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "cells", true,
@@ -426,23 +426,23 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
                     return false;
                 return Enum.TryParse<GridPlacementOrder>(orderName, false, out _) &&
                        Enum.TryParse<GridAnchor>(anchorName, false, out _);
-            }, out candidate, out error);
+            }, out candidate, out failure);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not MultiCellGridLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "defaultAnchor", out string anchorName, out error) ||
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "cells", out var cells, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "width", out int width, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "height", out int height, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "placementOrder", out string orderName, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "defaultAnchor", out string anchorName, out failure) ||
             !Enum.TryParse(orderName, false, out GridPlacementOrder order) ||
             !Enum.TryParse(anchorName, false, out GridAnchor anchor))
         {
-            error ??= "Exact multi-cell grid restoration requires compatible grid data.";
+            failure ??= InventoryFailures.Layout("Exact multi-cell grid restoration requires compatible grid data.");
             return false;
         }
 
@@ -458,7 +458,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
             if (occupied.Count != footprint.Width * footprint.Height ||
                 occupied.Count == 0)
             {
-                error = $"Saved cells for entry '{pair.Key}' do not match its current footprint.";
+                failure = InventoryFailures.Layout($"Saved cells for entry '{pair.Key}' do not match its current footprint.");
                 return false;
             }
             int minX = occupied.Min(cell => cell % width);
@@ -468,7 +468,7 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
             if (maxX - minX + 1 != footprint.Width ||
                 maxY - minY + 1 != footprint.Height)
             {
-                error = $"Saved cells for entry '{pair.Key}' are not a valid current footprint.";
+                failure = InventoryFailures.Layout($"Saved cells for entry '{pair.Key}' are not a valid current footprint.");
                 return false;
             }
         }
@@ -487,11 +487,11 @@ internal sealed class MultiCellGridLayoutSnapshotCodec<TKey> : IInventoryLayoutS
         }
         catch (Exception ex)
         {
-            error = $"Exact multi-cell grid restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact multi-cell grid restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -502,15 +502,15 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
     public string LayoutKind => "workes.inventory.layout.equipment";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not EquipmentLayout<TKey> layout ||
             layout.GetPersistentData() is not EquipmentLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out failure))
         {
             data = null;
-            error ??= "Equipment layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Equipment layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[]
@@ -521,7 +521,7 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure)
     {
         List<string>? slotIds = null;
         return BuiltInLayoutSnapshot.TryDecode(context, LayoutKind, "slots", false,
@@ -535,18 +535,18 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
                 return slotIds.Count == count &&
                        slotIds.All(id => !string.IsNullOrWhiteSpace(id)) &&
                        slotIds.Distinct(StringComparer.Ordinal).Count() == slotIds.Count;
-            }, out candidate, out error);
+            }, out candidate, out failure);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not EquipmentLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "slotIds", out List<string> slotIds, out error))
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "slotIds", out List<string> slotIds, out failure))
         {
-            error ??= "Exact equipment-layout restoration requires compatible slot data.";
+            failure ??= InventoryFailures.Layout("Exact equipment-layout restoration requires compatible slot data.");
             return false;
         }
         var restored = target.Clone();
@@ -560,11 +560,11 @@ internal sealed class EquipmentLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         }
         catch (Exception ex)
         {
-            error = $"Exact equipment-layout restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact equipment-layout restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }
@@ -575,15 +575,15 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
     public string LayoutKind => "workes.inventory.layout.sectioned";
     public int CurrentVersion => BuiltInLayoutSnapshot.Version;
 
-    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? error)
+    public bool TryCapture(InventoryLayoutSnapshotCaptureContext<TKey> context, out SnapshotValue? data, out InventoryFailure? failure)
     {
-        error = null;
+        failure = null;
         if (context.Layout is not SectionedLayout<TKey> layout ||
             layout.GetPersistentData() is not SectionedLayoutPersistentData state ||
-            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out error))
+            !BuiltInLayoutSnapshot.TryReferences(context, state.SlotMap, out var slots, out failure))
         {
             data = null;
-            error ??= "Sectioned layout codec received an incompatible layout.";
+            failure ??= InventoryFailures.Layout("Sectioned layout codec received an incompatible layout.");
             return false;
         }
         data = SnapshotValue.Object(new[]
@@ -595,7 +595,7 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         return true;
     }
 
-    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? error)
+    public bool TryDecode(InventoryLayoutSnapshotDecodeContext<TKey> context, out InventoryLayoutSnapshotCandidate<TKey>? candidate, out InventoryFailure? failure)
     {
         List<string>? sectionIds = null;
         List<int>? counts = null;
@@ -633,19 +633,19 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
                         return false;
                 }
                 return total == count;
-            }, out candidate, out error);
+            }, out candidate, out failure);
     }
 
-    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? error)
+    public bool TryCreateExactLayout(InventoryLayoutSnapshotRestoreContext<TKey> context, out IInventoryLayout<TKey>? layout, out InventoryFailure? failure)
     {
         layout = null;
-        error = null;
+        failure = null;
         if (context.TargetLayout is not SectionedLayout<TKey> target ||
-            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionIds", out List<string> sectionIds, out error) ||
-            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionSlotCounts", out List<int> counts, out error))
+            !BuiltInLayoutSnapshot.TryStorageIndices(context, "slots", out var slots, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionIds", out List<string> sectionIds, out failure) ||
+            !BuiltInLayoutSnapshot.TryDecodedProperty(context, "sectionSlotCounts", out List<int> counts, out failure))
         {
-            error ??= "Exact sectioned-layout restoration requires compatible section data.";
+            failure ??= InventoryFailures.Layout("Exact sectioned-layout restoration requires compatible section data.");
             return false;
         }
         var restored = target.Clone();
@@ -660,11 +660,11 @@ internal sealed class SectionedLayoutSnapshotCodec<TKey> : IInventoryLayoutSnaps
         }
         catch (Exception ex)
         {
-            error = $"Exact sectioned-layout restoration failed: {ex.Message}";
+            failure = InventoryFailures.Layout($"Exact sectioned-layout restoration failed: {ex.Message}");
             return false;
         }
         layout = restored;
-        error = null;
+        failure = null;
         return true;
     }
 }

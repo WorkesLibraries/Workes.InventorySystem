@@ -39,24 +39,24 @@ public class AttributeEqualsRule<TKey, TValue> : IRulePolicy<TKey>
     public bool CanApply(
         Inventory<TKey> inventory,
         NormalizedInventoryTransaction<TKey> transaction,
-        out InventoryFailure? error)
+        out InventoryFailure? failure)
     {
         foreach (var (definition, _, _) in transaction.Added)
         {
             if (!definition.Attributes.TryGet<TValue>(_attributeId, out var actualValue))
             {
-                error = $"Expected item definition '{definition.Id}' to have attribute '{_attributeId}'.";
+                failure = InventoryFailures.Definition($"Expected item definition '{definition.Id}' to have attribute '{_attributeId}'.");
                 return false;
             }
 
             if (!EqualityComparer<TValue>.Default.Equals(actualValue, _expectedValue))
             {
-                error = $"Expected item definition '{definition.Id}' attribute '{_attributeId}' to equal '{_expectedValue}', but it was '{actualValue}'.";
+                failure = InventoryFailures.Definition($"Expected item definition '{definition.Id}' attribute '{_attributeId}' to equal '{_expectedValue}', but it was '{actualValue}'.");
                 return false;
             }
         }
 
-        error = null;
+        failure = null;
         return true;
     }
 }
