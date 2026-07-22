@@ -9,19 +9,16 @@ This file records notable changes to `Workes.InventorySystem`.
 - Removed the public `Inventory<TKey>.TryFormulateFromNormalized(...)` authoring API. `NormalizedInventoryTransaction<TKey>`
   remains extension-facing validation data for rules, capacity policies, layouts, and internal validation. User-authored
   changes should use direct inventory operations or the transaction/delta APIs.
-- Transactions now capture the inventory version they were built against and reject commit after participating
+- Transactions capture the inventory version they were built against and reject commit after participating
   inventories have changed. Rebuild transactions against current state instead of caching them across mutations.
 - Removed public inventory-owned transaction commit APIs such as `CommitTransaction(...)` and
-  `TryCommitTransaction(...)`. Complex local and cross-inventory operations are committed through
-  `InventoryTransaction<TKey>`, `InventoryTransactionBuilder<TKey>`, or cross-inventory transaction side builders.
+  `TryCommitTransaction(...)`. `InventoryTransaction<TKey>` commits through itself.
 - Removed the legacy persistence compatibility API family: `Inventory<TKey>.Serialize()`,
   `Inventory<TKey>.Deserialize(...)`, `SerializedInventory<TKey>`, and `SerializedItem<TKey>`. Use portable inventory
   snapshots for persistence.
 - Removed event compatibility aliases `ItemMoved<TKey>.IsSortResult` and
   `InventoryConfigurationChanged<TKey>.ParameterId`. Use `ItemMoved<TKey>.Cause` and
   `InventoryConfigurationChanged<TKey>.ConfigurationId`.
-- `InventoryItemDelta<TKey>.Mirror(...)` and mirrored cross-inventory application now reject removals using
-  `ItemMetadataMatch.Any`, because wildcard-metadata removals cannot produce a precise opposite-side add.
 
 ### Added
 
@@ -34,21 +31,24 @@ This file records notable changes to `Workes.InventorySystem`.
 - Added `InventoryDeltaApplicationPlan<TKey>`, `InventoryPlacementDecision<TKey>`, and `InventoryRemovalDecision` for
   insertion-ordered, label-based addition placement and removal candidate selection during delta application.
 - Added fluent manual `InventoryTransactionBuilder<TKey>` add/remove wrappers and context-constrained removals,
-  including remove-at-context, exact-metadata removal, and wildcard-metadata removal.
+  including remove-at-context, exact-metadata removal, and metadata-agnostic removal through `ItemMetadataMatch.Any`.
 - Added `InventoryTransaction<TKey>.FromSide` and `.ToSide` manual side builders for one-off cross-inventory
   transaction staging with immediate per-side validation and atomic two-inventory commit.
 - Added `ItemMetadataMatch` as the shared selector for item-metadata-aware removal and matching APIs.
 - Added `Count(...)`, `Contains(...)`, and `Find(...)` overloads that accept `ItemMetadataMatch` or exact metadata.
-- `InventoryItemDeltaOperation<TKey>` now exposes add payload metadata as `AddMetadata` and remove selectors as
+- `InventoryItemDeltaOperation<TKey>` exposes add payload metadata as `AddMetadata` and remove selectors as
   `RemoveMetadataMatch`, keeping delta inspection aligned with add-versus-remove API semantics.
 - Added `InventoryItemDelta<TKey>.TryMirror(...)` and `InventoryTransaction<TKey>.TryApplyMirrored(...)` for
-  structured-failure handling when mirrored delta workflows are not valid.
+  structured-failure handling when mirrored delta workflows are not valid. Mirroring rejects removals using
+  `ItemMetadataMatch.Any`, because metadata-agnostic removals cannot produce a precise opposite-side add.
 
 ### Deprecated
 
 - Deprecated the external transfer-builder API family: `InventoryTransfer`, `InventoryTransferBuilder<TKey>`,
-  `InventoryTransferEntry<TKey>`, and source-owned transfer commit methods that accept a transfer builder. Inventory-
-  owned one-shot, bulk, and maximum transfer helpers remain first-class convenience APIs.
+  `InventoryTransferEntry<TKey>`, and source-owned transfer commit methods that accept a transfer builder. These APIs
+  remain available as obsolete backwards-compatibility APIs, including their existing target-bound validation behavior,
+  but new planned cross-inventory code should use transactions instead. Inventory-owned one-shot, bulk, and maximum
+  transfer helpers remain first-class convenience APIs.
 
 ## [2.0.0] - 2026-07-21
 
