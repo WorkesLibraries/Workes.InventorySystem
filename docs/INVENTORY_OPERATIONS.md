@@ -774,6 +774,6 @@ Successful compound operations commit as one inventory change rather than exposi
 - [Catalogs And Definitions](CATALOGS_AND_DEFINITIONS.md)
 - [Layouts](LAYOUTS.md)
 - [Policies and rules](POLICIES_AND_RULES.md)
-- [Transactions and transfers](TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](TRANSACTIONS.md)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)

@@ -720,7 +720,7 @@ public class InventoryTransactionBuilder<TKey>
             ILayoutContext<TKey>? context = null;
             if (plan != null && !plan.TryResolvePlacement(_simulation, operation, out context, out failure))
                 return false;
-            return TryAdd(definition, operation.Amount, context, operation.Metadata, out failure);
+            return TryAdd(definition, operation.Amount, context, operation.AddMetadata, out failure);
         }
 
         return TryRemoveByDeltaOperation(definition, operation, plan, out failure);
@@ -791,7 +791,7 @@ public class InventoryTransactionBuilder<TKey>
         InstanceMetadata metadata,
         InventoryItemDeltaOperation<TKey> operation)
     {
-        return operation.MetadataMatch.Matches(metadata);
+        return operation.RemoveMetadataMatch.Matches(metadata);
     }
 
     private bool TryRemoveByDefinition(

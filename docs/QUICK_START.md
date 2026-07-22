@@ -172,7 +172,7 @@ Focused guides:
 
 - [Layouts](LAYOUTS.md)
 - [Policies And Rules](POLICIES_AND_RULES.md)
-- [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](TRANSACTIONS.md)
 - [Events And UI Integration](EVENTS_AND_UI.md)
 - [Failure Handling](FAILURES.md)
 - [Persistence](PERSISTENCE.md)

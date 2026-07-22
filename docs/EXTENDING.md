@@ -1029,6 +1029,6 @@ stable sort tie-breakers are essential.
 - [Catalogs And Definitions](CATALOGS_AND_DEFINITIONS.md)
 - [Policies And Rules](POLICIES_AND_RULES.md)
 - [Layouts](LAYOUTS.md)
-- [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](TRANSACTIONS.md)
 - [Events And UI Integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)

@@ -1,4 +1,4 @@
-# Transactions And Transfers
+# Transactions
 
 Transactions combine several structural changes inside one inventory or across two inventories. Inventory-owned
 transfer helpers remain available for simple source-owned movement. The external transfer-builder API is deprecated and
@@ -73,6 +73,10 @@ var delta = InventoryItemDelta<string>.Create()
     .Remove("apple", 5, appleMetadata)  // Exact metadata.
     .Remove("apple", 5, ItemMetadataMatch.Any); // Wildcard metadata.
 ```
+
+When inspecting `delta.Operations`, additions expose concrete payload metadata through `AddMetadata`, while removals
+expose their selection rule through `RemoveMetadataMatch`. This mirrors direct inventory operations: creating an item
+uses metadata, selecting an existing item uses `ItemMetadataMatch`.
 
 Labels are optional and unique within one delta. They provide stable semantic handles for later planning and UI. Deltas
 can also be combined semantically:
@@ -293,7 +297,7 @@ add needs a new item instance:
 - if slot `2` is empty, the builder stages a new apple instance there.
 - a compatible apple stack in another slot is not selected merely because it has room.
 
-This makes the per-add context the ergonomic choice for intent such as “place three apples in this slot.” The metadata
+This makes the per-add context the ergonomic choice for intent such as "place three apples in this slot." The metadata
 overload accepts the context in the same way:
 
 ```csharp
@@ -305,10 +309,18 @@ builder.TryAdd(
     out var failure);
 ```
 
-### Deferred Mapped Placement
+### Legacy Deferred Mapped Placement
 
-A builder may also produce a transaction with one transaction-level mapped context. This is an advanced option for
-workflows where one layer stages structural changes and another layer chooses positions afterward.
+A builder may also produce a transaction with one transaction-level mapped context. This API is retained for
+compatibility with older deferred-placement code. It is not the preferred way to author new transaction placement.
+
+For new code:
+
+- manual builder transactions should put contexts directly on the staged `Add(...)` or context-constrained
+  `Remove(...)` operation.
+- delta-created transactions should use `InventoryDeltaApplicationPlan<TKey>` with labels, prefixes, or combined labels.
+- mapped contexts should be reserved for compatibility code or rare workflows where one layer intentionally stages
+  structural changes first and another layer maps the resulting added entries afterward.
 
 A mapped context assigns positions by `InventoryTransaction<TKey>.Added` index:
 
@@ -339,8 +351,8 @@ if (committed)
     committed = transaction!.TryCommit(out failure);
 ```
 
-Transaction-level mapped contexts are part of the older deferred-placement API. They remain useful when placement is
-chosen after structural staging. New delta workflows should usually prefer label-based application plans.
+Transaction-level mapped contexts are part of the older deferred-placement API. They remain available so existing code
+can continue to work, but they are no longer the designed path for ordinary staged placement.
 
 Mapped keys are added-entry indices, not:
 
@@ -356,8 +368,10 @@ For example, if the staged apple addition merges completely into an existing sta
 does not occupy an `Added` index. Mapping the expected apple as entry `0` may then target a different addition, or be
 rejected with `Mapped added entry index out of range.` when no such added entry exists.
 
-Inspect `Build().Added` before constructing a dynamic mapping. Prefer per-add direct contexts when placement is part of
-the original add intent; use `.Map()` when deferred placement of the actual resulting additions is specifically useful.
+Inspect `Build().Added` before constructing a dynamic mapping. Prefer direct operation contexts when placement is part
+of a manual builder transaction, and prefer delta application plans when placement belongs to a reusable semantic delta.
+Use `.Map()` only when deferred placement of the actual resulting additions is specifically required for compatibility
+or advanced layering.
 
 ## Delta Application Plans
 

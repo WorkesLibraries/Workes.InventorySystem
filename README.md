@@ -125,7 +125,7 @@ Focused guides:
 - [Catalogs And Definitions](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/CATALOGS_AND_DEFINITIONS.md)
 - [Layouts](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/LAYOUTS.md)
 - [Policies And Rules](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/POLICIES_AND_RULES.md)
-- [Transactions And Transfers](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/TRANSACTIONS.md)
 - [Events And UI Integration](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/EVENTS_AND_UI.md)
 - [Failure Handling](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/FAILURES.md)
 - [Persistence](https://github.com/WorkesLibraries/Workes.InventorySystem/blob/main/docs/PERSISTENCE.md)

@@ -96,7 +96,7 @@ inventory.Move(slot3, slot0);
 Transaction builders also accept a direct context on each `TryAdd(...)`. This is the preferred transaction workflow when
 the add operation already knows its intended position, because the layout can use that context while deciding whether to
 merge or create a new item instance. See
-[Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md#transaction-placement-contexts).
+[Transactions](TRANSACTIONS.md#transaction-placement-contexts).
 
 ## Automatic Placement
 
@@ -120,9 +120,10 @@ Automatic placement can fail when no valid position exists.
 ## Mapped Contexts
 
 A mapped context assigns positions to multiple entries added by one transaction or deprecated transfer builder.
+It is a compatibility/deferred-placement mechanism, not the normal placement API for new code.
 
 This section is easiest to understand after reading
-[Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md), because added-entry indices belong to the transaction being
+[Transactions](TRANSACTIONS.md), because added-entry indices belong to the transaction being
 committed rather than to permanent inventory storage.
 
 `IsMapped` is `true`, and the mapping keys refer to:
@@ -130,10 +131,11 @@ committed rather than to permanent inventory storage.
 - `InventoryTransaction<TKey>.Added` indices for transactions.
 - deprecated transfer-builder entry order for incoming transfer placement.
 
-Use a mapped context as a deferred-placement tool when the final resulting additions are known and another layer needs
-to assign each one a target. This is especially useful for transactions. Transfer-builder mapping remains documented
-only for deprecated compatibility APIs; new cross-inventory movement should use transaction side staging or delta
-application plans.
+Use a mapped context as a deferred-placement tool only when the final resulting additions are known and another layer
+needs to assign each one a target after structural staging. For new manual transaction-builder code, put direct contexts
+on the staged `Add(...)`, context-constrained `Remove(...)`, or side-builder operation. For delta-created transactions,
+use `InventoryDeltaApplicationPlan<TKey>`. Transfer-builder mapping remains documented only for deprecated
+compatibility APIs.
 
 ```csharp
 var placement = SlotLayoutContext<string>.Map()
@@ -146,10 +148,10 @@ The first number passed to each `.Add(...)` is an added-entry index, not a stora
 the layout destination position. Other layout context builders map the same added-entry indices to their own position types.
 
 Mapped contexts describe additions only. They are applied after stacking decisions, so an add or deprecated
-transfer-builder entry that merged completely into an existing stack has no added-entry index to map. Existing amount deltas and
-removals are simulated by the layout during validation but are not assigned mapping entries. The transactions guide
-explains when deferred mapping is useful, why per-add or per-removal direct contexts are normally more ergonomic, and
-how to inspect the resulting additions safely.
+transfer-builder entry that merged completely into an existing stack has no added-entry index to map. Existing amount
+deltas and removals are simulated by the layout during validation but are not assigned mapping entries. The transactions
+guide explains why direct operation contexts and delta application plans are the designed placement paths for new code,
+and how to inspect resulting additions safely when compatibility mapping is unavoidable.
 
 ## Context Builder Reference
 
@@ -826,7 +828,7 @@ compression, and the deeper rebuild behavior.
 - [Catalogs And Definitions](CATALOGS_AND_DEFINITIONS.md)
 - [Inventory Operations](INVENTORY_OPERATIONS.md)
 - [Policies and rules](POLICIES_AND_RULES.md)
-- [Transactions and transfers](TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](TRANSACTIONS.md)
 - [Events and UI integration](EVENTS_AND_UI.md)
 - [Persistence](PERSISTENCE.md)
 - [Extending the system](EXTENDING.md)

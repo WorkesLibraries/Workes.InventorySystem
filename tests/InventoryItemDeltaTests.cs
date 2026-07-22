@@ -25,23 +25,24 @@ public class InventoryItemDeltaTests
         Assert.That(add.DefinitionId, Is.EqualTo("apple"));
         Assert.That(add.Amount, Is.EqualTo(3));
         Assert.That(add.Label, Is.EqualTo("reward"));
-        Assert.That(add.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
-        Assert.That(add.Metadata!.TryGet<string>("quality", out var quality), Is.True);
+        Assert.That(add.RemoveMetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Empty));
+        Assert.That(add.AddMetadata!.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
 
         var exactEmptyRemove = delta.Operations[1];
         Assert.That(exactEmptyRemove.Kind, Is.EqualTo(InventoryItemDeltaOperationKind.Remove));
         Assert.That(exactEmptyRemove.DefinitionId, Is.EqualTo("coin"));
-        Assert.That(exactEmptyRemove.Metadata, Is.Null);
-        Assert.That(exactEmptyRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Empty));
+        Assert.That(exactEmptyRemove.AddMetadata, Is.Null);
+        Assert.That(exactEmptyRemove.RemoveMetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Empty));
 
         var exactMetadataRemove = delta.Operations[2];
-        Assert.That(exactMetadataRemove.Metadata!.StructuralEquals(metadata), Is.True);
-        Assert.That(exactMetadataRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
+        Assert.That(exactMetadataRemove.AddMetadata, Is.Null);
+        Assert.That(exactMetadataRemove.RemoveMetadataMatch.Metadata!.StructuralEquals(metadata), Is.True);
+        Assert.That(exactMetadataRemove.RemoveMetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
 
         var wildcardRemove = delta.Operations[3];
-        Assert.That(wildcardRemove.Metadata, Is.Null);
-        Assert.That(wildcardRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Any));
+        Assert.That(wildcardRemove.AddMetadata, Is.Null);
+        Assert.That(wildcardRemove.RemoveMetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Any));
     }
 
     [Test]
@@ -59,14 +60,14 @@ public class InventoryItemDeltaTests
             return traits;
         });
 
-        var operationMetadata = delta.Operations.Single().Metadata!;
+        var operationMetadata = delta.Operations.Single().AddMetadata!;
         operationMetadata.Update<List<string>>("traits", traits =>
         {
             traits.Add("returned-mutated");
             return traits;
         });
 
-        var reread = delta.Operations.Single().Metadata!;
+        var reread = delta.Operations.Single().AddMetadata!;
         Assert.That(reread.TryGet<List<string>>("traits", out var traits), Is.True);
         Assert.That(traits, Is.EqualTo(new[] { "sharp" }));
     }
@@ -102,9 +103,12 @@ public class InventoryItemDeltaTests
     [Test]
     public void Mirror_InvertsAddAndRemoveOperations()
     {
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "signed");
+
         var delta = InventoryItemDelta<string>.Create()
             .Remove("coin", amount: 4, label: "price")
-            .Add("book", amount: 1, label: "purchase-item");
+            .Add("book", amount: 1, metadata, label: "purchase-item");
 
         var mirrored = InventoryItemDelta<string>.Mirror(delta);
 
@@ -115,6 +119,8 @@ public class InventoryItemDeltaTests
         Assert.That(mirrored.Operations[1].Kind, Is.EqualTo(InventoryItemDeltaOperationKind.Remove));
         Assert.That(mirrored.Operations[1].DefinitionId, Is.EqualTo("book"));
         Assert.That(mirrored.Operations[1].Label, Is.EqualTo("purchase-item"));
+        Assert.That(mirrored.Operations[1].RemoveMetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
+        Assert.That(mirrored.Operations[1].RemoveMetadataMatch.Metadata!.StructuralEquals(metadata), Is.True);
     }
 
     [Test]

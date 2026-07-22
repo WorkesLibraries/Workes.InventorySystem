@@ -73,7 +73,7 @@ public sealed class InventoryItemDelta<TKey>
                 definition.Id,
                 amount,
                 metadata,
-                ItemMetadataMatch.Exact(metadata),
+                ItemMetadataMatch.Empty,
                 label,
                 out var operation,
                 out failure))
@@ -107,7 +107,7 @@ public sealed class InventoryItemDelta<TKey>
                 definitionId,
                 amount,
                 metadata,
-                ItemMetadataMatch.Exact(metadata),
+                ItemMetadataMatch.Empty,
                 label,
                 out var operation,
                 out failure))
@@ -161,7 +161,7 @@ public sealed class InventoryItemDelta<TKey>
                 definition,
                 definition.Id,
                 amount,
-                metadata,
+                null,
                 ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
@@ -206,7 +206,7 @@ public sealed class InventoryItemDelta<TKey>
                 null,
                 definitionId,
                 amount,
-                metadata,
+                null,
                 ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
@@ -320,7 +320,7 @@ public sealed class InventoryItemDelta<TKey>
         foreach (var operation in delta._operations)
         {
             if (operation.Kind == InventoryItemDeltaOperationKind.Remove
-                && operation.MetadataMatch.Kind == ItemMetadataMatchKind.Any)
+                && operation.RemoveMetadataMatch.Kind == ItemMetadataMatchKind.Any)
             {
                 mirrored = null;
                 failure = InventoryFailures.Transaction(
@@ -393,8 +393,8 @@ public sealed class InventoryItemDelta<TKey>
                 group.Definition,
                 group.DefinitionId,
                 amount,
-                group.Metadata,
-                group.MetadataMatch,
+                kind == InventoryItemDeltaOperationKind.Add ? group.AddMetadata : null,
+                kind == InventoryItemDeltaOperationKind.Remove ? group.MetadataMatch : ItemMetadataMatch.Empty,
                 label: null,
                 references);
             if (!result.TryAppend(operation, out var failure))
@@ -516,7 +516,7 @@ public sealed class InventoryItemDelta<TKey>
 
         public ItemDefinition<TKey>? Definition { get; }
         public TKey DefinitionId { get; }
-        public InstanceMetadata? Metadata { get; }
+        public InstanceMetadata? AddMetadata { get; }
         public ItemMetadataMatch MetadataMatch { get; }
         public int NetAmount { get; set; }
 
@@ -524,15 +524,19 @@ public sealed class InventoryItemDelta<TKey>
         {
             Definition = operation.Definition;
             DefinitionId = operation.DefinitionId;
-            Metadata = operation.GetStoredMetadataClone();
-            MetadataMatch = operation.MetadataMatch;
+            MetadataMatch = operation.Kind == InventoryItemDeltaOperationKind.Add
+                ? ItemMetadataMatch.Exact(operation.AddMetadata)
+                : operation.RemoveMetadataMatch;
+            AddMetadata = MetadataMatch.Metadata;
         }
 
         public bool Matches(InventoryItemDeltaOperation<TKey> operation)
         {
+            var operationMetadataMatch = operation.Kind == InventoryItemDeltaOperationKind.Add
+                ? ItemMetadataMatch.Exact(operation.AddMetadata)
+                : operation.RemoveMetadataMatch;
             return EqualityComparer<TKey>.Default.Equals(DefinitionId, operation.DefinitionId)
-                && MetadataMatch == operation.MetadataMatch
-                && InventoryItemDeltaOperation<TKey>.MetadataEquals(Metadata, operation.Metadata);
+                && MetadataMatch == operationMetadataMatch;
         }
 
         public void AddLabelContributions(

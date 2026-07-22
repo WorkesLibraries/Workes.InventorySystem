@@ -11,7 +11,8 @@ namespace Workes.InventorySystem.Core;
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
 public sealed class InventoryItemDeltaOperation<TKey>
 {
-    private readonly InstanceMetadata? _metadata;
+    private readonly InstanceMetadata? _addMetadata;
+    private readonly ItemMetadataMatch _removeMetadataMatch;
 
     /// <summary>Gets whether this operation adds or removes items.</summary>
     public InventoryItemDeltaOperationKind Kind { get; }
@@ -26,13 +27,16 @@ public sealed class InventoryItemDeltaOperation<TKey>
     public int Amount { get; }
 
     /// <summary>
-    /// Gets detached metadata for added items or exact remove matching. Empty metadata is represented as
+    /// Gets detached concrete metadata for added items. Empty metadata is represented as
     /// <see langword="null"/>.
     /// </summary>
-    public InstanceMetadata? Metadata => CloneMetadataOrNull(_metadata);
+    public InstanceMetadata? AddMetadata => CloneMetadataOrNull(_addMetadata);
 
-    /// <summary>Gets the remove metadata selector. Add operations always use concrete metadata.</summary>
-    public ItemMetadataMatch MetadataMatch { get; }
+    /// <summary>
+    /// Gets the metadata selector for remove operations. Add operations always use concrete metadata and expose
+    /// <see cref="ItemMetadataMatch.Empty"/>.
+    /// </summary>
+    public ItemMetadataMatch RemoveMetadataMatch => _removeMetadataMatch;
 
     /// <summary>Gets the optional unique label authored on this operation, or <see langword="null"/>.</summary>
     public string? Label { get; }
@@ -54,15 +58,19 @@ public sealed class InventoryItemDeltaOperation<TKey>
             throw new ArgumentNullException(nameof(definitionId));
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be greater than zero.");
-        if (kind == InventoryItemDeltaOperationKind.Add && metadataMatch.Kind == ItemMetadataMatchKind.Any)
-            throw new ArgumentException("Add operations cannot use wildcard metadata.", nameof(metadataMatch));
+        if (kind == InventoryItemDeltaOperationKind.Add && metadataMatch.Kind != ItemMetadataMatchKind.Empty)
+            throw new ArgumentException("Add operations cannot use metadata selectors.", nameof(metadataMatch));
 
         Kind = kind;
         Definition = definition;
         DefinitionId = definitionId;
         Amount = amount;
-        _metadata = CloneMetadataOrNull(metadata);
-        MetadataMatch = metadataMatch;
+        _addMetadata = kind == InventoryItemDeltaOperationKind.Add
+            ? CloneMetadataOrNull(metadata)
+            : null;
+        _removeMetadataMatch = kind == InventoryItemDeltaOperationKind.Remove
+            ? metadataMatch
+            : ItemMetadataMatch.Empty;
         Label = string.IsNullOrWhiteSpace(label) ? null : label;
 
         var references = labelReferences?.Select(CloneLabelReference).ToList()
@@ -70,15 +78,43 @@ public sealed class InventoryItemDeltaOperation<TKey>
         LabelReferences = new ReadOnlyCollection<InventoryItemDeltaLabelReference<TKey>>(references);
     }
 
-    internal InventoryItemDeltaOperation<TKey> WithKind(InventoryItemDeltaOperationKind kind) =>
-        new(kind, Definition, DefinitionId, Amount, _metadata, MetadataMatch, Label, LabelReferences);
+    internal InventoryItemDeltaOperation<TKey> WithKind(InventoryItemDeltaOperationKind kind)
+    {
+        if (kind == Kind)
+            return new(kind, Definition, DefinitionId, Amount, _addMetadata, _removeMetadataMatch, Label, LabelReferences);
+
+        if (kind == InventoryItemDeltaOperationKind.Add)
+        {
+            if (_removeMetadataMatch.Kind == ItemMetadataMatchKind.Any)
+                throw new InvalidOperationException("Wildcard-metadata remove operations cannot be converted to add operations.");
+            return new(
+                kind,
+                Definition,
+                DefinitionId,
+                Amount,
+                _removeMetadataMatch.Metadata,
+                ItemMetadataMatch.Empty,
+                Label,
+                LabelReferences);
+        }
+
+        return new(
+            kind,
+            Definition,
+            DefinitionId,
+            Amount,
+            null,
+            ItemMetadataMatch.Exact(_addMetadata),
+            Label,
+            LabelReferences);
+    }
 
     internal InventoryItemDeltaOperation<TKey> WithLabelReferences(
         IReadOnlyList<InventoryItemDeltaLabelReference<TKey>> references) =>
-        new(Kind, Definition, DefinitionId, Amount, _metadata, MetadataMatch, Label, references);
+        new(Kind, Definition, DefinitionId, Amount, _addMetadata, _removeMetadataMatch, Label, references);
 
-    internal InstanceMetadata? GetStoredMetadataClone() =>
-        CloneMetadataOrNull(_metadata);
+    internal InstanceMetadata? GetStoredAddMetadataClone() =>
+        CloneMetadataOrNull(_addMetadata);
 
     internal static InstanceMetadata? CloneMetadataOrNull(InstanceMetadata? metadata)
     {

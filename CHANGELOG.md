@@ -33,6 +33,8 @@ This file records notable changes to `Workes.InventorySystem`.
   transaction staging with immediate per-side validation and atomic two-inventory commit.
 - Added `ItemMetadataMatch` as the shared selector for item-metadata-aware removal and matching APIs.
 - Added `Count(...)`, `Contains(...)`, and `Find(...)` overloads that accept `ItemMetadataMatch` or exact metadata.
+- `InventoryItemDeltaOperation<TKey>` now exposes add payload metadata as `AddMetadata` and remove selectors as
+  `RemoveMetadataMatch`, keeping delta inspection aligned with add-versus-remove API semantics.
 - Added `InventoryItemDelta<TKey>.TryMirror(...)` and `InventoryTransaction<TKey>.TryApplyMirrored(...)` for
   structured-failure handling when mirrored delta workflows are not valid.
 

@@ -441,7 +441,7 @@ still appear more than once when the context type uses reference equality. Treat
 refreshing the same position twice is safe, and consumers that require uniqueness can de-duplicate by their context's
 value members.
 
-## Transactions And Transfers
+## Transactions
 
 A successful non-empty transaction emits one grouped event from its inventory, even when several staging operations
 contributed to it. Reflow compares the state before the complete transaction with the final state, so temporary
@@ -455,7 +455,7 @@ Planned transfer helpers normally emit:
 Best-effort multi-stack maximum transfers commit per source stack. They can therefore emit several source and target
 event pairs.
 
-See [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md) for their atomicity and partial-progress differences.
+See [Transactions](TRANSACTIONS.md) for their atomicity and partial-progress differences.
 
 ## No-Event Cases
 
@@ -575,6 +575,6 @@ inventory.Changed += (_, args) =>
 - [Inventory Operations](INVENTORY_OPERATIONS.md)
 - [Layouts](LAYOUTS.md)
 - [Policies And Rules](POLICIES_AND_RULES.md)
-- [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md)
+- [Transactions](TRANSACTIONS.md)
 - [Persistence](PERSISTENCE.md)
 - [Extending the system](EXTENDING.md)
