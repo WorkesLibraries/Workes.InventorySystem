@@ -144,8 +144,8 @@ setup, layouts, transfers, policies, events, metadata, and other common workflow
 owns inventory snapshot semantics, validation, and restoration; your application chooses JSON, MessagePack, another
 serializer, and its own file or database workflow.
 
-The package does not own save slots, compression, encryption, application-envelope versioning, or file I/O. The older
-generic `Serialize()` and `Deserialize(...)` APIs remain only as obsolete compatibility APIs.
+The package does not own save slots, compression, encryption, application-envelope versioning, or file I/O. Use the
+portable snapshot APIs for package-owned persistence; the old generic compatibility serializer API was removed in 3.0.
 
 ## License
 

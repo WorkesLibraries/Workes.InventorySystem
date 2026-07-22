@@ -49,13 +49,6 @@ public class ItemMoved<TKey>
     public bool IsAutomatic => Cause != ItemMovementCause.ExplicitMove;
 
     /// <summary>
-    /// Gets whether this movement was produced by inventory layout sorting.
-    /// </summary>
-    /// <remarks>Use <see cref="Cause"/> for new integrations.</remarks>
-    [Obsolete("Use Cause == ItemMovementCause.Sort instead.")]
-    public bool IsSortResult => Cause == ItemMovementCause.Sort;
-
-    /// <summary>
     /// Creates an item-moved event payload.
     /// </summary>
     /// <param name="instance">The item instance that was moved.</param>

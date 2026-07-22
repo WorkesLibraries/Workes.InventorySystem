@@ -444,19 +444,6 @@ sealed class PlayerSave
 Application versions remain responsible for inventory purpose, current policy configuration, metadata conventions,
 save-slot identity, and cross-system migrations.
 
-## Legacy Compatibility
-
-The following APIs remain behaviorally unchanged but are obsolete:
-
-- `Inventory<TKey>.Serialize()`.
-- `Inventory<TKey>.Deserialize(...)`.
-- `SerializedInventory<TKey>`.
-- `SerializedItem<TKey>`.
-
-Their generic IDs, `Dictionary<string,object>` metadata, polymorphic `LayoutData`, shallow value copying, storage-index
-placement maps, and non-atomic restoration make them unsuitable as a portable contract. They remain only as an
-explicit migration path.
-
 ## Common Mistakes
 
 - Treating `InventorySnapshot` as the whole application save file.
@@ -472,7 +459,7 @@ explicit migration path.
 - Trusting a previous assessment instead of handling application failure.
 - Assuming greedy salvage finds the globally optimal retained subset.
 - Expecting exact restoration to adapt changed stack limits or layout shape.
-- Calling the obsolete `Serialize()` API for new persistence work.
+- Looking for the removed 1.x/2.x `Serialize()` compatibility API instead of using portable snapshots.
 
 ## Continue Reading
 

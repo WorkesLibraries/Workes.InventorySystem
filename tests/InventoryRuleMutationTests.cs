@@ -144,9 +144,6 @@ public class InventoryRuleMutationTests
         var change = SingleRuleChange(events);
         Assert.That(change.Kind, Is.EqualTo(InventoryConfigurationChangeKind.Rules));
         Assert.That(change.ConfigurationId, Is.EqualTo("only-apple"));
-#pragma warning disable CS0618
-        Assert.That(change.ParameterId, Is.EqualTo("only-apple"));
-#pragma warning restore CS0618
         Assert.That(change.Value, Is.Null);
         Assert.That(change.RequiresFullRefresh, Is.False);
         Assert.That(events.Single().RequiresFullRefresh, Is.False);

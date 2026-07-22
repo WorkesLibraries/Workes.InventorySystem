@@ -8,8 +8,6 @@ using Workes.InventorySystem.Rules;
 using Workes.InventorySystem.Stacking;
 using Workes.InventorySystem.Capacity;
 
-#pragma warning disable CS0618 // Legacy persistence compatibility coverage.
-
 namespace Workes.InventorySystem.Tests;
 
 [TestFixture]
@@ -77,9 +75,6 @@ public class InventoryCoreTests
                 new RuleContainer<string>()))!.ParamName,
             Is.EqualTo("manager"));
         Assert.That(
-            Assert.Throws<ArgumentNullException>(() => inventory.Deserialize(null!))!.ParamName,
-            Is.EqualTo("data"));
-        Assert.That(
             Assert.Throws<ArgumentNullException>(() => catalog.Registry.Register(null!))!.ParamName,
             Is.EqualTo("definition"));
         Assert.That(
@@ -135,48 +130,6 @@ public class InventoryCoreTests
         var instance = inventory.Items.Single();
         Assert.That(instance.Definition, Is.SameAs(apple));
         Assert.That(instance.Amount, Is.EqualTo(2));
-    }
-
-    [Test]
-    public void Serialize_And_Deserialize_RoundTrips_Items_And_Counts()
-    {
-        var manager = new InventoryManager<string>
-        (
-            new FixedSizeStackResolver<string>(10),
-            new UnlimitedCapacityPolicy<string>(),
-            new EntryLayout<string>(),
-            new ItemCatalog<string>()
-        );
-
-        var apple = new ItemDefinition<string>("apple");
-        var berry = new ItemDefinition<string>("berry");
-        manager.Registry.Register(apple);
-        manager.Registry.Register(berry);
-        manager.Catalog.Freeze();
-
-        var inventory = manager.CreateInventory();
-
-        inventory.TryAdd(apple, out _, 3);
-        inventory.TryAdd(berry, out _, 2);
-        inventory.TryAdd(apple, out _, 1);
-
-        SerializedInventory<string> serialized = inventory.Serialize();
-
-        Assert.That(serialized, Is.Not.Null);
-        Assert.That(serialized.Items.Count, Is.EqualTo(2));
-        Assert.That(serialized.Items[0].DefinitionId, Is.EqualTo("apple"));
-        Assert.That(serialized.Items[0].Amount, Is.EqualTo(4));
-        Assert.That(serialized.Items[1].DefinitionId, Is.EqualTo("berry"));
-        Assert.That(serialized.Items[1].Amount, Is.EqualTo(2));
-
-        inventory.Deserialize(serialized);
-
-        Assert.That(inventory.InstanceCount, Is.EqualTo(2));
-        Assert.That(inventory.TotalItemCount, Is.EqualTo(6));
-        Assert.That(inventory.Items[0].Definition.Id, Is.EqualTo("apple"));
-        Assert.That(inventory.Items[0].Amount, Is.EqualTo(4));
-        Assert.That(inventory.Items[1].Definition.Id, Is.EqualTo("berry"));
-        Assert.That(inventory.Items[1].Amount, Is.EqualTo(2));
     }
 
     [Test]

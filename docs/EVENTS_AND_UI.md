@@ -199,7 +199,6 @@ foreach (var modified in args.Modified)
 | `FromPosition` / `ToPosition` | Single-position conveniences. |
 | `Cause` | Why this particular instance moved. |
 | `IsAutomatic` | Whether movement was automatic rather than directly targeted. |
-| `IsSortResult` | Obsolete compatibility convenience for `Cause == ItemMovementCause.Sort`. |
 
 `ItemMovementCause` distinguishes:
 
@@ -330,7 +329,6 @@ Successful inventory-owned parameter and rule mutation produces `InventoryConfig
 |---|---|
 | `Kind` | `StackResolver`, `CapacityPolicy`, `Layout`, or `Rules`. |
 | `ConfigurationId` | Stable parameter ID or rule ID that changed. |
-| `ParameterId` | Obsolete compatibility alias for `ConfigurationId`. |
 | `Value` | Committed parameter value for parameter changes. |
 | `PreviousComponent` | Component before replacement. |
 | `CurrentComponent` | Replacement component. |
@@ -479,9 +477,6 @@ A portable snapshot application that replaces contents emits one atomic replacem
 contents and layout state; old instances appear in `Removed` and replacements in `Added`. `Origin` distinguishes exact
 restoration, lossless reconciliation, and salvage. Failed application emits no event.
 
-The obsolete `Deserialize(...)` API retains its legacy multi-step behavior and should not be used for new UI
-integration.
-
 The persistence guide covers restore validation and compatibility in detail.
 
 ## Practical UI Patterns
@@ -567,7 +562,7 @@ inventory.Changed += (_, args) =>
 - Expecting rule mutation to emit `Changed`.
 - Updating UI controls from a background mutation thread without dispatching.
 - Letting an event-handler exception escape after the inventory has committed.
-- Relying only on content events to redraw restored layout data after `Deserialize(...)`.
+- Relying only on content events to redraw restored layout data after persistence restore.
 
 ## Continue Reading
 

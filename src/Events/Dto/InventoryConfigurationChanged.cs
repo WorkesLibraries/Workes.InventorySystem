@@ -19,12 +19,6 @@ public sealed class InventoryConfigurationChanged<TKey>
     public string ConfigurationId { get; }
 
     /// <summary>
-    /// Gets the parameter id that was changed.
-    /// </summary>
-    [Obsolete("Use ConfigurationId. ParameterId is retained as a compatibility alias and will be removed in a future major version.")]
-    public string ParameterId => ConfigurationId;
-
-    /// <summary>
     /// Gets the committed parameter value.
     /// </summary>
     public object? Value { get; }
@@ -54,7 +48,7 @@ public sealed class InventoryConfigurationChanged<TKey>
     /// Creates an inventory configuration change payload.
     /// </summary>
     /// <param name="kind">The kind of component that changed.</param>
-    /// <param name="parameterId">The parameter id that changed.</param>
+    /// <param name="configurationId">The configuration id that changed.</param>
     /// <param name="value">The committed parameter value.</param>
     /// <param name="previousComponent">The component instance before the change.</param>
     /// <param name="currentComponent">The component instance after the change.</param>
@@ -62,22 +56,22 @@ public sealed class InventoryConfigurationChanged<TKey>
     /// Whether the containing event cannot completely describe the observable configuration change.
     /// </param>
     /// <param name="ruleChange">Typed rule-change details when <paramref name="kind"/> is <see cref="InventoryConfigurationChangeKind.Rules"/>.</param>
-    /// <exception cref="ArgumentException"><paramref name="parameterId"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentException"><paramref name="configurationId"/> is null, empty, or whitespace.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="previousComponent"/> or <paramref name="currentComponent"/> is <see langword="null"/>.</exception>
     public InventoryConfigurationChanged(
         InventoryConfigurationChangeKind kind,
-        string parameterId,
+        string configurationId,
         object? value,
         object previousComponent,
         object currentComponent,
         bool requiresFullRefresh,
         InventoryRuleConfigurationChanged<TKey>? ruleChange = null)
     {
-        if (string.IsNullOrWhiteSpace(parameterId))
-            throw new ArgumentException("Parameter id cannot be null or empty.", nameof(parameterId));
+        if (string.IsNullOrWhiteSpace(configurationId))
+            throw new ArgumentException("Configuration id cannot be null or empty.", nameof(configurationId));
 
         Kind = kind;
-        ConfigurationId = parameterId;
+        ConfigurationId = configurationId;
         Value = value;
         PreviousComponent = previousComponent ?? throw new ArgumentNullException(nameof(previousComponent));
         CurrentComponent = currentComponent ?? throw new ArgumentNullException(nameof(currentComponent));

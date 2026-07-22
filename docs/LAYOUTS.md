@@ -740,8 +740,8 @@ footprints, or other configuration may still reject exact restoration and lead c
 A derived layout may inherit the built-in codec only when its complete persistent shape is unchanged. Override
 `SnapshotCodec` when the derived type owns additional state. Layout kind IDs are global across all `TKey` types.
 
-The older `GetPersistentData()`/`RestorePersistentData(...)` contract remains layout infrastructure and supports the
-obsolete `Serialize()`/`Deserialize(...)` compatibility path. It is not the portable snapshot wire contract.
+The older `GetPersistentData()`/`RestorePersistentData(...)` contract remains layout infrastructure for cloning and
+candidate construction. It is not the portable snapshot wire contract.
 
 The persistence guide covers serialization boundaries and compatibility in more detail.
 

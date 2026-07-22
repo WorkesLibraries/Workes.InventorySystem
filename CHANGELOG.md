@@ -14,6 +14,12 @@ This file records notable changes to `Workes.InventorySystem`.
 - Removed public inventory-owned transaction commit APIs such as `CommitTransaction(...)` and
   `TryCommitTransaction(...)`. Complex local and cross-inventory operations are committed through
   `InventoryTransaction<TKey>`, `InventoryTransactionBuilder<TKey>`, or cross-inventory transaction side builders.
+- Removed the legacy persistence compatibility API family: `Inventory<TKey>.Serialize()`,
+  `Inventory<TKey>.Deserialize(...)`, `SerializedInventory<TKey>`, and `SerializedItem<TKey>`. Use portable inventory
+  snapshots for persistence.
+- Removed event compatibility aliases `ItemMoved<TKey>.IsSortResult` and
+  `InventoryConfigurationChanged<TKey>.ParameterId`. Use `ItemMoved<TKey>.Cause` and
+  `InventoryConfigurationChanged<TKey>.ConfigurationId`.
 - `InventoryItemDelta<TKey>.Mirror(...)` and mirrored cross-inventory application now reject removals using
   `ItemMetadataMatch.Any`, because wildcard-metadata removals cannot produce a precise opposite-side add.
 

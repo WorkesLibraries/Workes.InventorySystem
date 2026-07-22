@@ -500,8 +500,7 @@ whose `ConfigurationChanged` collection contains the replacement or rule-change 
 | Stack-resolver mutation containing `RepackLayout` | No for complete built-in layout deltas; custom reconciliation may request one |
 
 Each configuration entry reports its `Kind`, `ConfigurationId`, proposed parameter value, previous component,
-replacement component, and `RequiresFullRefresh`. Rule entries also populate `RuleChange`. `ParameterId` remains as an
-obsolete compatibility alias for `ConfigurationId`.
+replacement component, and `RequiresFullRefresh`. Rule entries also populate `RuleChange`.
 
 ```csharp
 inventory.Changed += (_, args) =>

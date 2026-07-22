@@ -174,7 +174,7 @@ public class InventoryChangedEventTests
     }
 
     [Test]
-    public void ItemMoved_BooleanConstructorsRemainCompatibilityShims()
+    public void ItemMoved_CauseConstructorsExposeMovementCause()
     {
         var apple = new ItemDefinition<string>("apple");
         var inventory = CreateInventory(new SlotLayout<string>(2), new UnlimitedCapacityPolicy<string>(), apple);
@@ -183,15 +183,13 @@ public class InventoryChangedEventTests
         var from = SlotLayoutContext<string>.Single(0);
         var to = SlotLayoutContext<string>.Single(1);
 
-#pragma warning disable CS0618
-        var explicitMove = new ItemMoved<string>(instance, from, to, isSortResult: false);
-        var sortMove = new ItemMoved<string>(instance, from, to, isSortResult: true);
+        var explicitMove = new ItemMoved<string>(instance, from, to, ItemMovementCause.ExplicitMove);
+        var sortMove = new ItemMoved<string>(instance, from, to, ItemMovementCause.Sort);
 
         Assert.That(explicitMove.Cause, Is.EqualTo(ItemMovementCause.ExplicitMove));
-        Assert.That(explicitMove.IsSortResult, Is.False);
+        Assert.That(explicitMove.IsAutomatic, Is.False);
         Assert.That(sortMove.Cause, Is.EqualTo(ItemMovementCause.Sort));
-        Assert.That(sortMove.IsSortResult, Is.True);
-#pragma warning restore CS0618
+        Assert.That(sortMove.IsAutomatic, Is.True);
     }
 
     [Test]

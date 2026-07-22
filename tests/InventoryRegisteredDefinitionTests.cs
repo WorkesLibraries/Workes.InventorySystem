@@ -187,41 +187,4 @@ public class InventoryRegisteredDefinitionTests
         Assert.That(inventory.Items.All(item => ReferenceEquals(item.Definition, coin)), Is.True);
     }
 
-    [Test]
-    public void Deserialize_UsesRegisteredDefinitionInstance()
-    {
-        var apple = new ItemDefinition<string>("apple");
-        var manager = CreateManager(definitions: apple);
-        var source = manager.CreateInventory();
-        source.Add(apple, amount: 2);
-        var serialized = source.Serialize();
-        var inventory = manager.CreateInventory();
-
-        inventory.Deserialize(serialized);
-
-        Assert.That(inventory.Items.Single().Definition, Is.SameAs(apple));
-    }
-
-    [Test]
-    public void Deserialize_RejectsUnknownDefinitionId()
-    {
-        var manager = CreateManager();
-        var inventory = manager.CreateInventory();
-        var serialized = new SerializedInventory<string>
-        {
-            Items =
-            {
-                new SerializedItem<string>
-                {
-                    DefinitionId = "missing",
-                    Amount = 1
-                }
-            }
-        };
-
-        var exception = Assert.Throws<InvalidOperationException>(() => inventory.Deserialize(serialized));
-
-        Assert.That(exception!.Message, Does.Contain("could not be resolved"));
-        Assert.That(inventory.TotalItemCount, Is.EqualTo(0));
-    }
 }

@@ -454,18 +454,14 @@ public class InventorySnapshotTests
     }
 
     [Test]
-    public void LegacyPersistenceSurface_IsObsoleteButRetained()
+    public void LegacyPersistenceSurface_IsRemoved()
     {
-        Assert.That(typeof(SerializedInventory<>).GetCustomAttribute<ObsoleteAttribute>(), Is.Not.Null);
-        Assert.That(typeof(SerializedItem<>).GetCustomAttribute<ObsoleteAttribute>(), Is.Not.Null);
-        Assert.That(
-            typeof(Inventory<string>).GetMethod(nameof(Inventory<string>.Serialize))!
-                .GetCustomAttribute<ObsoleteAttribute>(),
-            Is.Not.Null);
-        Assert.That(
-            typeof(Inventory<string>).GetMethod(nameof(Inventory<string>.Deserialize))!
-                .GetCustomAttribute<ObsoleteAttribute>(),
-            Is.Not.Null);
+        var assembly = typeof(Inventory<string>).Assembly;
+
+        Assert.That(assembly.GetType("Workes.InventorySystem.Core.SerializedInventory`1"), Is.Null);
+        Assert.That(assembly.GetType("Workes.InventorySystem.Core.SerializedItem`1"), Is.Null);
+        Assert.That(typeof(Inventory<string>).GetMethod("Serialize"), Is.Null);
+        Assert.That(typeof(Inventory<string>).GetMethod("Deserialize"), Is.Null);
     }
 
     [Test]
