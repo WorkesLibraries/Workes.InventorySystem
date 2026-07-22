@@ -866,9 +866,9 @@ Codecs must also:
 
 ### Legacy layout persistence
 
-`GetPersistentData()` and `RestorePersistentData(...)` remain required layout infrastructure used by legacy
-serialization and often by cloning. They are not the portable snapshot wire contract. `SnapshotCodec` must use
-serializer-friendly `SnapshotValue` data and stable entry IDs.
+`GetPersistentData()` and `RestorePersistentData(...)` remain required layout infrastructure used by cloning and
+candidate construction. They are not the portable snapshot wire contract. `SnapshotCodec` must use serializer-friendly
+`SnapshotValue` data and stable entry IDs.
 
 ## Custom Inventory Key Codecs
 

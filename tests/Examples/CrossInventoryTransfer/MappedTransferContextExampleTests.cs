@@ -14,7 +14,7 @@ namespace Workes.InventorySystem.Tests.Examples.CrossInventoryTransfer;
 public class MappedTransferContextExampleTests
 {
     [Test]
-    public void TransferBuilder_CanMapIncomingEntriesToTargetSlots()
+    public void CrossInventoryTransaction_CanPlaceIncomingItemsInTargetSlots()
     {
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
@@ -24,18 +24,18 @@ public class MappedTransferContextExampleTests
         backpack.TryAdd(apple, out _, 5);
         backpack.TryAdd(sword, out _, 1);
 
-        var transfer = InventoryTransfer.From(backpack);
-        transfer.TryRemove(backpack.Items[0], 5, out _);
-        transfer.TryRemove(backpack.Items[1], 1, out _);
-        var context = SlotLayoutContext<string>.Map()
-            .Add(0, 2)
-            .Add(1, 3)
-            .Build();
+        var transaction = InventoryTransaction<string>
+            .From(backpack)
+            .To(chest);
+        transaction.FromSide.TryRemove(backpack.Items[0], out _, 5);
+        transaction.FromSide.TryRemove(backpack.Items[1], out _);
+        transaction.ToSide.TryAdd(apple, out _, 5, SlotLayoutContext<string>.Single(2));
+        transaction.ToSide.TryAdd(sword, out _, context: SlotLayoutContext<string>.Single(3));
 
-        var moved = backpack.TryCommitTransfer(transfer, chest, context, out var failure);
+        var moved = transaction.TryCommit(out var failure);
 
         Assert.That(moved, Is.True);
-        WriteOutput("MappedTransferBuilderExample.txt", Describe("Backpack", backpack, 5) + Describe("Chest", chest, 5));
+        WriteOutput("CrossInventoryTransactionPlacementExample.txt", Describe("Backpack", backpack, 5) + Describe("Chest", chest, 5));
     }
 
     [Test]
@@ -93,7 +93,7 @@ public class MappedTransferContextExampleTests
         var outputPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "CrossInventoryTransfer", fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllText(outputPath, content);
-        TestContext.Out.WriteLine("Mapped transfer context example output: " + outputPath);
+        TestContext.Out.WriteLine("Mapped cross-inventory example output: " + outputPath);
     }
 }
 

@@ -12,10 +12,10 @@ namespace Workes.InventorySystem.Tests.Examples.CrossInventoryTransfer;
 
 [TestFixture]
 [Category("Example")]
-public class TransferBuilderExampleTests
+public class CrossInventoryTransactionExampleTests
 {
     [Test]
-    public void TransferBuilder_MovesSelectedCraftingIngredients()
+    public void CrossInventoryTransaction_MovesSelectedCraftingIngredients()
     {
         var catalog = new ItemCatalog<string>();
         var herbTag = catalog.Tags.Define("crafting:ingredient.herb");
@@ -34,11 +34,15 @@ public class TransferBuilderExampleTests
         backpack.TryAdd(bottle, out _, 2);
         backpack.TryAdd(coin, out _, 12);
 
-        var builder = InventoryTransfer.From(backpack);
-        builder.TryRemove(backpack.Find(herb).Single(), 3, out _);
-        builder.TryRemove(backpack.Find(bottle).Single(), 1, out _);
+        var transaction = InventoryTransaction<string>
+            .From(backpack)
+            .To(craftingInput);
+        transaction.FromSide.TryRemove(backpack.Find(herb).Single(), out _, 3);
+        transaction.FromSide.TryRemove(backpack.Find(bottle).Single(), out _, 1);
+        transaction.ToSide.TryAdd(herb, out _, 3);
+        transaction.ToSide.TryAdd(bottle, out _);
 
-        var moved = backpack.TryCommitTransfer(builder, craftingInput, targetContext: null, out var failure);
+        var moved = transaction.TryCommit(out var failure);
 
         Assert.That(moved, Is.True);
         Assert.That(backpack.Count(herb), Is.EqualTo(1));
@@ -47,10 +51,10 @@ public class TransferBuilderExampleTests
         Assert.That(craftingInput.Count(herb), Is.EqualTo(3));
         Assert.That(craftingInput.Count(bottle), Is.EqualTo(1));
 
-        var outputPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "CrossInventoryTransfer", "TransferBuilderExample.txt");
+        var outputPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "ExampleOutputs", "CrossInventoryTransfer", "CrossInventoryTransactionExample.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllText(outputPath, BuildOutput(moved, backpack, craftingInput));
-        TestContext.Out.WriteLine("Transfer builder example output: " + outputPath);
+        TestContext.Out.WriteLine("Cross-inventory transaction example output: " + outputPath);
     }
 
     private static InventoryManager<string> CreateManager(ItemCatalog<string> catalog)
@@ -76,14 +80,14 @@ public class TransferBuilderExampleTests
     private static string BuildOutput(bool committed, Inventory<string> backpack, Inventory<string> craftingInput)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("Transfer Builder Example");
-        builder.AppendLine("========================");
+        builder.AppendLine("Cross-Inventory Transaction Example");
+        builder.AppendLine("===================================");
         builder.AppendLine();
-        builder.AppendLine("Builder staged:");
+        builder.AppendLine("Transaction staged:");
         builder.AppendLine("  moon_herb x3");
         builder.AppendLine("  glass_bottle x1");
         builder.AppendLine();
-        builder.AppendLine("Transfer builder commit: " + (committed ? "committed" : "rejected"));
+        builder.AppendLine("Transaction commit: " + (committed ? "committed" : "rejected"));
         builder.AppendLine();
         builder.Append(Describe("Backpack", backpack));
         builder.Append(Describe("Crafting Input", craftingInput));

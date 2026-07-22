@@ -2,7 +2,7 @@
 
 This file records notable changes to `Workes.InventorySystem`.
 
-## [3.0.0] - Unreleased
+## [3.0.0] - 2026-07-22
 
 ### Breaking Changes
 
@@ -170,5 +170,6 @@ This file records notable changes to `Workes.InventorySystem`.
 
 - Corrected the packaged README and repository commit pointer.
 
-[2.0.0]: https://github.com/WorkesLibraries/Workes.InventorySystem/compare/6d6a449...main
+[3.0.0]: https://github.com/WorkesLibraries/Workes.InventorySystem/compare/a6d6095...main
+[2.0.0]: https://github.com/WorkesLibraries/Workes.InventorySystem/compare/6d6a449...a6d6095
 [1.0.1]: https://github.com/WorkesLibraries/Workes.InventorySystem/commit/6d6a449

@@ -35,19 +35,19 @@ public class EquipmentLoadoutWorkflowExampleTests
         lootBag.TryAdd(kiteShield, out _);
         lootBag.TryAdd(helmet, out _);
         lootBag.TryAdd(charm, out _);
-        var transfer = InventoryTransfer.From(lootBag);
-        transfer.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
-        transfer.TryRemoveByDefinition(kiteShield, 1, metadataMatch: ItemMetadataMatch.Any, out _);
-        transfer.TryRemoveByDefinition(helmet, 1, metadataMatch: ItemMetadataMatch.Any, out _);
-        transfer.TryRemoveByDefinition(charm, 1, metadataMatch: ItemMetadataMatch.Any, out _);
-        var placement = EquipmentLayoutContext<string>.Map()
-            .Add(0, "main-hand")
-            .Add(1, "off-hand")
-            .Add(2, "head")
-            .Add(3, "trinket")
-            .Build();
+        var transaction = InventoryTransaction<string>
+            .From(lootBag)
+            .To(equipment);
+        transaction.FromSide.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transaction.FromSide.TryRemoveByDefinition(kiteShield, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transaction.FromSide.TryRemoveByDefinition(helmet, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transaction.FromSide.TryRemoveByDefinition(charm, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transaction.ToSide.TryAdd(sword, out _, context: EquipmentLayoutContext<string>.Single("main-hand"));
+        transaction.ToSide.TryAdd(kiteShield, out _, context: EquipmentLayoutContext<string>.Single("off-hand"));
+        transaction.ToSide.TryAdd(helmet, out _, context: EquipmentLayoutContext<string>.Single("head"));
+        transaction.ToSide.TryAdd(charm, out _, context: EquipmentLayoutContext<string>.Single("trinket"));
 
-        Assert.That(lootBag.TryCommitTransfer(transfer, equipment, placement, out var failure), Is.True);
+        Assert.That(transaction.TryCommit(out var failure), Is.True);
 
         WriteExample("EquipmentLayout", "EquipmentLoadoutWorkflowExample.txt", RenderLoadout(equipment));
     }

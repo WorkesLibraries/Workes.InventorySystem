@@ -60,7 +60,7 @@ Each entry contains:
 Snapshots do not contain catalog definitions, schemas, tags, definition attributes, policies, rules, stack-resolver
 configuration, runtime `InstanceId` values, or application save versions. Recreate that configuration independently.
 
-In 2.0, the former `Inventory<TKey>.Attributes` surface is replaced by inventory-owned `Metadata`. Definition
+Inventory-owned state uses `Inventory<TKey>.Metadata`. Definition
 attributes remain a separate registered system on `ItemCatalog<TKey>.Attributes` and
 `ItemDefinition<TKey>.Attributes`.
 

@@ -307,7 +307,7 @@ Use this split:
 
 ## Migration From String Errors
 
-In 2.0, public expected-failure APIs use structured failures instead of string errors:
+Current public expected-failure APIs use structured failures instead of string errors:
 
 ```csharp
 // Old shape

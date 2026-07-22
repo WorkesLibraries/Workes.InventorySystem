@@ -30,14 +30,10 @@ public class TransactionBuilderCommitExampleTests
 
         var inventory = manager.CreateInventory();
         var builder = InventoryTransaction<string>.For(inventory);
-        Assert.That(builder.TryAdd(apple, out var failure, 3), Is.True);
-        Assert.That(builder.TryAdd(sword, out failure), Is.True);
+        Assert.That(builder.TryAdd(apple, out var failure, 3, SlotLayoutContext<string>.Single(1)), Is.True);
+        Assert.That(builder.TryAdd(sword, out failure, context: SlotLayoutContext<string>.Single(3)), Is.True);
 
-        var placement = SlotLayoutContext<string>.Map()
-            .Add(0, 1)
-            .Add(1, 3)
-            .Build();
-        var committed = builder.TryBuild(placement, out var transaction, out failure)
+        var committed = builder.TryBuild(null, out var transaction, out failure)
             && transaction!.TryCommit(out failure);
 
         Assert.That(committed, Is.True);
@@ -59,7 +55,7 @@ public class TransactionBuilderCommitExampleTests
         builder.AppendLine("  apple x3");
         builder.AppendLine("  sword x1");
         builder.AppendLine();
-        builder.AppendLine($"Transaction commit with mapped slot context: {(committed ? "committed" : "rejected")}");
+        builder.AppendLine($"Transaction commit with direct slot contexts: {(committed ? "committed" : "rejected")}");
         builder.AppendLine();
         builder.AppendLine("Slots");
         builder.AppendLine("-----");
@@ -70,7 +66,7 @@ public class TransactionBuilderCommitExampleTests
         }
 
         builder.AppendLine();
-        builder.AppendLine("Transfer helpers remain on InventoryTransfer for cross-inventory actions.");
+        builder.AppendLine("Use cross-inventory transactions for planned multi-inventory actions.");
         return builder.ToString();
     }
 

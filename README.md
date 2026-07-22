@@ -26,13 +26,13 @@ and persistence so each concern can be configured or extended without replacing 
 Install the package from [NuGet](https://www.nuget.org/packages/Workes.InventorySystem):
 
 ```bash
-dotnet add package Workes.InventorySystem --version 2.0.0
+dotnet add package Workes.InventorySystem --version 3.0.0
 ```
 
 Or add a package reference:
 
 ```xml
-<PackageReference Include="Workes.InventorySystem" Version="2.0.0" />
+<PackageReference Include="Workes.InventorySystem" Version="3.0.0" />
 ```
 
 The package targets .NET Standard 2.1.

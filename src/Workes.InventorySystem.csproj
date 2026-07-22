@@ -7,8 +7,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
       <PackageId>Workes.InventorySystem</PackageId>
-      <Version>2.0.0</Version>
-      <PackageReleaseNotes>2.0.0 introduces portable inventory snapshots with exact, reconciliation, and salvage restoration; inventory-owned metadata; structured InventoryFailure reporting and project-owned exceptions; target-bound transfer planning; layout reconciliation and repack contracts; max-stack queries; and focused documentation. Legacy Serialize/Deserialize APIs remain obsolete compatibility APIs.</PackageReleaseNotes>
+      <Version>3.0.0</Version>
+      <PackageReleaseNotes>3.0.0 makes transactions the central local and cross-inventory operation model; adds reusable item deltas and label-based application plans; standardizes item metadata matching; removes 2.0 compatibility serializer/event aliases; and keeps external transfer builders as obsolete compatibility APIs.</PackageReleaseNotes>
       <PackageReadmeFile>README.md</PackageReadmeFile>
 
       <Authors>Workes</Authors>

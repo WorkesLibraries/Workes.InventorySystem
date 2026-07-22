@@ -68,7 +68,7 @@ public class GridLayoutExampleTests
     }
 
     [Test]
-    public void MappedGridTransfer_WritesReadableExample()
+    public void CrossInventoryGridTransaction_WritesReadableExample()
     {
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
@@ -77,17 +77,17 @@ public class GridLayoutExampleTests
         var target = manager.CreateInventory();
         source.TryAdd(apple, out _, 5);
         source.TryAdd(sword, out _, 1);
-        var transfer = InventoryTransfer.From(source);
-        transfer.TryRemove(source.Find(apple)[0], 5, out _);
-        transfer.TryRemove(source.Find(sword)[0], 1, out _);
-        var context = GridLayoutContext<string>.Map()
-            .Add(0, 1, 0)
-            .Add(1, 2, 1)
-            .Build();
+        var transaction = InventoryTransaction<string>
+            .From(source)
+            .To(target);
+        transaction.FromSide.TryRemove(source.Find(apple)[0], out _, 5);
+        transaction.FromSide.TryRemove(source.Find(sword)[0], out _);
+        transaction.ToSide.TryAdd(apple, out _, 5, GridLayoutContext<string>.Single(1, 0));
+        transaction.ToSide.TryAdd(sword, out _, context: GridLayoutContext<string>.Single(2, 1));
 
-        Assert.That(source.TryCommitTransfer(transfer, target, context, out var failure), Is.True);
+        Assert.That(transaction.TryCommit(out var failure), Is.True);
 
-        WriteOutput("MappedGridTransfer.txt", DescribeGrid(target, 3, 2));
+        WriteOutput("CrossInventoryGridTransaction.txt", DescribeGrid(target, 3, 2));
     }
 
     private static InventoryManager<string> CreateManager(IInventoryLayout<string> layout, params ItemDefinition<string>[] definitions)
