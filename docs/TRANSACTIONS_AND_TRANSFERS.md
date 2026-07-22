@@ -26,6 +26,7 @@ Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations an
 | Combine several adds and removals atomically in one inventory | `InventoryTransaction<TKey>.For(inventory)` |
 | Apply reusable semantic deltas locally | `InventoryTransaction<TKey>.For(inventory).Apply(delta)` |
 | Apply two inventory-local deltas atomically | `InventoryTransaction<TKey>.From(first).To(second)` |
+| Stage one-off two-inventory changes manually | `InventoryTransaction<TKey>.From(first).To(second).FromSide` / `.ToSide` |
 | Move one amount between inventories | `TryTransferTo(...)` |
 | Plan several outgoing entries and commit them later | `InventoryTransferBuilder<TKey>` |
 | Plan transfers against a known target with per-entry placement | `InventoryTransfer.From(source).To(target)` |
@@ -132,12 +133,19 @@ The builder exposes conditional staging methods:
 
 | API | Staged operation |
 |---|---|
+| `Add(definition, amount, context)` / `Add(definitionId, amount, context)` | Throwing fluent add wrapper |
 | `TryAdd(definition, out failure, amount, context)` | Add an amount, optionally with direct placement |
 | `TryAdd(definitionId, out failure, amount, context)` | Resolve a current or migrated ID, then add |
 | `TryAdd(definition, amount, context, metadata, out failure)` | Add with instance metadata |
 | `TryAdd(definitionId, amount, context, metadata, out failure)` | Resolve a current or migrated ID, then add with metadata |
+| `Remove(instance, amount)` | Throwing fluent remove wrapper for a known item instance |
 | `TryRemove(instance, out failure, amount)` | Remove from a known item instance |
+| `RemoveAtStorageIndex(index, amount)` | Throwing fluent remove wrapper for a storage index |
 | `TryRemoveAtStorageIndex(index, out failure, amount)` | Remove by storage index |
+| `RemoveAtContext(context, amount)` / `TryRemoveAtContext(context, out failure, amount)` | Remove from the item occupying a layout context |
+| `Remove(definitionId, amount, context)` / `TryRemove(definitionId, amount, context, out failure)` | Remove exact-empty-metadata items, optionally constrained to a context |
+| `Remove(definitionId, amount, metadata, context)` / `TryRemove(definitionId, amount, metadata, context, out failure)` | Remove exact-metadata items, optionally constrained to a context |
+| `RemoveAnyMetadata(definitionId, amount, context)` / `TryRemoveAnyMetadata(definitionId, amount, context, out failure)` | Remove matching items while ignoring metadata, optionally constrained to a context |
 | `TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure)` | Remove across matching stacks |
 | `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out failure)` | Resolve a current or migrated ID, then remove across matching stacks |
 | `IsEmpty` | Inspect whether staging currently produces any structural change |
@@ -169,6 +177,44 @@ if (!builder.TryRemoveByDefinition(
 
 A failed staging call rejects that call; it does not automatically discard earlier successful staging. Application code
 decides whether to continue, commit the accepted subset, or abandon the builder.
+
+Manual builders also support expected-success fluent staging:
+
+```csharp
+InventoryTransaction<string>
+    .For(backpack)
+    .RemoveAnyMetadata("coin", amount: 10, context: SlotLayoutContext<string>.Single(0))
+    .Add("apple", amount: 5, context: SlotLayoutContext<string>.Single(2))
+    .Commit();
+```
+
+Context-constrained removals are strict. If the requested slot, cell, or section does not contain enough matching items,
+the staging call fails even when matching items exist elsewhere:
+
+```csharp
+if (!builder.TryRemoveAnyMetadata(
+        "coin",
+        amount: 10,
+        context: SlotLayoutContext<string>.Single(0),
+        out var failure))
+{
+    // Coins in other slots do not satisfy this request.
+}
+```
+
+Use `RemoveAtContext(...)` when UI code is driven by “the player clicked this position” and the definition is not
+important. Use definition/key removal with a context when both the item identity and the position matter.
+
+Manual builder removals follow the same metadata language as deltas:
+
+```csharp
+builder.Remove("apple", amount: 5);                       // Exact empty metadata.
+builder.Remove("apple", amount: 5, metadata: appleMeta);   // Exact metadata.
+builder.RemoveAnyMetadata("apple", amount: 5);             // Wildcard metadata.
+```
+
+Manual builders are best for one-off, procedural local changes. Deltas are better when the operation should be reusable,
+stored, mirrored, combined, or applied with label-based plans.
 
 ## Build Versus Commit
 
@@ -390,6 +436,35 @@ var transaction = InventoryTransaction<string>
 ```
 
 No plan means default deterministic removals and normal auto-placement for that inventory.
+
+For one-off exchanges where a reusable delta would be overkill, a completed cross-inventory transaction exposes explicit
+manual side builders:
+
+```csharp
+var transaction = InventoryTransaction<string>
+    .From(playerInventory)
+    .To(npcInventory);
+
+transaction.FromSide
+    .RemoveAnyMetadata("coin", amount: 10, context: SlotLayoutContext<string>.Single(0));
+
+transaction.ToSide
+    .Add("coin", amount: 10, context: SlotLayoutContext<string>.Single(2));
+
+transaction.Commit();
+```
+
+`FromSide` stages changes against the first inventory's simulation. `ToSide` stages changes against the second
+inventory's simulation. Each successful side operation validates immediately and only changes that side's simulation;
+the live inventories remain unchanged until the transaction commits. A failed side operation leaves both live
+inventories unchanged and does not alter that side's staged simulation.
+
+Manual cross-inventory staging uses the same add, remove, remove-at-context, context-constrained removal, and metadata
+semantics as local manual builders. It is best for procedural one-off trades or exchanges. Prefer deltas when the
+operation should be reusable, mirrored, stored, combined, or controlled through label-based application plans.
+
+Do not mix the two workflows on the same cross-inventory transaction. Once a cross transaction has applied deltas, manual
+side staging is rejected; once manual side staging succeeds, `Apply(...)` and `ApplyMirrored(...)` are rejected.
 
 ## Transaction Atomicity And Events
 

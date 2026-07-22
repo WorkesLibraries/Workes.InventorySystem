@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Workes.InventorySystem.Layout;
 namespace Workes.InventorySystem.Core;
@@ -17,6 +18,7 @@ public class InventoryTransactionBuilder<TKey>
 {
     private readonly Inventory<TKey> _targetInventory;
     private readonly Inventory<TKey> _simulation;
+    private readonly long _targetInventoryVersion;
     private readonly List<SimulationEntry> _simulationEntries = new();
 
     private sealed class SimulationEntry
@@ -35,6 +37,7 @@ public class InventoryTransactionBuilder<TKey>
     {
         _targetInventory = targetInventory ?? throw new ArgumentNullException(nameof(targetInventory));
         _simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
+        _targetInventoryVersion = targetInventory.Version;
 
         for (int i = 0; i < _simulation.Items.Count; i++)
             _simulationEntries.Add(new SimulationEntry(i, null));
@@ -229,6 +232,56 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
+    /// Adds items to the simulated state or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Add(
+        ItemDefinition<TKey> definition,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryAdd(definition, out var failure, amount, context), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds items resolved from a current or migrated definition id to the simulated state or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Add(
+        TKey definitionId,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryAdd(definitionId, out var failure, amount, context), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds items with optional metadata to the simulated state or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Add(
+        ItemDefinition<TKey> definition,
+        int amount,
+        ILayoutContext<TKey>? context,
+        InstanceMetadata? metadata)
+    {
+        ThrowIfRejected(TryAdd(definition, amount, context, metadata, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds items with optional metadata resolved from a definition id to the simulated state or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Add(
+        TKey definitionId,
+        int amount,
+        ILayoutContext<TKey>? context,
+        InstanceMetadata? metadata)
+    {
+        ThrowIfRejected(TryAdd(definitionId, amount, context, metadata, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
     /// Removes items from the simulated state.
     /// </summary>
     /// <param name="instance">The item instance to remove from. It may come from the original inventory.</param>
@@ -245,11 +298,17 @@ public class InventoryTransactionBuilder<TKey>
             failure = InventoryFailures.Validation("Item not found in inventory.");
             return false;
         }
-        if (!_simulation.TryFormulateRemove(simulationInstance, amount, out var tx, out failure) || tx == null)
-            return false;
 
-        MergeAndApply(tx);
-        return true;
+        return TryRemoveSimulationInstance(simulationInstance, amount, out failure);
+    }
+
+    /// <summary>
+    /// Removes items from the simulated state or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Remove(ItemInstance<TKey> instance, int amount = 1)
+    {
+        ThrowIfRejected(TryRemove(instance, out var failure, amount), failure);
+        return this;
     }
 
     /// <summary>
@@ -288,6 +347,55 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
+    /// Removes items at the given storage index in the simulated state or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveAtStorageIndex(int index, int amount = 1)
+    {
+        ThrowIfRejected(TryRemoveAtStorageIndex(index, out var failure, amount), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items occupying the given layout context in the simulated state.
+    /// </summary>
+    /// <param name="context">The layout context whose occupying item should be removed from.</param>
+    /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
+    /// <param name="amount">The amount to remove.</param>
+    /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
+    public bool TryRemoveAtContext(
+        ILayoutContext<TKey> context,
+        out InventoryFailure? failure,
+        int amount = 1)
+    {
+        failure = null;
+        if (context == null)
+        {
+            failure = InventoryFailures.LayoutInvalidContext("Removal context cannot be null.");
+            return false;
+        }
+
+        var item = _simulation.Layout.GetItemAt(_simulation, context);
+        if (item == null)
+        {
+            failure = InventoryFailures.LayoutInvalidContext("No item exists at the requested removal context.");
+            return false;
+        }
+
+        return TryRemoveSimulationInstance(item, amount, out failure);
+    }
+
+    /// <summary>
+    /// Removes items occupying the given layout context or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveAtContext(
+        ILayoutContext<TKey> context,
+        int amount = 1)
+    {
+        ThrowIfRejected(TryRemoveAtContext(context, out var failure, amount), failure);
+        return this;
+    }
+
+    /// <summary>
     /// Removes items resolved from a current or migrated definition id from the simulated state.
     /// </summary>
     /// <param name="definitionId">The definition id to resolve through the target inventory's catalog registry.</param>
@@ -301,6 +409,176 @@ public class InventoryTransactionBuilder<TKey>
             return false;
 
         return TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure);
+    }
+
+    /// <summary>
+    /// Removes items by definition from the simulated state or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveByDefinition(
+        ItemDefinition<TKey> definition,
+        int amount,
+        bool ignoreMetadata)
+    {
+        ThrowIfRejected(TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items resolved from a definition id from the simulated state or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveByDefinition(
+        TKey definitionId,
+        int amount,
+        bool ignoreMetadata)
+    {
+        ThrowIfRejected(TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items that match the definition and exact empty metadata from the simulated state.
+    /// </summary>
+    public bool TryRemove(
+        ItemDefinition<TKey> definition,
+        int amount,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure) =>
+        TryRemove(definition, amount, metadata: null, context, out failure);
+
+    /// <summary>
+    /// Removes items that match the definition and exact metadata from the simulated state.
+    /// </summary>
+    public bool TryRemove(
+        ItemDefinition<TKey> definition,
+        int amount,
+        InstanceMetadata? metadata,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definition, amount, metadata, InventoryItemDeltaMetadataMatch.Exact, context, out failure);
+
+    /// <summary>
+    /// Removes items that match the resolved definition id and exact empty metadata from the simulated state.
+    /// </summary>
+    public bool TryRemove(
+        TKey definitionId,
+        int amount,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure) =>
+        TryRemove(definitionId, amount, metadata: null, context, out failure);
+
+    /// <summary>
+    /// Removes items that match the resolved definition id and exact metadata from the simulated state.
+    /// </summary>
+    public bool TryRemove(
+        TKey definitionId,
+        int amount,
+        InstanceMetadata? metadata,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure)
+    {
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
+            return false;
+
+        return TryRemove(definition, amount, metadata, context, out failure);
+    }
+
+    /// <summary>
+    /// Removes items by definition while ignoring item-instance metadata.
+    /// </summary>
+    public bool TryRemoveAnyMetadata(
+        ItemDefinition<TKey> definition,
+        int amount,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definition, amount, metadata: null, InventoryItemDeltaMetadataMatch.Any, context, out failure);
+
+    /// <summary>
+    /// Removes items by resolved definition id while ignoring item-instance metadata.
+    /// </summary>
+    public bool TryRemoveAnyMetadata(
+        TKey definitionId,
+        int amount,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure)
+    {
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
+            return false;
+
+        return TryRemoveAnyMetadata(definition, amount, context, out failure);
+    }
+
+    /// <summary>
+    /// Removes items that match exact empty metadata or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Remove(
+        ItemDefinition<TKey> definition,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemove(definition, amount, context, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items that match exact empty metadata resolved from a definition id or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Remove(
+        TKey definitionId,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemove(definitionId, amount, context, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items that match exact metadata or throws when expected-success staging is rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Remove(
+        ItemDefinition<TKey> definition,
+        int amount,
+        InstanceMetadata? metadata,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemove(definition, amount, metadata, context, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items that match exact metadata resolved from a definition id or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> Remove(
+        TKey definitionId,
+        int amount,
+        InstanceMetadata? metadata,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemove(definitionId, amount, metadata, context, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items by definition while ignoring item-instance metadata or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveAnyMetadata(
+        ItemDefinition<TKey> definition,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemoveAnyMetadata(definition, amount, context, out var failure), failure);
+        return this;
+    }
+
+    /// <summary>
+    /// Removes items by resolved definition id while ignoring item-instance metadata or throws when rejected.
+    /// </summary>
+    public InventoryTransactionBuilder<TKey> RemoveAnyMetadata(
+        TKey definitionId,
+        int amount = 1,
+        ILayoutContext<TKey>? context = null)
+    {
+        ThrowIfRejected(TryRemoveAnyMetadata(definitionId, amount, context, out var failure), failure);
+        return this;
     }
 
     /// <summary>
@@ -344,7 +622,7 @@ public class InventoryTransactionBuilder<TKey>
                 removed.Add((originalIndex, _targetInventory.Items[originalIndex]));
         }
 
-        return new InventoryTransaction<TKey>(_targetInventory, amountDeltas, removed, added);
+        return new InventoryTransaction<TKey>(_targetInventory, amountDeltas, removed, added, _targetInventoryVersion);
     }
 
     /// <summary>
@@ -392,6 +670,18 @@ public class InventoryTransactionBuilder<TKey>
                 return simInst;
         }
         return null;
+    }
+
+    private bool TryRemoveSimulationInstance(
+        ItemInstance<TKey> simulationInstance,
+        int amount,
+        out InventoryFailure? failure)
+    {
+        if (!_simulation.TryFormulateRemove(simulationInstance, amount, out var tx, out failure) || tx == null)
+            return false;
+
+        MergeAndApply(tx);
+        return true;
     }
 
     private void MergeAndApply(InventoryTransaction<TKey> tx)
@@ -505,5 +795,126 @@ public class InventoryTransactionBuilder<TKey>
             return metadata.IsEmpty;
 
         return metadata.StructuralEquals(operationMetadata);
+    }
+
+    private bool TryRemoveByDefinition(
+        ItemDefinition<TKey> definition,
+        int amount,
+        InstanceMetadata? metadata,
+        InventoryItemDeltaMetadataMatch metadataMatch,
+        ILayoutContext<TKey>? context,
+        out InventoryFailure? failure)
+    {
+        failure = null;
+        if (definition == null)
+        {
+            failure = InventoryFailures.Definition("Definition cannot be null.");
+            return false;
+        }
+        if (amount <= 0)
+        {
+            failure = InventoryFailures.Validation("Amount must be greater than zero.");
+            return false;
+        }
+
+        var amountDeltas = new List<(int index, int delta)>();
+        var removed = new List<(int index, ItemInstance<TKey> instance)>();
+        int remaining = amount;
+
+        for (int i = 0; i < _simulation.Items.Count && remaining > 0; i++)
+        {
+            var instance = _simulation.Items[i];
+            if (!EqualityComparer<TKey>.Default.Equals(instance.Definition.Id, definition.Id))
+                continue;
+            if (!MatchesMetadata(instance.Metadata, metadata, metadataMatch))
+                continue;
+            if (context != null && !StorageIndexHasContext(i, context))
+                continue;
+
+            int take = Math.Min(remaining, instance.Amount);
+            remaining -= take;
+            if (take == instance.Amount)
+                removed.Add((i, instance));
+            else
+                amountDeltas.Add((i, -take));
+        }
+
+        if (remaining > 0)
+        {
+            failure = context == null
+                ? InventoryFailures.Validation("Not enough matching items to remove.")
+                : InventoryFailures.LayoutInvalidContext("Not enough matching items exist at the requested removal context.");
+            return false;
+        }
+
+        var tx = new InventoryTransaction<TKey>(
+            _simulation,
+            amountDeltas,
+            removed,
+            new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
+        if (!_simulation.TryPrepareTransaction(tx, null, out var mapped, out failure) || mapped == null)
+            return false;
+
+        MergeAndApply(mapped);
+        return true;
+    }
+
+    private static bool MatchesMetadata(
+        InstanceMetadata metadata,
+        InstanceMetadata? referenceMetadata,
+        InventoryItemDeltaMetadataMatch metadataMatch)
+    {
+        if (metadataMatch == InventoryItemDeltaMetadataMatch.Any)
+            return true;
+
+        if (referenceMetadata == null || referenceMetadata.IsEmpty)
+            return metadata.IsEmpty;
+
+        return metadata.StructuralEquals(referenceMetadata);
+    }
+
+    private bool StorageIndexHasContext(int storageIndex, ILayoutContext<TKey> context)
+    {
+        var contexts = _simulation.Layout.GetContextsForStorageIndex(_simulation, storageIndex);
+        for (int i = 0; i < contexts.Count; i++)
+        {
+            if (LayoutContextEquals(contexts[i], context))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool LayoutContextEquals(ILayoutContext<TKey> first, ILayoutContext<TKey> second)
+    {
+        if (ReferenceEquals(first, second))
+            return true;
+        if (first == null || second == null || first.GetType() != second.GetType())
+            return false;
+
+        var properties = first.GetType().GetProperties();
+        foreach (var property in properties)
+        {
+            if (property.GetIndexParameters().Length != 0)
+                continue;
+            if (!property.CanRead)
+                continue;
+            if (typeof(IEnumerable).IsAssignableFrom(property.PropertyType) &&
+                property.PropertyType != typeof(string))
+                continue;
+
+            var firstValue = property.GetValue(first);
+            var secondValue = property.GetValue(second);
+            if (!Equals(firstValue, secondValue))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void ThrowIfRejected(bool accepted, InventoryFailure? failure)
+    {
+        if (!accepted)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Transaction("Transaction builder operation was rejected."));
     }
 }

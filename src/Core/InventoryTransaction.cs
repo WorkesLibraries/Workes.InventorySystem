@@ -23,6 +23,13 @@ public class InventoryTransaction<TKey>
         Cross
     }
 
+    private enum CrossWorkflow
+    {
+        None,
+        Delta,
+        Manual
+    }
+
     private readonly TransactionMode _mode;
     private readonly Inventory<TKey>? _inventory;
     private readonly IReadOnlyList<(int index, int delta)>? _amountDeltas;
@@ -32,6 +39,9 @@ public class InventoryTransaction<TKey>
     private readonly InventoryTransactionEntry<TKey>? _toEntry;
     private InventoryTransaction<TKey>? _fromTransaction;
     private InventoryTransaction<TKey>? _toTransaction;
+    private readonly InventoryTransactionSideBuilder<TKey>? _fromSide;
+    private readonly InventoryTransactionSideBuilder<TKey>? _toSide;
+    private CrossWorkflow _crossWorkflow;
     private bool _isApplied;
 
     /// <summary>
@@ -100,6 +110,18 @@ public class InventoryTransaction<TKey>
         ?? throw new InvalidOperationException("Cross-inventory transactions do not expose structural additions.");
 
     /// <summary>
+    /// Gets the source/from side manual staging builder for a completed cross-inventory transaction.
+    /// </summary>
+    public InventoryTransactionSideBuilder<TKey> FromSide => _fromSide
+        ?? throw new InvalidOperationException("Manual side staging is only available on completed cross-inventory transactions created from inventories.");
+
+    /// <summary>
+    /// Gets the target/to side manual staging builder for a completed cross-inventory transaction.
+    /// </summary>
+    public InventoryTransactionSideBuilder<TKey> ToSide => _toSide
+        ?? throw new InvalidOperationException("Manual side staging is only available on completed cross-inventory transactions created from inventories.");
+
+    /// <summary>
     /// Gets whether this transaction has already been committed.
     /// </summary>
     public bool IsApplied => _isApplied;
@@ -122,13 +144,23 @@ public class InventoryTransaction<TKey>
         List<(int index, int delta)> amountDeltas,
         List<(int index, ItemInstance<TKey> instance)> removed,
         List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> added)
+        : this(inventory, amountDeltas, removed, added, inventory?.Version ?? 0)
+    {
+    }
+
+    internal InventoryTransaction(
+        Inventory<TKey> inventory,
+        List<(int index, int delta)> amountDeltas,
+        List<(int index, ItemInstance<TKey> instance)> removed,
+        List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)> added,
+        long inventoryVersion)
     {
         _mode = TransactionMode.Structural;
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _amountDeltas = amountDeltas ?? new List<(int, int)>();
         _removed = removed ?? new List<(int, ItemInstance<TKey>)>();
         _added = added ?? new List<(ItemInstance<TKey>, ILayoutContext<TKey>?)>();
-        InventoryVersion = inventory.Version;
+        InventoryVersion = inventoryVersion;
     }
 
     private InventoryTransaction(InventoryTransactionEntry<TKey> fromEntry)
@@ -146,6 +178,7 @@ public class InventoryTransaction<TKey>
         if (!TryBuildEntry(fromEntry, out _fromTransaction, out var failure)
             || !TryBuildEntry(toEntry, out _toTransaction, out failure))
             throw new InventoryOperationException(failure ?? InventoryFailures.Transaction("Cross-inventory transaction entry application was rejected."));
+        _crossWorkflow = CrossWorkflow.Delta;
     }
 
     private InventoryTransaction(Inventory<TKey> from, Inventory<TKey> to)
@@ -154,6 +187,8 @@ public class InventoryTransaction<TKey>
         ValidateCrossInventories(from, to);
         _fromEntry = new InventoryTransactionEntry<TKey>(from, InventoryItemDelta<TKey>.Create());
         _toEntry = new InventoryTransactionEntry<TKey>(to, InventoryItemDelta<TKey>.Create());
+        _fromSide = new InventoryTransactionSideBuilder<TKey>(this, For(from));
+        _toSide = new InventoryTransactionSideBuilder<TKey>(this, For(to));
     }
 
     internal static InventoryTransaction<TKey> CreateCross(Inventory<TKey> from, Inventory<TKey> to) =>
@@ -213,6 +248,11 @@ public class InventoryTransaction<TKey>
             failure = InventoryFailures.Transaction("Cross-inventory transaction already has applied deltas.");
             return false;
         }
+        if (_crossWorkflow == CrossWorkflow.Manual)
+        {
+            failure = InventoryFailures.Transaction("Cross-inventory transaction already has manual staged operations.");
+            return false;
+        }
 
         if (!TryBuildEntry(new InventoryTransactionEntry<TKey>(_fromEntry.Inventory, fromDelta), out _fromTransaction, out failure))
             return false;
@@ -222,6 +262,7 @@ public class InventoryTransaction<TKey>
             return false;
         }
 
+        _crossWorkflow = CrossWorkflow.Delta;
         failure = null;
         return true;
     }
@@ -250,6 +291,11 @@ public class InventoryTransaction<TKey>
         if (_fromTransaction != null || _toTransaction != null)
         {
             failure = InventoryFailures.Transaction("Cross-inventory transaction already has applied deltas.");
+            return false;
+        }
+        if (_crossWorkflow == CrossWorkflow.Manual)
+        {
+            failure = InventoryFailures.Transaction("Cross-inventory transaction already has manual staged operations.");
             return false;
         }
         if (fromEntry == null)
@@ -281,6 +327,7 @@ public class InventoryTransaction<TKey>
             return false;
         }
 
+        _crossWorkflow = CrossWorkflow.Delta;
         failure = null;
         return true;
     }
@@ -328,7 +375,8 @@ public class InventoryTransaction<TKey>
             Inventory,
             new List<(int index, int delta)>(AmountDeltas),
             new List<(int index, ItemInstance<TKey> instance)>(Removed),
-            added);
+            added,
+            InventoryVersion);
     }
 
     /// <summary>
@@ -425,15 +473,31 @@ public class InventoryTransaction<TKey>
             failure = InventoryFailures.Transaction("Transaction has already been applied.");
             return false;
         }
-        if (_fromTransaction == null || _toTransaction == null)
+        InventoryTransaction<TKey>? fromTransaction = _fromTransaction;
+        InventoryTransaction<TKey>? toTransaction = _toTransaction;
+        if (fromTransaction == null || toTransaction == null)
         {
-            failure = InventoryFailures.Transaction("Cross-inventory transaction has no applied deltas.");
+            if (_crossWorkflow == CrossWorkflow.Manual && _fromSide != null && _toSide != null)
+            {
+                fromTransaction = _fromSide.Build();
+                toTransaction = _toSide.Build();
+            }
+            else
+            {
+                failure = InventoryFailures.Transaction("Cross-inventory transaction has no staged operations.");
+                return false;
+            }
+        }
+
+        if (_crossWorkflow == CrossWorkflow.Manual && fromTransaction.IsEmpty && toTransaction.IsEmpty)
+        {
+            failure = InventoryFailures.Transaction("Cross-inventory transaction has no staged operations.");
             return false;
         }
 
-        if (!_fromEntry.Inventory.TryPrepareTransaction(_fromTransaction, null, out fromPrepared, out failure))
+        if (!_fromEntry.Inventory.TryPrepareTransaction(fromTransaction, null, out fromPrepared, out failure))
             return false;
-        if (!_toEntry.Inventory.TryPrepareTransaction(_toTransaction, null, out toPrepared, out failure))
+        if (!_toEntry.Inventory.TryPrepareTransaction(toTransaction, null, out toPrepared, out failure))
         {
             fromPrepared = null;
             return false;
@@ -441,6 +505,35 @@ public class InventoryTransaction<TKey>
 
         failure = null;
         return true;
+    }
+
+    internal bool TryCanStageManualCrossOperation(out InventoryFailure? failure)
+    {
+        if (_mode != TransactionMode.Cross || _fromEntry == null || _toEntry == null || _fromSide == null || _toSide == null)
+        {
+            failure = InventoryFailures.Transaction("Manual side staging is only available on completed cross-inventory transactions created from inventories.");
+            return false;
+        }
+        if (IsApplied)
+        {
+            failure = InventoryFailures.Transaction("Transaction has already been applied.");
+            return false;
+        }
+        if (_crossWorkflow == CrossWorkflow.Delta || _fromTransaction != null || _toTransaction != null)
+        {
+            failure = InventoryFailures.Transaction("Cross-inventory transaction already has applied deltas.");
+            return false;
+        }
+
+        failure = null;
+        return true;
+    }
+
+    internal void MarkManualCrossStaged()
+    {
+        _crossWorkflow = CrossWorkflow.Manual;
+        _fromTransaction = null;
+        _toTransaction = null;
     }
 
     private static bool TryBuildEntry(

@@ -22,6 +22,10 @@ This file records notable changes to `Workes.InventorySystem`.
   inventory-local `InventoryTransactionEntry<TKey>` values, mirrored delta application, and atomic two-inventory commit.
 - Added `InventoryDeltaApplicationPlan<TKey>`, `InventoryPlacementDecision<TKey>`, and `InventoryRemovalDecision` for
   insertion-ordered, label-based addition placement and removal candidate selection during delta application.
+- Added fluent manual `InventoryTransactionBuilder<TKey>` add/remove wrappers and context-constrained removals,
+  including remove-at-context, exact-metadata removal, and wildcard-metadata removal.
+- Added `InventoryTransaction<TKey>.FromSide` and `.ToSide` manual side builders for one-off cross-inventory
+  transaction staging with immediate per-side validation and atomic two-inventory commit.
 
 ## [2.0.0] - 2026-07-21
 
