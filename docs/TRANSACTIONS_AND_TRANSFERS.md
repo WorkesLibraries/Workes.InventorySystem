@@ -35,6 +35,55 @@ Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations an
 Local layout moves and swaps are not transactions or transfers. They change presentation inside one inventory and emit
 dedicated movement payloads. See [Layouts](LAYOUTS.md).
 
+## Semantic Item Deltas
+
+`InventoryItemDelta<TKey>` describes a reusable, context-free semantic net change for one inventory. It does not commit
+anything and does not know about capacity, rules, stack limits, layout positions, or a specific inventory. It is useful
+for describing recipes, shop offers, quest requirements, donations, and other changes that will later be applied through
+transaction APIs.
+
+Delta operations use inventory-local language:
+
+- `Add(...)` means the item is added to the inventory the delta is applied to.
+- `Remove(...)` means the item is removed from the inventory the delta is applied to.
+
+For example, this delta describes the player-side result of selling one silver plate for four coins:
+
+```csharp
+var sellPlate = InventoryItemDelta<string>.Create()
+    .Remove("silver_plate", amount: 1, label: "plate")
+    .Add("coin", amount: 4, label: "coins");
+```
+
+The mirrored delta describes the opposite side of the same trade:
+
+```csharp
+InventoryItemDelta<string> npcSide =
+    InventoryItemDelta<string>.Mirror(sellPlate);
+```
+
+Remove operations are metadata-aware:
+
+```csharp
+var delta = InventoryItemDelta<string>.Create()
+    .Remove("apple", 5)                 // Exact empty metadata.
+    .Remove("apple", 5, appleMetadata)  // Exact metadata.
+    .RemoveAnyMetadata("apple", 5);     // Wildcard metadata.
+```
+
+Labels are optional and unique within one delta. They provide stable semantic handles for later planning and UI. Deltas
+can also be combined semantically:
+
+```csharp
+var combined = InventoryItemDelta<string>.Combine(
+    InventoryItemDeltaPart<string>.From(bookPurchase, prefix: "book", count: 2),
+    InventoryItemDeltaPart<string>.From(inkPurchase, prefix: "ink"));
+```
+
+Combination uses one net semantic mode. Compatible operations merge, opposite operations can cancel to zero, and labels
+from combined parts are addressable by original label, prefix, or exact combined label such as
+`book.purchase-item`. If an operation nets to zero, its labels disappear with that operation.
+
 ## Inventory Transactions
 
 An `InventoryTransaction<TKey>` represents structural changes targeting exactly one inventory:

@@ -97,6 +97,12 @@ Application code may inspect item instances, but it does not construct them or c
 Inventories, committed transactions, transfers, portable snapshot application, splits, and rebuild operations create
 and update them.
 
+### Semantic item deltas
+
+`InventoryItemDelta<TKey>` is a reusable description of item additions and removals for one inventory. It is not itself
+an inventory mutation and does not contain layout contexts. Deltas are useful for describing recipe, shop, quest, or
+trade semantics before those changes are applied through transaction APIs.
+
 ### Three kinds of descriptive state
 
 - Definition attributes are registered, typed facts shared by every instance of an item definition.

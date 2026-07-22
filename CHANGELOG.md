@@ -10,6 +10,11 @@ This file records notable changes to `Workes.InventorySystem`.
   remains extension-facing validation data for rules, capacity policies, layouts, and internal validation. User-authored
   changes should use direct inventory operations or the transaction/delta APIs.
 
+### Added
+
+- Added `InventoryItemDelta<TKey>` as a reusable, context-free semantic net-change model with add/remove operations,
+  metadata-aware remove modes, unique operation labels, mirroring, and semantic prefixed combination.
+
 ## [2.0.0] - 2026-07-21
 
 ### Breaking Changes
