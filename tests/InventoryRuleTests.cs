@@ -109,17 +109,11 @@ public class InventoryRuleTests
         out InventoryFailure? failure)
     {
         failure = null;
-        var added = new List<(ItemDefinition<string> definition, InstanceMetadata? metadata, int amount)>
-        {
-            (definition, metadata, amount)
-        };
-        var removed = new List<(ItemDefinition<string> definition, InstanceMetadata? metadata, int amount)>();
-
-        var normalized = new NormalizedInventoryTransaction<string>(added, removed);
-        if (!inventory.TryFormulateFromNormalized(normalized, out var tx, out failure) || tx == null)
+        var builder = InventoryTransaction<string>.From(inventory);
+        if (!builder.TryAdd(definition, amount, context: null, metadata, out failure))
             return false;
 
-        inventory.CommitTransaction(tx);
+        inventory.CommitTransaction(builder);
         return true;
     }
 

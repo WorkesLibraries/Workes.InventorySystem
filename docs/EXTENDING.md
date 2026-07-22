@@ -299,7 +299,8 @@ change successfully but has no behavioral effect.
 Capacity policies model a shared non-spatial resource such as weight, bulk, total quantity, volume, or energy. A
 definition-specific gameplay limit is usually a rule instead.
 
-`CanApply(...)` receives current state plus a normalized semantic transaction. Its `Added` and `Removed` collections
+`CanApply(...)` receives current state plus a normalized semantic transaction. `NormalizedInventoryTransaction<TKey>`
+is extension-facing validation data, not a user-authored operation builder. Its `Added` and `Removed` collections
 contain `(definition, metadata, amount)` groups; amount deltas have already become semantic additions or removals.
 Capacity logic must not depend on storage indices.
 
@@ -418,8 +419,11 @@ public sealed class MaxDefinitionAmountRule<TKey>
         var projected = snapshot.GetQuantity(_definition);
         if (projected > _maximum)
         {
-            failure =
-                $"Cannot carry more than {_maximum} of '{_definition.Id}'.";
+            failure = InventoryFailure.Create(
+                InventoryFailureKind.Rules,
+                "com.example.inventory.rules.max_definition_amount",
+                $"Cannot carry more than {_maximum} of '{_definition.Id}'.",
+                component: nameof(MaxDefinitionAmountRule<TKey>));
             return false;
         }
 

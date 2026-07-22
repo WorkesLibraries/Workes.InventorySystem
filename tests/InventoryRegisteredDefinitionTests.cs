@@ -123,20 +123,18 @@ public class InventoryRegisteredDefinitionTests
     }
 
     [Test]
-    public void TryFormulateFromNormalized_RejectsUnregisteredAddedDefinition()
+    public void InventoryTransactionBuilder_TryAdd_RejectsUnregisteredAddedDefinition()
     {
         var manager = CreateManager();
         var inventory = manager.CreateInventory();
         var detached = new ItemDefinition<string>("gem");
-        var normalized = new NormalizedInventoryTransaction<string>(
-            new() { (detached, null, 1) },
-            new());
+        var builder = InventoryTransaction<string>.From(inventory);
 
-        var accepted = inventory.TryFormulateFromNormalized(normalized, out var transaction, out var failure);
+        var accepted = builder.TryAdd(detached, out var failure);
 
         Assert.That(accepted, Is.False);
-        Assert.That(transaction, Is.Null);
         Assert.That(failure?.Message, Does.Contain("not registered"));
+        Assert.That(builder.IsEmpty, Is.True);
     }
 
     [Test]

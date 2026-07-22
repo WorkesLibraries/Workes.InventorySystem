@@ -2,6 +2,14 @@
 
 This file records notable changes to `Workes.InventorySystem`.
 
+## [3.0.0] - Unreleased
+
+### Breaking Changes
+
+- Removed the public `Inventory<TKey>.TryFormulateFromNormalized(...)` authoring API. `NormalizedInventoryTransaction<TKey>`
+  remains extension-facing validation data for rules, capacity policies, layouts, and internal validation. User-authored
+  changes should use direct inventory operations or the transaction/delta APIs.
+
 ## [2.0.0] - 2026-07-21
 
 ### Breaking Changes

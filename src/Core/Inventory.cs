@@ -2362,46 +2362,6 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             Changed?.Invoke(this, args);
     }
 
-    /// <summary>Converts a normalized (semantic) transaction into an inventory-specific structural transaction. Public for custom policies and cross-inventory use. Supports single add and/or single remove; multiple definitions may require multiple calls.</summary>
-    /// <param name="normalized">The semantic transaction to convert.</param>
-    /// <param name="transaction">The structural transaction when conversion succeeds; otherwise, <see langword="null"/>.</param>
-    /// <param name="failure">A consumer-facing reason when conversion is rejected; otherwise, <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryFormulateFromNormalized(NormalizedInventoryTransaction<TKey> normalized, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
-    {
-        transaction = null;
-        failure = null;
-        if (normalized == null)
-        {
-            failure = InventoryFailures.Transaction("Normalized transaction cannot be null.");
-            return false;
-        }
-        if (normalized.IsEmpty)
-        {
-            failure = InventoryFailures.Transaction("Normalized transaction is empty.");
-            return false;
-        }
-
-        if (normalized.Removed.Count == 0 && normalized.Added.Count == 1)
-        {
-            var (def, meta, amount) = normalized.Added[0];
-            return TryFormulateAdd(def, amount, null, meta, out transaction, out failure);
-        }
-        if (normalized.Added.Count == 0 && normalized.Removed.Count == 1)
-        {
-            var (def, meta, amount) = normalized.Removed[0];
-            return TryFormulateRemoveByDefinition(def, amount, meta, out transaction, out failure);
-        }
-        if (normalized.Added.Count == 0 && normalized.Removed.Count > 1)
-        {
-            failure = InventoryFailures.Definition("Normalized transaction with multiple removed definitions is not yet supported for conversion; use a single removed definition.");
-            return false;
-        }
-
-        failure = InventoryFailures.Definition("Normalized transaction with multiple added definitions is not yet supported for conversion; use single-definition adds or remove-only.");
-        return false;
-    }
-
     /// <summary>Merges two structural transactions so that applying the result is equivalent to applying first then second. Second was formulated against the state after first.</summary>
     internal static InventoryTransaction<TKey> MergeTransactions(InventoryTransaction<TKey> first, InventoryTransaction<TKey> second)
     {
