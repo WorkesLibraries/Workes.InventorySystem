@@ -100,7 +100,7 @@ public class InventoryMalfunctionRegressionTests
 
         var builder = InventoryTransaction<string>.From(inventory);
         Assert.That(builder.TryAdd(apple, out var addError, 5), Is.True);
-        Assert.That(builder.TryRemoveByDefinition(apple, 2, true, out var removeError), Is.True);
+        Assert.That(builder.TryRemoveByDefinition(apple, 2, ItemMetadataMatch.Any, out var removeError), Is.True);
 
         Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.Build()));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(3));
@@ -115,7 +115,7 @@ public class InventoryMalfunctionRegressionTests
         var inventory = CreateManager(definitions: apple).CreateInventory();
         var builder = InventoryTransaction<string>.From(inventory);
         builder.TryAdd(apple, out _, 5);
-        builder.TryRemoveByDefinition(apple, 5, true, out _);
+        builder.TryRemoveByDefinition(apple, 5, ItemMetadataMatch.Any, out _);
 
         var changedCount = 0;
         inventory.Changed += (_, _) => changedCount++;
@@ -135,7 +135,7 @@ public class InventoryMalfunctionRegressionTests
         inventory.TryAdd(apple, out _, 5);
 
         var builder = InventoryTransaction<string>.From(inventory);
-        builder.TryRemoveByDefinition(apple, 2, true, out _);
+        builder.TryRemoveByDefinition(apple, 2, ItemMetadataMatch.Any, out _);
         builder.TryAdd(apple, out _, 4);
 
         Assert.DoesNotThrow(() => inventory.CommitTransaction(builder.Build()));
@@ -170,7 +170,7 @@ public class InventoryMalfunctionRegressionTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        inventory.TryRemoveByDefinition(apple, 2, true, out _);
+        inventory.TryRemoveByDefinition(apple, 2, ItemMetadataMatch.Any, out _);
 
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.Removed.Count, Is.EqualTo(0));
@@ -188,7 +188,7 @@ public class InventoryMalfunctionRegressionTests
         InventoryChangedEventArgs<string>? captured = null;
         inventory.Changed += (_, e) => captured = e;
 
-        inventory.TryRemoveByDefinition(apple, 5, true, out _);
+        inventory.TryRemoveByDefinition(apple, 5, ItemMetadataMatch.Any, out _);
 
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.Removed.Count, Is.EqualTo(1));

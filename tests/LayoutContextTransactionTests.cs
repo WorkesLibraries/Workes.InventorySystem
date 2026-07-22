@@ -405,8 +405,8 @@ public class LayoutContextTransactionTests
         source.TryAdd(apple, out _, 1);
         source.TryAdd(sword, out _, 1);
         var transfer = InventoryTransfer.From(source);
-        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(apple, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
         ILayoutContext<string> context = SectionedLayoutContext<string>.Map()
             .Add(0, "bag", 0)
             .Add(1, "hotbar", 1)

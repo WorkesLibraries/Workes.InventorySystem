@@ -336,6 +336,34 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Counts the total amount of items that use the exact item definition instance and match item metadata.
+    /// </summary>
+    /// <param name="definition">The item definition instance to count.</param>
+    /// <param name="metadataMatch">How item metadata should be matched.</param>
+    /// <returns>The summed amount across matching item instances.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is <see langword="null"/>.</exception>
+    public int Count(ItemDefinition<TKey> definition, ItemMetadataMatch metadataMatch)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+
+        int count = 0;
+        foreach (var item in _items)
+        {
+            if (ReferenceEquals(item.Definition, definition) && metadataMatch.Matches(item.Metadata))
+                count += item.Amount;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Counts the total amount of items that use the exact item definition instance and structurally equal metadata.
+    /// </summary>
+    public int Count(ItemDefinition<TKey> definition, InstanceMetadata? metadata) =>
+        Count(definition, ItemMetadataMatch.Exact(metadata));
+
+    /// <summary>
     /// Counts the total amount of items whose definition resolves from a current or migrated definition id.
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
@@ -344,6 +372,18 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
     public int Count(TKey definitionId) =>
         Count(ResolveRegisteredDefinitionId(definitionId));
+
+    /// <summary>
+    /// Counts the total amount of items whose definition resolves from an id and whose metadata matches the selector.
+    /// </summary>
+    public int Count(TKey definitionId, ItemMetadataMatch metadataMatch) =>
+        Count(ResolveRegisteredDefinitionId(definitionId), metadataMatch);
+
+    /// <summary>
+    /// Counts the total amount of items whose definition resolves from an id and whose metadata structurally equals the supplied metadata.
+    /// </summary>
+    public int Count(TKey definitionId, InstanceMetadata? metadata) =>
+        Count(ResolveRegisteredDefinitionId(definitionId), metadata);
 
     /// <summary>
     /// Determines whether the inventory contains at least the requested amount of the exact item definition instance.
@@ -364,6 +404,25 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Determines whether the inventory contains at least the requested amount matching a definition and item metadata selector.
+    /// </summary>
+    public bool Contains(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be greater than zero.");
+
+        return Count(definition, metadataMatch) >= amount;
+    }
+
+    /// <summary>
+    /// Determines whether the inventory contains at least the requested amount matching a definition and exact metadata.
+    /// </summary>
+    public bool Contains(ItemDefinition<TKey> definition, int amount, InstanceMetadata? metadata) =>
+        Contains(definition, amount, ItemMetadataMatch.Exact(metadata));
+
+    /// <summary>
     /// Determines whether the inventory contains at least the requested amount of the definition resolved from an id.
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
@@ -374,6 +433,18 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
     public bool Contains(TKey definitionId, int amount = 1) =>
         Contains(ResolveRegisteredDefinitionId(definitionId), amount);
+
+    /// <summary>
+    /// Determines whether the inventory contains at least the requested amount matching a resolved definition id and item metadata selector.
+    /// </summary>
+    public bool Contains(TKey definitionId, int amount, ItemMetadataMatch metadataMatch) =>
+        Contains(ResolveRegisteredDefinitionId(definitionId), amount, metadataMatch);
+
+    /// <summary>
+    /// Determines whether the inventory contains at least the requested amount matching a resolved definition id and exact metadata.
+    /// </summary>
+    public bool Contains(TKey definitionId, int amount, InstanceMetadata? metadata) =>
+        Contains(ResolveRegisteredDefinitionId(definitionId), amount, metadata);
 
     /// <summary>
     /// Finds item instances that use the exact item definition instance.
@@ -390,6 +461,23 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
+    /// Finds item instances that use the exact item definition instance and match item metadata.
+    /// </summary>
+    public IReadOnlyList<ItemInstance<TKey>> Find(ItemDefinition<TKey> definition, ItemMetadataMatch metadataMatch)
+    {
+        if (definition == null)
+            throw new ArgumentNullException(nameof(definition));
+
+        return FindWhere(item => ReferenceEquals(item.Definition, definition) && metadataMatch.Matches(item.Metadata));
+    }
+
+    /// <summary>
+    /// Finds item instances that use the exact item definition instance and structurally equal metadata.
+    /// </summary>
+    public IReadOnlyList<ItemInstance<TKey>> Find(ItemDefinition<TKey> definition, InstanceMetadata? metadata) =>
+        Find(definition, ItemMetadataMatch.Exact(metadata));
+
+    /// <summary>
     /// Finds item instances whose definition resolves from a current or migrated definition id.
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
@@ -398,6 +486,19 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <exception cref="InvalidOperationException">No registered definition can be resolved from <paramref name="definitionId"/>.</exception>
     public IReadOnlyList<ItemInstance<TKey>> Find(TKey definitionId) =>
         Find(ResolveRegisteredDefinitionId(definitionId));
+
+    /// <summary>
+    /// Finds item instances whose definition resolves from an id and whose metadata matches the selector.
+    /// </summary>
+    public IReadOnlyList<ItemInstance<TKey>> Find(TKey definitionId, ItemMetadataMatch metadataMatch) =>
+        Find(ResolveRegisteredDefinitionId(definitionId), metadataMatch);
+
+    /// <summary>
+    /// Finds item instances whose definition resolves from an id and whose metadata structurally equals the supplied metadata.
+    /// </summary>
+    public IReadOnlyList<ItemInstance<TKey>> Find(TKey definitionId, InstanceMetadata? metadata) =>
+        Find(ResolveRegisteredDefinitionId(definitionId), metadata);
+
 
     /// <summary>
     /// Finds item instances whose definitions satisfy a catalog-resolved tag.
@@ -1026,28 +1127,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return true;
     }
 
-    /// <summary>Internal: generates a transaction for removing by definition. When ignoreMetadata is false, uses first matching instance's metadata as reference.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
-    {
-        if (ignoreMetadata)
-            return TryFormulateRemoveByDefinition(definition, amount, (InstanceMetadata?)null, out transaction, out failure);
-        transaction = null;
-        failure = null;
-        if (definition == null) { failure = InventoryFailures.Definition("Definition cannot be null."); return false; }
-        if (amount <= 0) { failure = InventoryFailures.Validation("Amount must be greater than zero."); return false; }
-        InstanceMetadata? firstMeta = null;
-        for (int i = 0; i < _items.Count; i++)
-        {
-            var inst = _items[i];
-            if (!EqualityComparer<TKey>.Default.Equals(inst.Definition.Id, definition.Id)) continue;
-            firstMeta = inst.Metadata;
-            break;
-        }
-        return TryFormulateRemoveByDefinition(definition, amount, firstMeta, out transaction, out failure);
-    }
-
-    /// <summary>Internal: when referenceMetadata is null/empty, any metadata matches; otherwise only instances with structurally equal metadata match.</summary>
-    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? referenceMetadata, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
+    /// <summary>Internal: generates a transaction for removing by definition using an item metadata selector.</summary>
+    internal bool TryFormulateRemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, out InventoryTransaction<TKey>? transaction, out InventoryFailure? failure)
     {
         transaction = null;
         failure = null;
@@ -1064,14 +1145,13 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         var amountDeltas = new List<(int index, int delta)>();
         var removed = new List<(int index, ItemInstance<TKey> instance)>();
         int remaining = amount;
-        bool matchMetadata = referenceMetadata != null && !referenceMetadata.IsEmpty;
 
         for (int i = 0; i < _items.Count && remaining > 0; i++)
         {
             var inst = _items[i];
             if (!EqualityComparer<TKey>.Default.Equals(inst.Definition.Id, definition.Id))
                 continue;
-            if (matchMetadata && !inst.Metadata.StructuralEquals(referenceMetadata!))
+            if (!metadataMatch.Matches(inst.Metadata))
                 continue;
             int take = Math.Min(remaining, inst.Amount);
             remaining -= take;
@@ -3320,47 +3400,89 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
-    /// Attempts to remove an amount by item definition.
+    /// Attempts to remove an amount by item definition using an item metadata selector.
     /// </summary>
     /// <param name="definition">The item definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
-        if (!TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out failure) || tx == null)
+        if (!TryFormulateRemoveByDefinition(definition, amount, metadataMatch, out var tx, out failure) || tx == null)
             return false;
         CommitTransaction(tx);
         return true;
     }
 
     /// <summary>
+    /// Attempts to remove an amount by item definition, matching only structurally empty item metadata.
+    /// </summary>
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definition, amount, ItemMetadataMatch.Empty, out failure);
+
+    /// <summary>
+    /// Attempts to remove an amount by item definition, matching exact item metadata.
+    /// </summary>
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? metadata, out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definition, amount, ItemMetadataMatch.Exact(metadata), out failure);
+
+    /// <summary>
     /// Attempts to remove an amount of the item definition resolved from a current or migrated definition id.
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when removal succeeds and a change event is fired; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
         if (!TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure);
+        return TryRemoveByDefinition(definition, amount, metadataMatch, out failure);
     }
+
+    /// <summary>
+    /// Attempts to remove an amount of the resolved definition, matching only structurally empty item metadata.
+    /// </summary>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definitionId, amount, ItemMetadataMatch.Empty, out failure);
+
+    /// <summary>
+    /// Attempts to remove an amount of the resolved definition, matching exact item metadata.
+    /// </summary>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, InstanceMetadata? metadata, out InventoryFailure? failure) =>
+        TryRemoveByDefinition(definitionId, amount, ItemMetadataMatch.Exact(metadata), out failure);
 
     /// <summary>
     /// Removes an amount by item definition or throws when the removal is rejected.
     /// </summary>
     /// <param name="definition">The item definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <exception cref="InventoryOperationException">The removal is rejected by validation, rules, capacity, or layout.</exception>
-    public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
+    public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch)
     {
-        if (!TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure))
+        if (!TryRemoveByDefinition(definition, amount, metadataMatch, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
+    }
+
+    /// <summary>
+    /// Removes an amount by item definition, matching only structurally empty item metadata, or throws when rejected.
+    /// </summary>
+    public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount)
+    {
+        if (!TryRemoveByDefinition(definition, amount, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
+    }
+
+    /// <summary>
+    /// Removes an amount by item definition, matching exact item metadata, or throws when rejected.
+    /// </summary>
+    public void RemoveByDefinition(ItemDefinition<TKey> definition, int amount, InstanceMetadata? metadata)
+    {
+        if (!TryRemoveByDefinition(definition, amount, metadata, out var failure))
             ThrowMutationFailure(failure, "Remove operation failed.");
     }
 
@@ -3369,11 +3491,29 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// </summary>
     /// <param name="definitionId">The current or migrated definition id to resolve through this inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <exception cref="InventoryOperationException">The id cannot be resolved, or the removal is rejected by validation, rules, capacity, or layout.</exception>
-    public void RemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata)
+    public void RemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch)
     {
-        if (!TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure))
+        if (!TryRemoveByDefinition(definitionId, amount, metadataMatch, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
+    }
+
+    /// <summary>
+    /// Removes an amount of the resolved definition, matching only structurally empty item metadata, or throws when rejected.
+    /// </summary>
+    public void RemoveByDefinition(TKey definitionId, int amount)
+    {
+        if (!TryRemoveByDefinition(definitionId, amount, out var failure))
+            ThrowMutationFailure(failure, "Remove operation failed.");
+    }
+
+    /// <summary>
+    /// Removes an amount of the resolved definition, matching exact item metadata, or throws when rejected.
+    /// </summary>
+    public void RemoveByDefinition(TKey definitionId, int amount, InstanceMetadata? metadata)
+    {
+        if (!TryRemoveByDefinition(definitionId, amount, metadata, out var failure))
             ThrowMutationFailure(failure, "Remove operation failed.");
     }
 

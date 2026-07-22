@@ -36,7 +36,7 @@ public class SimpleItemUniverseExampleTests
         Assert.That(inventory.TryAdd(apple, out var appleError, 5), Is.True);
         Assert.That(inventory.TryAdd(coin, out var coinError, 25), Is.True, coinError?.Message);
         Assert.That(inventory.TryAdd(potion, out var potionError, 2), Is.True, potionError?.Message);
-        Assert.That(inventory.TryRemoveByDefinition(apple, amount: 1, ignoreMetadata: true, out var removeError), Is.True);
+        Assert.That(inventory.TryRemoveByDefinition(apple, amount: 1, metadataMatch: ItemMetadataMatch.Any, out var removeError), Is.True);
 
         Assert.That(definitions.All(d => d.Schema == ItemSchema<string>.Default), Is.True);
         Assert.That(definitions.All(d => !d.Attributes.GetAllKeys().Any()), Is.True);

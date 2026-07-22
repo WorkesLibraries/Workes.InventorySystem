@@ -24,10 +24,10 @@ public class TKeyOverloadTests
         Assert.That(inventory.Find("old-apple"), Has.Count.EqualTo(1));
         Assert.That(inventory.Find("old-apple")[0].Definition, Is.SameAs(apple));
 
-        Assert.That(inventory.TryRemoveByDefinition("old-apple", amount: 2, ignoreMetadata: true, out var removeError), Is.True);
+        Assert.That(inventory.TryRemoveByDefinition("old-apple", amount: 2, metadataMatch: ItemMetadataMatch.Any, out var removeError), Is.True);
         Assert.That(inventory.Count("apple"), Is.EqualTo(3));
 
-        inventory.RemoveByDefinition("apple", amount: 1, ignoreMetadata: true);
+        inventory.RemoveByDefinition("apple", amount: 1, metadataMatch: ItemMetadataMatch.Any);
         Assert.That(inventory.Count(apple), Is.EqualTo(2));
     }
 
@@ -40,14 +40,14 @@ public class TKeyOverloadTests
         Assert.That(inventory.TryAdd("missing", out var addError), Is.False);
         Assert.That(addError?.Message, Does.Contain("could not be resolved"));
 
-        Assert.That(inventory.TryRemoveByDefinition("missing", amount: 1, ignoreMetadata: true, out var removeError), Is.False);
+        Assert.That(inventory.TryRemoveByDefinition("missing", amount: 1, metadataMatch: ItemMetadataMatch.Any, out var removeError), Is.False);
         Assert.That(removeError?.Message, Does.Contain("could not be resolved"));
 
         Assert.Throws<InventoryOperationException>(() => inventory.Add("missing"));
         Assert.Throws<InventoryOperationException>(() => inventory.Count("missing"));
         Assert.Throws<InventoryOperationException>(() => inventory.Contains("missing"));
         Assert.Throws<InventoryOperationException>(() => inventory.Find("missing"));
-        Assert.Throws<InventoryOperationException>(() => inventory.RemoveByDefinition("missing", amount: 1, ignoreMetadata: true));
+        Assert.Throws<InventoryOperationException>(() => inventory.RemoveByDefinition("missing", amount: 1, metadataMatch: ItemMetadataMatch.Any));
     }
 
     [Test]
@@ -87,7 +87,7 @@ public class TKeyOverloadTests
         var builder = InventoryTransaction<string>.From(inventory);
 
         Assert.That(builder.TryAdd("sword", out var addError, amount: 1, context: EntryLayoutContext<string>.Single(1)), Is.True);
-        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 1, ignoreMetadata: true, out var removeError), Is.True);
+        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 1, metadataMatch: ItemMetadataMatch.Any, out var removeError), Is.True);
         Assert.That(inventory.TryCommitTransaction(builder, out var commitError), Is.True);
 
         Assert.That(inventory.Count("apple"), Is.EqualTo(1));
@@ -129,7 +129,7 @@ public class TKeyOverloadTests
 
         var builder = InventoryTransfer.From(source);
 
-        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 3, ignoreMetadata: true, out var failure), Is.True);
+        Assert.That(builder.TryRemoveByDefinition("old-apple", amount: 3, metadataMatch: ItemMetadataMatch.Any, out var failure), Is.True);
         Assert.That(source.TryCommitTransfer(builder, target, out var commitError), Is.True);
 
         Assert.That(source.Count("apple"), Is.EqualTo(2));
@@ -146,9 +146,9 @@ public class TKeyOverloadTests
 
         Assert.That(transactionBuilder.TryAdd("missing", out var addError), Is.False);
         Assert.That(addError?.Message, Does.Contain("could not be resolved"));
-        Assert.That(transactionBuilder.TryRemoveByDefinition("missing", amount: 1, ignoreMetadata: true, out var removeError), Is.False);
+        Assert.That(transactionBuilder.TryRemoveByDefinition("missing", amount: 1, metadataMatch: ItemMetadataMatch.Any, out var removeError), Is.False);
         Assert.That(removeError?.Message, Does.Contain("could not be resolved"));
-        Assert.That(transferBuilder.TryRemoveByDefinition("missing", amount: 1, ignoreMetadata: true, out var transferError), Is.False);
+        Assert.That(transferBuilder.TryRemoveByDefinition("missing", amount: 1, metadataMatch: ItemMetadataMatch.Any, out var transferError), Is.False);
         Assert.That(transferError?.Message, Does.Contain("could not be resolved"));
     }
 

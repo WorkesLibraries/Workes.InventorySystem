@@ -134,7 +134,7 @@ public class InventoryTransferExpansionTests
         source.CommitTransaction(seed.Build());
 
         var builder = InventoryTransfer.From(source);
-        Assert.That(builder.TryRemoveByDefinition(apple, 5, ignoreMetadata: true, out var failure), Is.True);
+        Assert.That(builder.TryRemoveByDefinition(apple, 5, metadataMatch: ItemMetadataMatch.Any, out var failure), Is.True);
 
         Assert.That(builder.Entries.Sum(e => e.Amount), Is.EqualTo(5));
     }
@@ -650,7 +650,7 @@ public class InventoryTransferExpansionTests
         target.TryAdd(apple, out _, 10, SlotLayoutContext<string>.Single(0));
         var transfer = InventoryTransfer.From(source).To(target);
 
-        var staged = transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out var failure);
+        var staged = transfer.TryRemoveByDefinition(apple, 1, metadataMatch: ItemMetadataMatch.Any, out var failure);
 
         Assert.That(staged, Is.False);
         Assert.That(failure, Is.Not.Null);

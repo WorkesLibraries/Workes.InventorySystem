@@ -73,7 +73,7 @@ public sealed class InventoryItemDelta<TKey>
                 definition.Id,
                 amount,
                 metadata,
-                InventoryItemDeltaMetadataMatch.Exact,
+                ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
                 out failure))
@@ -107,7 +107,7 @@ public sealed class InventoryItemDelta<TKey>
                 definitionId,
                 amount,
                 metadata,
-                InventoryItemDeltaMetadataMatch.Exact,
+                ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
                 out failure))
@@ -162,7 +162,7 @@ public sealed class InventoryItemDelta<TKey>
                 definition.Id,
                 amount,
                 metadata,
-                InventoryItemDeltaMetadataMatch.Exact,
+                ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
                 out failure))
@@ -207,7 +207,7 @@ public sealed class InventoryItemDelta<TKey>
                 definitionId,
                 amount,
                 metadata,
-                InventoryItemDeltaMetadataMatch.Exact,
+                ItemMetadataMatch.Exact(metadata),
                 label,
                 out var operation,
                 out failure))
@@ -216,20 +216,22 @@ public sealed class InventoryItemDelta<TKey>
         return TryAppend(operation!, out failure);
     }
 
-    /// <summary>Adds a remove operation that ignores item-instance metadata.</summary>
-    public InventoryItemDelta<TKey> RemoveAnyMetadata(
+    /// <summary>Adds a remove operation using an explicit metadata selector.</summary>
+    public InventoryItemDelta<TKey> Remove(
         ItemDefinition<TKey> definition,
-        int amount = 1,
+        int amount,
+        ItemMetadataMatch metadataMatch,
         string? label = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definition, amount, label, out var failure), failure);
+        ThrowIfRejected(TryRemove(definition, amount, metadataMatch, label, out var failure), failure);
         return this;
     }
 
-    /// <summary>Attempts to add a remove operation that ignores item-instance metadata.</summary>
-    public bool TryRemoveAnyMetadata(
+    /// <summary>Attempts to add a remove operation using an explicit metadata selector.</summary>
+    public bool TryRemove(
         ItemDefinition<TKey> definition,
         int amount,
+        ItemMetadataMatch metadataMatch,
         string? label,
         out InventoryFailure? failure)
     {
@@ -244,8 +246,8 @@ public sealed class InventoryItemDelta<TKey>
                 definition,
                 definition.Id,
                 amount,
-                metadata: null,
-                InventoryItemDeltaMetadataMatch.Any,
+                metadataMatch.Metadata,
+                metadataMatch,
                 label,
                 out var operation,
                 out failure))
@@ -254,23 +256,23 @@ public sealed class InventoryItemDelta<TKey>
         return TryAppend(operation!, out failure);
     }
 
-    /// <summary>Adds a remove operation by definition id that ignores item-instance metadata.</summary>
-    public InventoryItemDelta<TKey> RemoveAnyMetadata(TKey definitionId, int amount = 1, string? label = null)
+    /// <summary>Adds a remove operation by definition id using an explicit metadata selector.</summary>
+    public InventoryItemDelta<TKey> Remove(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, string? label = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definitionId, amount, label, out var failure), failure);
+        ThrowIfRejected(TryRemove(definitionId, amount, metadataMatch, label, out var failure), failure);
         return this;
     }
 
-    /// <summary>Attempts to add a remove operation by definition id that ignores item-instance metadata.</summary>
-    public bool TryRemoveAnyMetadata(TKey definitionId, int amount, string? label, out InventoryFailure? failure)
+    /// <summary>Attempts to add a remove operation by definition id using an explicit metadata selector.</summary>
+    public bool TryRemove(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, string? label, out InventoryFailure? failure)
     {
         if (!TryCreateOperation(
                 InventoryItemDeltaOperationKind.Remove,
                 null,
                 definitionId,
                 amount,
-                metadata: null,
-                InventoryItemDeltaMetadataMatch.Any,
+                metadataMatch.Metadata,
+                metadataMatch,
                 label,
                 out var operation,
                 out failure))
@@ -318,7 +320,7 @@ public sealed class InventoryItemDelta<TKey>
         foreach (var operation in delta._operations)
         {
             if (operation.Kind == InventoryItemDeltaOperationKind.Remove
-                && operation.MetadataMatch == InventoryItemDeltaMetadataMatch.Any)
+                && operation.MetadataMatch.Kind == ItemMetadataMatchKind.Any)
             {
                 mirrored = null;
                 failure = InventoryFailures.Transaction(
@@ -440,7 +442,7 @@ public sealed class InventoryItemDelta<TKey>
         TKey definitionId,
         int amount,
         InstanceMetadata? metadata,
-        InventoryItemDeltaMetadataMatch metadataMatch,
+        ItemMetadataMatch metadataMatch,
         string? label,
         out InventoryItemDeltaOperation<TKey>? operation,
         out InventoryFailure? failure)
@@ -515,7 +517,7 @@ public sealed class InventoryItemDelta<TKey>
         public ItemDefinition<TKey>? Definition { get; }
         public TKey DefinitionId { get; }
         public InstanceMetadata? Metadata { get; }
-        public InventoryItemDeltaMetadataMatch MetadataMatch { get; }
+        public ItemMetadataMatch MetadataMatch { get; }
         public int NetAmount { get; set; }
 
         public CombineGroup(InventoryItemDeltaOperation<TKey> operation)

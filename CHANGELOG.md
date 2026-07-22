@@ -14,8 +14,8 @@ This file records notable changes to `Workes.InventorySystem`.
 - Removed public inventory-owned transaction commit APIs such as `CommitTransaction(...)` and
   `TryCommitTransaction(...)`. Complex local and cross-inventory operations are committed through
   `InventoryTransaction<TKey>`, `InventoryTransactionBuilder<TKey>`, or cross-inventory transaction side builders.
-- `InventoryItemDelta<TKey>.Mirror(...)` and mirrored cross-inventory application now reject deltas containing
-  `RemoveAnyMetadata(...)`, because wildcard-metadata removals cannot produce a precise opposite-side add.
+- `InventoryItemDelta<TKey>.Mirror(...)` and mirrored cross-inventory application now reject removals using
+  `ItemMetadataMatch.Any`, because wildcard-metadata removals cannot produce a precise opposite-side add.
 
 ### Added
 
@@ -31,6 +31,8 @@ This file records notable changes to `Workes.InventorySystem`.
   including remove-at-context, exact-metadata removal, and wildcard-metadata removal.
 - Added `InventoryTransaction<TKey>.FromSide` and `.ToSide` manual side builders for one-off cross-inventory
   transaction staging with immediate per-side validation and atomic two-inventory commit.
+- Added `ItemMetadataMatch` as the shared selector for item-metadata-aware removal and matching APIs.
+- Added `Count(...)`, `Contains(...)`, and `Find(...)` overloads that accept `ItemMetadataMatch` or exact metadata.
 - Added `InventoryItemDelta<TKey>.TryMirror(...)` and `InventoryTransaction<TKey>.TryApplyMirrored(...)` for
   structured-failure handling when mirrored delta workflows are not valid.
 

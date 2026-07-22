@@ -115,6 +115,38 @@ public class InventoryQueryTests
     }
 
     [Test]
+    public void DefinitionQueries_CanUseItemMetadataMatchSelectors()
+    {
+        var manager = CreateManager(maxStack: 10);
+        var apple = new ItemDefinition<string>("apple");
+        manager.Registry.Register(apple);
+        manager.Catalog.Freeze();
+        var inventory = manager.CreateInventory();
+        var fresh = new InstanceMetadata();
+        fresh.Set("quality", "fresh");
+
+        InventoryTransaction<string>
+            .For(inventory)
+            .Add(apple, amount: 3, context: null)
+            .Add(apple, amount: 2, context: null, metadata: fresh)
+            .Commit();
+
+        Assert.That(inventory.Count(apple), Is.EqualTo(5));
+        Assert.That(inventory.Count(apple, ItemMetadataMatch.Empty), Is.EqualTo(3));
+        Assert.That(inventory.Count(apple, fresh), Is.EqualTo(2));
+        Assert.That(inventory.Count(apple, ItemMetadataMatch.Any), Is.EqualTo(5));
+
+        Assert.That(inventory.Contains("apple", amount: 5), Is.True);
+        Assert.That(inventory.Contains("apple", amount: 5, ItemMetadataMatch.Empty), Is.False);
+        Assert.That(inventory.Contains("apple", amount: 2, fresh), Is.True);
+
+        Assert.That(inventory.Find("apple"), Has.Count.EqualTo(2));
+        Assert.That(inventory.Find("apple", ItemMetadataMatch.Empty), Has.Count.EqualTo(1));
+        Assert.That(inventory.Find("apple", fresh).Single().Metadata.StructuralEquals(fresh), Is.True);
+        Assert.That(inventory.Find("apple", ItemMetadataMatch.Any), Has.Count.EqualTo(2));
+    }
+
+    [Test]
     public void FindByTag_UsesCatalogResolvedSchemaDefinitionAndParentTags()
     {
         var tool = "core:equipment.tools";

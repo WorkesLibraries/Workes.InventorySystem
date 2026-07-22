@@ -65,18 +65,18 @@ public sealed class InventoryTransferBuilder<TKey>
     {
         private readonly ItemDefinition<TKey> _definition;
         private readonly int _amount;
-        private readonly bool _ignoreMetadata;
+        private readonly ItemMetadataMatch _metadataMatch;
 
-        public DefinitionRemoveOperation(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
+        public DefinitionRemoveOperation(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch)
             : base(targetContext: null)
         {
             _definition = definition;
             _amount = amount;
-            _ignoreMetadata = ignoreMetadata;
+            _metadataMatch = metadataMatch;
         }
 
         public override bool ApplySource(Inventory<TKey> source, InventoryTransactionBuilder<TKey> sourceBuilder, out InventoryFailure? failure) =>
-            sourceBuilder.TryRemoveByDefinition(_definition, _amount, _ignoreMetadata, out failure);
+            sourceBuilder.TryRemoveByDefinition(_definition, _amount, _metadataMatch, out failure);
     }
 
     internal InventoryTransferBuilder(Inventory<TKey> source)
@@ -228,10 +228,10 @@ public sealed class InventoryTransferBuilder<TKey>
     /// </summary>
     /// <param name="definition">The definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting source stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
         if (amount <= 0)
         {
@@ -239,7 +239,7 @@ public sealed class InventoryTransferBuilder<TKey>
             return false;
         }
 
-        return TryStage(new DefinitionRemoveOperation(definition, amount, ignoreMetadata), out failure);
+        return TryStage(new DefinitionRemoveOperation(definition, amount, metadataMatch), out failure);
     }
 
     /// <summary>
@@ -247,10 +247,10 @@ public sealed class InventoryTransferBuilder<TKey>
     /// </summary>
     /// <param name="definitionId">The definition id to resolve through the source inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting source stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the removal is planned; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
         if (amount <= 0)
         {
@@ -261,7 +261,7 @@ public sealed class InventoryTransferBuilder<TKey>
         if (!Source.TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure);
+        return TryRemoveByDefinition(definition, amount, metadataMatch, out failure);
     }
 
     /// <summary>

@@ -61,8 +61,8 @@ public class FunctionalCompletionRegressionTests
         source.TryAdd(table, out _);
         source.TryAdd(chest, out _);
         var transfer = InventoryTransfer.From(source);
-        transfer.TryRemoveByDefinition(table, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(chest, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(table, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(chest, 1, metadataMatch: ItemMetadataMatch.Any, out _);
         var context = MultiCellGridLayoutContext<string>.Map()
             .Add(0, 2, 0, GridAnchor.TopRight)
             .Add(1, 4, 2, GridAnchor.BottomRight)

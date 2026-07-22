@@ -272,7 +272,7 @@ Remove an amount across matching stacks:
 inventory.RemoveByDefinition(
     "apple",
     amount: 5,
-    ignoreMetadata: true);
+    metadataMatch: ItemMetadataMatch.Any);
 ```
 
 Conditional form:
@@ -281,14 +281,15 @@ Conditional form:
 var removed = inventory.TryRemoveByDefinition(
     "apple",
     amount: 5,
-    ignoreMetadata: true,
+    metadataMatch: ItemMetadataMatch.Any,
     out var failure);
 ```
 
-`ignoreMetadata` controls which stacks may contribute:
+`ItemMetadataMatch` controls which stacks may contribute:
 
-- `true` permits removal across stacks regardless of metadata.
-- `false` uses the first matching stack’s metadata as the reference. When that reference is non-empty, only structurally equal metadata contributes. An empty reference is treated as no metadata filter.
+- omitting the selector matches only stacks with empty metadata;
+- passing `InstanceMetadata` matches structurally equal metadata;
+- passing `ItemMetadataMatch.Any` ignores item metadata and matches by definition only.
 
 Pass either the canonical registered definition or a current/migrated definition ID.
 
@@ -307,18 +308,31 @@ var hasFiveApples = inventory.Contains(apple, amount: 5);
 var hasFiveApplesById = inventory.Contains("apple", amount: 5);
 var appleStacks = inventory.Find(apple);
 var appleStacksById = inventory.Find("apple");
+
+var plainAppleAmount =
+    inventory.Count("apple", ItemMetadataMatch.Empty);
+var freshAppleStacks =
+    inventory.Find("apple", freshAppleMetadata);
+var anyMetadataAppleExists =
+    inventory.Contains("apple", amount: 5, ItemMetadataMatch.Any);
 ```
 
 | API | Result |
 |---|---|
-| `Count(definition)` | Total amount across stacks using the exact definition object. |
-| `Count(definitionId)` | Total amount after resolving a current or migrated definition ID. |
-| `Contains(definition, amount)` | Whether at least that total amount exists. |
-| `Contains(definitionId, amount)` | Whether at least that total amount exists after resolving a current or migrated definition ID. |
-| `Find(definition)` | Snapshot list of matching item instances. |
-| `Find(definitionId)` | Snapshot list after resolving a current or migrated definition ID. |
+| `Count(definition)` / `Count(definitionId)` | Total amount across all metadata variants. |
+| `Count(definition, metadataMatch)` / `Count(definitionId, metadataMatch)` | Total amount matching an item metadata selector. |
+| `Count(definition, metadata)` / `Count(definitionId, metadata)` | Total amount matching structurally equal metadata. |
+| `Contains(definition, amount)` / `Contains(definitionId, amount)` | Whether at least that total amount exists across all metadata variants. |
+| `Contains(definition, amount, metadataMatch)` / `Contains(definitionId, amount, metadataMatch)` | Whether enough amount exists for a metadata selector. |
+| `Find(definition)` / `Find(definitionId)` | Snapshot list of matching item instances across all metadata variants. |
+| `Find(definition, metadataMatch)` / `Find(definitionId, metadataMatch)` | Snapshot list matching an item metadata selector. |
+| `Find(definition, metadata)` / `Find(definitionId, metadata)` | Snapshot list matching structurally equal metadata. |
 
-Definition queries use object identity, matching the catalog’s canonical-definition invariant. A detached same-ID definition does not match.
+Definition queries use object identity, matching the catalog's canonical-definition invariant. A detached same-ID definition does not match.
+
+The default query overloads intentionally inspect all metadata variants because they are non-mutating discovery APIs.
+Use `ItemMetadataMatch.Empty`, exact metadata, or `ItemMetadataMatch.Any` when a query should mirror removal-selection
+semantics explicitly.
 
 Definition-ID queries first call the catalog registry's migration-aware resolution, then use the resolved canonical
 definition.
@@ -329,7 +343,6 @@ Unknown IDs throw from query APIs. Conditional mutation APIs such as `TryAdd(id,
 nullable key types.
 
 The list returned by `Find(...)` is a snapshot of the matches. Later inventory changes do not add or remove entries from that returned list, although its item-instance objects remain live readable handles.
-
 ## Query By Tag
 
 Tag queries use catalog-resolved membership, including:

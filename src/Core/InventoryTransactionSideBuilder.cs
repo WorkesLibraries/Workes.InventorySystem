@@ -115,26 +115,26 @@ public sealed class InventoryTransactionSideBuilder<TKey>
     }
 
     /// <summary>Removes items by definition from this side's simulated state.</summary>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? failure) =>
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure) =>
         TryStage((InventoryTransactionBuilder<TKey> builder, out InventoryFailure? operationFailure) =>
-            builder.TryRemoveByDefinition(definition, amount, ignoreMetadata, out operationFailure), out failure);
+            builder.TryRemoveByDefinition(definition, amount, metadataMatch, out operationFailure), out failure);
 
     /// <summary>Removes items by definition id from this side's simulated state.</summary>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? failure) =>
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure) =>
         TryStage((InventoryTransactionBuilder<TKey> builder, out InventoryFailure? operationFailure) =>
-            builder.TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out operationFailure), out failure);
+            builder.TryRemoveByDefinition(definitionId, amount, metadataMatch, out operationFailure), out failure);
 
     /// <summary>Removes items by definition or throws when expected-success staging is rejected.</summary>
-    public InventoryTransactionSideBuilder<TKey> RemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata)
+    public InventoryTransactionSideBuilder<TKey> RemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch)
     {
-        ThrowIfRejected(TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure), failure);
+        ThrowIfRejected(TryRemoveByDefinition(definition, amount, metadataMatch, out var failure), failure);
         return this;
     }
 
     /// <summary>Removes items by definition id or throws when expected-success staging is rejected.</summary>
-    public InventoryTransactionSideBuilder<TKey> RemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata)
+    public InventoryTransactionSideBuilder<TKey> RemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch)
     {
-        ThrowIfRejected(TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure), failure);
+        ThrowIfRejected(TryRemoveByDefinition(definitionId, amount, metadataMatch, out var failure), failure);
         return this;
     }
 
@@ -158,15 +158,15 @@ public sealed class InventoryTransactionSideBuilder<TKey>
         TryStage((InventoryTransactionBuilder<TKey> builder, out InventoryFailure? operationFailure) =>
             builder.TryRemove(definitionId, amount, metadata, context, out operationFailure), out failure);
 
-    /// <summary>Removes items by definition while ignoring item-instance metadata.</summary>
-    public bool TryRemoveAnyMetadata(ItemDefinition<TKey> definition, int amount, ILayoutContext<TKey>? context, out InventoryFailure? failure) =>
+    /// <summary>Removes items by definition using an explicit metadata selector.</summary>
+    public bool TryRemove(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, ILayoutContext<TKey>? context, out InventoryFailure? failure) =>
         TryStage((InventoryTransactionBuilder<TKey> builder, out InventoryFailure? operationFailure) =>
-            builder.TryRemoveAnyMetadata(definition, amount, context, out operationFailure), out failure);
+            builder.TryRemove(definition, amount, metadataMatch, context, out operationFailure), out failure);
 
-    /// <summary>Removes items by definition id while ignoring item-instance metadata.</summary>
-    public bool TryRemoveAnyMetadata(TKey definitionId, int amount, ILayoutContext<TKey>? context, out InventoryFailure? failure) =>
+    /// <summary>Removes items by definition id using an explicit metadata selector.</summary>
+    public bool TryRemove(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, ILayoutContext<TKey>? context, out InventoryFailure? failure) =>
         TryStage((InventoryTransactionBuilder<TKey> builder, out InventoryFailure? operationFailure) =>
-            builder.TryRemoveAnyMetadata(definitionId, amount, context, out operationFailure), out failure);
+            builder.TryRemove(definitionId, amount, metadataMatch, context, out operationFailure), out failure);
 
     /// <summary>Removes items that match exact empty metadata or throws when expected-success staging is rejected.</summary>
     public InventoryTransactionSideBuilder<TKey> Remove(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
@@ -196,17 +196,17 @@ public sealed class InventoryTransactionSideBuilder<TKey>
         return this;
     }
 
-    /// <summary>Removes items by definition while ignoring item-instance metadata or throws when rejected.</summary>
-    public InventoryTransactionSideBuilder<TKey> RemoveAnyMetadata(ItemDefinition<TKey> definition, int amount = 1, ILayoutContext<TKey>? context = null)
+    /// <summary>Removes items by definition using an explicit metadata selector or throws when rejected.</summary>
+    public InventoryTransactionSideBuilder<TKey> Remove(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, ILayoutContext<TKey>? context = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definition, amount, context, out var failure), failure);
+        ThrowIfRejected(TryRemove(definition, amount, metadataMatch, context, out var failure), failure);
         return this;
     }
 
-    /// <summary>Removes items by definition id while ignoring item-instance metadata or throws when rejected.</summary>
-    public InventoryTransactionSideBuilder<TKey> RemoveAnyMetadata(TKey definitionId, int amount = 1, ILayoutContext<TKey>? context = null)
+    /// <summary>Removes items by definition id using an explicit metadata selector or throws when rejected.</summary>
+    public InventoryTransactionSideBuilder<TKey> Remove(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, ILayoutContext<TKey>? context = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definitionId, amount, context, out var failure), failure);
+        ThrowIfRejected(TryRemove(definitionId, amount, metadataMatch, context, out var failure), failure);
         return this;
     }
 

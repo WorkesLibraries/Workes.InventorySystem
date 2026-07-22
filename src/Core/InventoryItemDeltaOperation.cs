@@ -31,8 +31,8 @@ public sealed class InventoryItemDeltaOperation<TKey>
     /// </summary>
     public InstanceMetadata? Metadata => CloneMetadataOrNull(_metadata);
 
-    /// <summary>Gets the remove metadata matching mode. Add operations always use exact metadata.</summary>
-    public InventoryItemDeltaMetadataMatch MetadataMatch { get; }
+    /// <summary>Gets the remove metadata selector. Add operations always use concrete metadata.</summary>
+    public ItemMetadataMatch MetadataMatch { get; }
 
     /// <summary>Gets the optional unique label authored on this operation, or <see langword="null"/>.</summary>
     public string? Label { get; }
@@ -46,7 +46,7 @@ public sealed class InventoryItemDeltaOperation<TKey>
         TKey definitionId,
         int amount,
         InstanceMetadata? metadata,
-        InventoryItemDeltaMetadataMatch metadataMatch,
+        ItemMetadataMatch metadataMatch,
         string? label,
         IReadOnlyList<InventoryItemDeltaLabelReference<TKey>>? labelReferences = null)
     {
@@ -54,8 +54,8 @@ public sealed class InventoryItemDeltaOperation<TKey>
             throw new ArgumentNullException(nameof(definitionId));
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be greater than zero.");
-        if (kind == InventoryItemDeltaOperationKind.Add && metadataMatch != InventoryItemDeltaMetadataMatch.Exact)
-            throw new ArgumentException("Add operations must use exact metadata.", nameof(metadataMatch));
+        if (kind == InventoryItemDeltaOperationKind.Add && metadataMatch.Kind == ItemMetadataMatchKind.Any)
+            throw new ArgumentException("Add operations cannot use wildcard metadata.", nameof(metadataMatch));
 
         Kind = kind;
         Definition = definition;

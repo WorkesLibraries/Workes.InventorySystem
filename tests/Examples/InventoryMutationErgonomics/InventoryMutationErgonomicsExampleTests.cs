@@ -39,7 +39,7 @@ public class InventoryMutationErgonomicsExampleTests
         inventory.Add(potion, amount: 2);
         operations.AppendLine("Add potion x2: committed");
 
-        inventory.RemoveByDefinition(coin, amount: 5, ignoreMetadata: true);
+        inventory.RemoveByDefinition(coin, amount: 5, metadataMatch: ItemMetadataMatch.Any);
         operations.AppendLine("Remove coin x5: committed");
 
         bool overCapacityAccepted = inventory.TryAdd(coin, out var overCapacityError, amount: 20);

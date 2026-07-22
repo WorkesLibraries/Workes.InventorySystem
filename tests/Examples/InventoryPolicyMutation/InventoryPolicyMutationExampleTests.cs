@@ -53,7 +53,7 @@ public class InventoryPolicyMutationExampleTests
         bool lowerTooFar = inventory.TrySetCapacityPolicyParameter("maxTotalItemAmount", 3, out var lowerTooFarError);
         operations.AppendLine($"Set capacity maxTotalItemAmount = 3: {FormatResult(lowerTooFar, lowerTooFarError)}");
 
-        inventory.RemoveByDefinition(potion, amount: 1, ignoreMetadata: true);
+        inventory.RemoveByDefinition(potion, amount: 1, metadataMatch: ItemMetadataMatch.Any);
         operations.AppendLine("Remove potion x1: committed");
 
         bool lowerToFit = inventory.TrySetCapacityPolicyParameter("maxTotalItemAmount", 10, out var lowerToFitError);

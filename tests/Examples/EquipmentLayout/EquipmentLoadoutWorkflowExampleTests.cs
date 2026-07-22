@@ -36,10 +36,10 @@ public class EquipmentLoadoutWorkflowExampleTests
         lootBag.TryAdd(helmet, out _);
         lootBag.TryAdd(charm, out _);
         var transfer = InventoryTransfer.From(lootBag);
-        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(kiteShield, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(helmet, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(charm, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(kiteShield, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(helmet, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(charm, 1, metadataMatch: ItemMetadataMatch.Any, out _);
         var placement = EquipmentLayoutContext<string>.Map()
             .Add(0, "main-hand")
             .Add(1, "off-hand")

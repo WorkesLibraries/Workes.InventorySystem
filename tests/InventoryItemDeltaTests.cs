@@ -15,7 +15,7 @@ public class InventoryItemDeltaTests
             .Add(apple, amount: 3, metadata, label: "reward")
             .Remove("coin", amount: 5, label: "price")
             .Remove("gem", amount: 1, metadata, label: "specific-gem")
-            .RemoveAnyMetadata("dust", amount: 2, label: "any-dust");
+            .Remove("dust", 2, ItemMetadataMatch.Any, label: "any-dust");
 
         Assert.That(delta.Operations, Has.Count.EqualTo(4));
 
@@ -25,7 +25,7 @@ public class InventoryItemDeltaTests
         Assert.That(add.DefinitionId, Is.EqualTo("apple"));
         Assert.That(add.Amount, Is.EqualTo(3));
         Assert.That(add.Label, Is.EqualTo("reward"));
-        Assert.That(add.MetadataMatch, Is.EqualTo(InventoryItemDeltaMetadataMatch.Exact));
+        Assert.That(add.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
         Assert.That(add.Metadata!.TryGet<string>("quality", out var quality), Is.True);
         Assert.That(quality, Is.EqualTo("fresh"));
 
@@ -33,15 +33,15 @@ public class InventoryItemDeltaTests
         Assert.That(exactEmptyRemove.Kind, Is.EqualTo(InventoryItemDeltaOperationKind.Remove));
         Assert.That(exactEmptyRemove.DefinitionId, Is.EqualTo("coin"));
         Assert.That(exactEmptyRemove.Metadata, Is.Null);
-        Assert.That(exactEmptyRemove.MetadataMatch, Is.EqualTo(InventoryItemDeltaMetadataMatch.Exact));
+        Assert.That(exactEmptyRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Empty));
 
         var exactMetadataRemove = delta.Operations[2];
         Assert.That(exactMetadataRemove.Metadata!.StructuralEquals(metadata), Is.True);
-        Assert.That(exactMetadataRemove.MetadataMatch, Is.EqualTo(InventoryItemDeltaMetadataMatch.Exact));
+        Assert.That(exactMetadataRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Exact));
 
         var wildcardRemove = delta.Operations[3];
         Assert.That(wildcardRemove.Metadata, Is.Null);
-        Assert.That(wildcardRemove.MetadataMatch, Is.EqualTo(InventoryItemDeltaMetadataMatch.Any));
+        Assert.That(wildcardRemove.MetadataMatch.Kind, Is.EqualTo(ItemMetadataMatchKind.Any));
     }
 
     [Test]
@@ -121,7 +121,7 @@ public class InventoryItemDeltaTests
     public void Mirror_RejectsWildcardMetadataRemovals()
     {
         var delta = InventoryItemDelta<string>.Create()
-            .RemoveAnyMetadata("gem", amount: 1, label: "runtime-selected-gem");
+            .Remove("gem", 1, ItemMetadataMatch.Any, label: "runtime-selected-gem");
 
         Assert.That(delta.TryMirror(out var mirrored, out var failure), Is.False);
         Assert.That(mirrored, Is.Null);

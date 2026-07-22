@@ -44,7 +44,7 @@ public class InventoryRuleMutationExampleTests
         bool enabledWithApplePresent = inventory.TrySetRule("quest-only", questOnlyRule, out var applePresentError);
         operations.AppendLine($"Enable quest-only rule while apple is present: {FormatResult(enabledWithApplePresent, applePresentError)}");
 
-        inventory.RemoveByDefinition(apple, amount: 1, ignoreMetadata: true);
+        inventory.RemoveByDefinition(apple, amount: 1, metadataMatch: ItemMetadataMatch.Any);
         operations.AppendLine("Remove apple: committed");
 
         bool enabledAfterCleanup = inventory.TrySetRule("quest-only", questOnlyRule, out var cleanupError);

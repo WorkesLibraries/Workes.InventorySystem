@@ -171,7 +171,7 @@ public class InventoryUnifiedTransactionTests
             .Add(gem, amount: 1, context: null, metadata: metadata)
             .Commit();
         var playerDelta = InventoryItemDelta<string>.Create()
-            .RemoveAnyMetadata("gem", amount: 1, label: "runtime-selected-gem");
+            .Remove("gem", 1, ItemMetadataMatch.Any, label: "runtime-selected-gem");
 
         var transaction = InventoryTransaction<string>
             .From(player)
@@ -297,7 +297,7 @@ public class InventoryUnifiedTransactionTests
                 return allowed ? InventoryRemovalDecision.Allow() : InventoryRemovalDecision.Skip();
             });
         var delta = InventoryItemDelta<string>.Create()
-            .RemoveAnyMetadata("apple", amount: 4, label: "auto-craft");
+            .Remove("apple", amount: 4, label: "auto-craft");
 
         var accepted = InventoryTransaction<string>
             .For(inventory)
@@ -319,7 +319,7 @@ public class InventoryUnifiedTransactionTests
 
         var builder = InventoryTransaction<string>.For(inventory);
         var returned = builder
-            .RemoveAnyMetadata("coin", amount: 4, context: SlotLayoutContext<string>.Single(0))
+            .Remove("coin", amount: 4, context: SlotLayoutContext<string>.Single(0))
             .Add("apple", amount: 2, context: SlotLayoutContext<string>.Single(2));
 
         Assert.That(returned, Is.SameAs(builder));
@@ -390,7 +390,7 @@ public class InventoryUnifiedTransactionTests
         inventory.Add(apple, amount: 10, context: SlotLayoutContext<string>.Single(1));
         var builder = InventoryTransaction<string>.For(inventory);
 
-        var accepted = builder.TryRemoveAnyMetadata(
+        var accepted = builder.TryRemove(
             "apple",
             amount: 3,
             context: SlotLayoutContext<string>.Single(0),
@@ -451,7 +451,7 @@ public class InventoryUnifiedTransactionTests
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(1))!.Amount, Is.EqualTo(3));
 
         var wildcard = InventoryTransaction<string>.For(inventory);
-        Assert.That(wildcard.TryRemoveAnyMetadata("apple", amount: 3, context: null, out failure), Is.True, failure?.ToString());
+        Assert.That(wildcard.TryRemove("apple", amount: 3, metadataMatch: ItemMetadataMatch.Any, context: null, out failure), Is.True, failure?.ToString());
         Assert.That(wildcard.TryCommit(out failure), Is.True, failure?.ToString());
         Assert.That(inventory.Count(apple), Is.EqualTo(1));
     }
@@ -499,7 +499,7 @@ public class InventoryUnifiedTransactionTests
         player.Add(coin, amount: 10, context: SlotLayoutContext<string>.Single(0));
 
         var transaction = InventoryTransaction<string>.From(player).To(npc);
-        var fromReturned = transaction.FromSide.RemoveAnyMetadata("coin", amount: 4, context: SlotLayoutContext<string>.Single(0));
+        var fromReturned = transaction.FromSide.Remove("coin", amount: 4, context: SlotLayoutContext<string>.Single(0));
         var toReturned = transaction.ToSide.Add("coin", amount: 4, context: SlotLayoutContext<string>.Single(2));
 
         Assert.That(fromReturned, Is.SameAs(transaction.FromSide));
@@ -520,7 +520,7 @@ public class InventoryUnifiedTransactionTests
         player.Add(coin, amount: 10, context: SlotLayoutContext<string>.Single(1));
         var transaction = InventoryTransaction<string>.From(player).To(npc);
 
-        var accepted = transaction.FromSide.TryRemoveAnyMetadata(
+        var accepted = transaction.FromSide.TryRemove(
             "coin",
             amount: 3,
             context: SlotLayoutContext<string>.Single(0),
@@ -551,7 +551,7 @@ public class InventoryUnifiedTransactionTests
 
         Assert.That(transaction.FromSide.TryRemove("apple", amount: 2, context: null, out var failure), Is.True, failure?.ToString());
         Assert.That(transaction.FromSide.TryRemove("apple", amount: 2, metadata: ripe, context: SlotLayoutContext<string>.Single(1), out failure), Is.True, failure?.ToString());
-        Assert.That(transaction.FromSide.TryRemoveAnyMetadata("apple", amount: 3, context: null, out failure), Is.True, failure?.ToString());
+        Assert.That(transaction.FromSide.TryRemove("apple", amount: 3, metadataMatch: ItemMetadataMatch.Any, context: null, out failure), Is.True, failure?.ToString());
         Assert.That(transaction.TryCommit(out failure), Is.True, failure?.ToString());
 
         Assert.That(player.Count(apple), Is.EqualTo(1));
@@ -567,7 +567,7 @@ public class InventoryUnifiedTransactionTests
         var npc = manager.CreateInventory();
         player.Add(apple, amount: 5, context: SlotLayoutContext<string>.Single(0));
         var transaction = InventoryTransaction<string>.From(player).To(npc);
-        transaction.FromSide.RemoveAnyMetadata("apple", amount: 2);
+        transaction.FromSide.Remove("apple", amount: 2);
         transaction.ToSide.Add("apple", amount: 2, context: SlotLayoutContext<string>.Single(0));
         npc.Add(apple, amount: 99, context: SlotLayoutContext<string>.Single(0));
 
@@ -588,7 +588,7 @@ public class InventoryUnifiedTransactionTests
         var sourceTarget = manager.CreateInventory();
         sourceStale.Add(apple, amount: 5);
         var sourceTransaction = InventoryTransaction<string>.From(sourceStale).To(sourceTarget);
-        sourceTransaction.FromSide.RemoveAnyMetadata("apple", amount: 1);
+        sourceTransaction.FromSide.Remove("apple", amount: 1);
         sourceStale.Add(apple, amount: 1);
 
         Assert.That(sourceTransaction.TryCommit(out var failure), Is.False);
@@ -600,7 +600,7 @@ public class InventoryUnifiedTransactionTests
         var targetStale = manager.CreateInventory();
         targetSource.Add(apple, amount: 5);
         var targetTransaction = InventoryTransaction<string>.From(targetSource).To(targetStale);
-        targetTransaction.FromSide.RemoveAnyMetadata("apple", amount: 1);
+        targetTransaction.FromSide.Remove("apple", amount: 1);
         targetTransaction.ToSide.Add("apple", amount: 1);
         targetStale.Add(apple, amount: 1);
 
@@ -640,13 +640,13 @@ public class InventoryUnifiedTransactionTests
         var delta = InventoryItemDelta<string>.Create().Remove("apple", amount: 1);
 
         var manualFirst = InventoryTransaction<string>.From(source).To(target);
-        Assert.That(manualFirst.FromSide.TryRemoveAnyMetadata("apple", amount: 1, context: null, out var failure), Is.True, failure?.ToString());
+        Assert.That(manualFirst.FromSide.TryRemove("apple", amount: 1, context: null, out var failure), Is.True, failure?.ToString());
         Assert.That(manualFirst.TryApply(delta, InventoryItemDelta<string>.Mirror(delta), out failure), Is.False);
         Assert.That(failure?.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
 
         var deltaFirst = InventoryTransaction<string>.From(source).To(target);
         Assert.That(deltaFirst.TryApply(delta, InventoryItemDelta<string>.Mirror(delta), out failure), Is.True, failure?.ToString());
-        Assert.That(deltaFirst.FromSide.TryRemoveAnyMetadata("apple", amount: 1, context: null, out failure), Is.False);
+        Assert.That(deltaFirst.FromSide.TryRemove("apple", amount: 1, context: null, out failure), Is.False);
         Assert.That(failure?.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
     }
 

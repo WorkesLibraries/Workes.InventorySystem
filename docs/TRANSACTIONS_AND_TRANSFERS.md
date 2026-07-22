@@ -71,7 +71,7 @@ Remove operations are metadata-aware:
 var delta = InventoryItemDelta<string>.Create()
     .Remove("apple", 5)                 // Exact empty metadata.
     .Remove("apple", 5, appleMetadata)  // Exact metadata.
-    .RemoveAnyMetadata("apple", 5);     // Wildcard metadata.
+    .Remove("apple", 5, ItemMetadataMatch.Any); // Wildcard metadata.
 ```
 
 Labels are optional and unique within one delta. They provide stable semantic handles for later planning and UI. Deltas
@@ -145,9 +145,9 @@ The builder exposes conditional staging methods:
 | `RemoveAtContext(context, amount)` / `TryRemoveAtContext(context, out failure, amount)` | Remove from the item occupying a layout context |
 | `Remove(definitionId, amount, context)` / `TryRemove(definitionId, amount, context, out failure)` | Remove exact-empty-metadata items, optionally constrained to a context |
 | `Remove(definitionId, amount, metadata, context)` / `TryRemove(definitionId, amount, metadata, context, out failure)` | Remove exact-metadata items, optionally constrained to a context |
-| `RemoveAnyMetadata(definitionId, amount, context)` / `TryRemoveAnyMetadata(definitionId, amount, context, out failure)` | Remove matching items while ignoring metadata, optionally constrained to a context |
-| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure)` | Remove across matching stacks |
-| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out failure)` | Resolve a current or migrated ID, then remove across matching stacks |
+| `Remove(definitionId, amount, ItemMetadataMatch.Any, context)` / `TryRemove(definitionId, amount, ItemMetadataMatch.Any, context, out failure)` | Remove matching items while ignoring metadata, optionally constrained to a context |
+| `TryRemoveByDefinition(definition, amount, metadataMatch, out failure)` | Remove across matching stacks using an explicit metadata selector |
+| `TryRemoveByDefinition(definitionId, amount, metadataMatch, out failure)` | Resolve a current or migrated ID, then remove across matching stacks |
 | `IsEmpty` | Inspect whether staging currently produces any structural change |
 
 Each successful call updates only the builder's simulation. Later calls see earlier staged work:
@@ -167,7 +167,7 @@ if (!builder.TryAdd(
 if (!builder.TryRemoveByDefinition(
         "coin",
         amount: 10,
-        ignoreMetadata: true,
+        metadataMatch: ItemMetadataMatch.Any,
         out var removeError))
 {
     // The previously staged apple addition remains in the builder.
@@ -183,7 +183,7 @@ Manual builders also support expected-success fluent staging:
 ```csharp
 InventoryTransaction<string>
     .For(backpack)
-    .RemoveAnyMetadata("coin", amount: 10, context: SlotLayoutContext<string>.Single(0))
+    .Remove("coin", amount: 10, metadataMatch: ItemMetadataMatch.Any, context: SlotLayoutContext<string>.Single(0))
     .Add("apple", amount: 5, context: SlotLayoutContext<string>.Single(2))
     .Commit();
 ```
@@ -192,9 +192,10 @@ Context-constrained removals are strict. If the requested slot, cell, or section
 the staging call fails even when matching items exist elsewhere:
 
 ```csharp
-if (!builder.TryRemoveAnyMetadata(
+if (!builder.TryRemove(
         "coin",
         amount: 10,
+        metadataMatch: ItemMetadataMatch.Any,
         context: SlotLayoutContext<string>.Single(0),
         out var failure))
 {
@@ -210,7 +211,7 @@ Manual builder removals follow the same metadata language as deltas:
 ```csharp
 builder.Remove("apple", amount: 5);                       // Exact empty metadata.
 builder.Remove("apple", amount: 5, metadata: appleMeta);   // Exact metadata.
-builder.RemoveAnyMetadata("apple", amount: 5);             // Wildcard metadata.
+builder.Remove("apple", amount: 5, metadataMatch: ItemMetadataMatch.Any); // Wildcard metadata.
 ```
 
 Manual builders are best for one-off, procedural local changes. Deltas are better when the operation should be reusable,
@@ -425,7 +426,7 @@ transaction.TryCommit(out var failure);
 ```
 
 `ApplyMirrored(...)` applies the supplied delta to the first inventory and `InventoryItemDelta.Mirror(delta)` to the
-second. This requires exact metadata semantics: `RemoveAnyMetadata(...)` cannot be mirrored because the opposite-side
+second. This requires exact metadata semantics: removals using `ItemMetadataMatch.Any` cannot be mirrored because the opposite-side
 add would not know which metadata to recreate. Use exact-metadata removals, explicit per-side deltas, manual side
 staging, or transfer helpers when runtime-selected metadata must be preserved.
 
@@ -453,7 +454,7 @@ var transaction = InventoryTransaction<string>
     .To(npcInventory);
 
 transaction.FromSide
-    .RemoveAnyMetadata("coin", amount: 10, context: SlotLayoutContext<string>.Single(0));
+    .Remove("coin", amount: 10, metadataMatch: ItemMetadataMatch.Any, context: SlotLayoutContext<string>.Single(0));
 
 transaction.ToSide
     .Add("coin", amount: 10, context: SlotLayoutContext<string>.Single(2));
@@ -600,8 +601,8 @@ at commit time.
 | `TryRemove(item, amount, targetContext, out failure)` | Stage removal and direct target placement; target-bound builders only |
 | `TryRemoveAtStorageIndex(index, amount, out failure)` | Stage removal by source storage index |
 | `TryRemoveAtStorageIndex(index, amount, targetContext, out failure)` | Stage indexed removal and direct target placement; target-bound builders only |
-| `TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure)` | Stage removal across matching source stacks |
-| `TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out failure)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
+| `TryRemoveByDefinition(definition, amount, metadataMatch, out failure)` | Stage removal across matching source stacks |
+| `TryRemoveByDefinition(definitionId, amount, metadataMatch, out failure)` | Resolve a current or migrated source ID, then stage removal across matching source stacks |
 
 Each `InventoryTransferEntry<TKey>` exposes the canonical definition, amount, cloned metadata snapshot, and original
 source instance for inspection.
@@ -707,7 +708,7 @@ Definition-based target-bound removals use automatic target placement:
 transfer.TryRemoveByDefinition(
     herb,
     amount: 12,
-    ignoreMetadata: true,
+    metadataMatch: ItemMetadataMatch.Any,
     out var failure);
 ```
 

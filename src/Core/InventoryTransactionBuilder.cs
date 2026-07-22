@@ -333,13 +333,13 @@ public class InventoryTransactionBuilder<TKey>
     /// </summary>
     /// <param name="definition">The item definition to remove.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(ItemDefinition<TKey> definition, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
         failure = null;
-        if (!_simulation.TryFormulateRemoveByDefinition(definition, amount, ignoreMetadata, out var tx, out failure) || tx == null)
+        if (!_simulation.TryFormulateRemoveByDefinition(definition, amount, metadataMatch, out var tx, out failure) || tx == null)
             return false;
 
         MergeAndApply(tx);
@@ -400,15 +400,15 @@ public class InventoryTransactionBuilder<TKey>
     /// </summary>
     /// <param name="definitionId">The definition id to resolve through the target inventory's catalog registry.</param>
     /// <param name="amount">The amount to remove.</param>
-    /// <param name="ignoreMetadata">Whether metadata should be ignored when selecting matching instances.</param>
+    /// <param name="metadataMatch">How item metadata should be matched when selecting stacks.</param>
     /// <param name="failure">A consumer-facing reason when the removal is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the simulated removal succeeds; otherwise, <see langword="false"/>.</returns>
-    public bool TryRemoveByDefinition(TKey definitionId, int amount, bool ignoreMetadata, out InventoryFailure? failure)
+    public bool TryRemoveByDefinition(TKey definitionId, int amount, ItemMetadataMatch metadataMatch, out InventoryFailure? failure)
     {
         if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryRemoveByDefinition(definition, amount, ignoreMetadata, out failure);
+        return TryRemoveByDefinition(definition, amount, metadataMatch, out failure);
     }
 
     /// <summary>
@@ -417,9 +417,9 @@ public class InventoryTransactionBuilder<TKey>
     public InventoryTransactionBuilder<TKey> RemoveByDefinition(
         ItemDefinition<TKey> definition,
         int amount,
-        bool ignoreMetadata)
+        ItemMetadataMatch metadataMatch)
     {
-        ThrowIfRejected(TryRemoveByDefinition(definition, amount, ignoreMetadata, out var failure), failure);
+        ThrowIfRejected(TryRemoveByDefinition(definition, amount, metadataMatch, out var failure), failure);
         return this;
     }
 
@@ -429,9 +429,9 @@ public class InventoryTransactionBuilder<TKey>
     public InventoryTransactionBuilder<TKey> RemoveByDefinition(
         TKey definitionId,
         int amount,
-        bool ignoreMetadata)
+        ItemMetadataMatch metadataMatch)
     {
-        ThrowIfRejected(TryRemoveByDefinition(definitionId, amount, ignoreMetadata, out var failure), failure);
+        ThrowIfRejected(TryRemoveByDefinition(definitionId, amount, metadataMatch, out var failure), failure);
         return this;
     }
 
@@ -454,7 +454,7 @@ public class InventoryTransactionBuilder<TKey>
         InstanceMetadata? metadata,
         ILayoutContext<TKey>? context,
         out InventoryFailure? failure) =>
-        TryRemoveByDefinition(definition, amount, metadata, InventoryItemDeltaMetadataMatch.Exact, context, out failure);
+        TryRemoveByDefinition(definition, amount, ItemMetadataMatch.Exact(metadata), context, out failure);
 
     /// <summary>
     /// Removes items that match the resolved definition id and exact empty metadata from the simulated state.
@@ -483,28 +483,30 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
-    /// Removes items by definition while ignoring item-instance metadata.
+    /// Removes items by definition using an explicit metadata selector.
     /// </summary>
-    public bool TryRemoveAnyMetadata(
+    public bool TryRemove(
         ItemDefinition<TKey> definition,
         int amount,
+        ItemMetadataMatch metadataMatch,
         ILayoutContext<TKey>? context,
         out InventoryFailure? failure) =>
-        TryRemoveByDefinition(definition, amount, metadata: null, InventoryItemDeltaMetadataMatch.Any, context, out failure);
+        TryRemoveByDefinition(definition, amount, metadataMatch, context, out failure);
 
     /// <summary>
-    /// Removes items by resolved definition id while ignoring item-instance metadata.
+    /// Removes items by resolved definition id using an explicit metadata selector.
     /// </summary>
-    public bool TryRemoveAnyMetadata(
+    public bool TryRemove(
         TKey definitionId,
         int amount,
+        ItemMetadataMatch metadataMatch,
         ILayoutContext<TKey>? context,
         out InventoryFailure? failure)
     {
         if (!_targetInventory.TryResolveRegisteredDefinitionId(definitionId, out var definition, out failure) || definition == null)
             return false;
 
-        return TryRemoveAnyMetadata(definition, amount, context, out failure);
+        return TryRemove(definition, amount, metadataMatch, context, out failure);
     }
 
     /// <summary>
@@ -558,26 +560,28 @@ public class InventoryTransactionBuilder<TKey>
     }
 
     /// <summary>
-    /// Removes items by definition while ignoring item-instance metadata or throws when rejected.
+    /// Removes items by definition using an explicit metadata selector or throws when rejected.
     /// </summary>
-    public InventoryTransactionBuilder<TKey> RemoveAnyMetadata(
+    public InventoryTransactionBuilder<TKey> Remove(
         ItemDefinition<TKey> definition,
-        int amount = 1,
+        int amount,
+        ItemMetadataMatch metadataMatch,
         ILayoutContext<TKey>? context = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definition, amount, context, out var failure), failure);
+        ThrowIfRejected(TryRemove(definition, amount, metadataMatch, context, out var failure), failure);
         return this;
     }
 
     /// <summary>
-    /// Removes items by resolved definition id while ignoring item-instance metadata or throws when rejected.
+    /// Removes items by resolved definition id using an explicit metadata selector or throws when rejected.
     /// </summary>
-    public InventoryTransactionBuilder<TKey> RemoveAnyMetadata(
+    public InventoryTransactionBuilder<TKey> Remove(
         TKey definitionId,
-        int amount = 1,
+        int amount,
+        ItemMetadataMatch metadataMatch,
         ILayoutContext<TKey>? context = null)
     {
-        ThrowIfRejected(TryRemoveAnyMetadata(definitionId, amount, context, out var failure), failure);
+        ThrowIfRejected(TryRemove(definitionId, amount, metadataMatch, context, out var failure), failure);
         return this;
     }
 
@@ -787,21 +791,13 @@ public class InventoryTransactionBuilder<TKey>
         InstanceMetadata metadata,
         InventoryItemDeltaOperation<TKey> operation)
     {
-        if (operation.MetadataMatch == InventoryItemDeltaMetadataMatch.Any)
-            return true;
-
-        var operationMetadata = operation.Metadata;
-        if (operationMetadata == null || operationMetadata.IsEmpty)
-            return metadata.IsEmpty;
-
-        return metadata.StructuralEquals(operationMetadata);
+        return operation.MetadataMatch.Matches(metadata);
     }
 
     private bool TryRemoveByDefinition(
         ItemDefinition<TKey> definition,
         int amount,
-        InstanceMetadata? metadata,
-        InventoryItemDeltaMetadataMatch metadataMatch,
+        ItemMetadataMatch metadataMatch,
         ILayoutContext<TKey>? context,
         out InventoryFailure? failure)
     {
@@ -826,7 +822,7 @@ public class InventoryTransactionBuilder<TKey>
             var instance = _simulation.Items[i];
             if (!EqualityComparer<TKey>.Default.Equals(instance.Definition.Id, definition.Id))
                 continue;
-            if (!MatchesMetadata(instance.Metadata, metadata, metadataMatch))
+            if (!metadataMatch.Matches(instance.Metadata))
                 continue;
             if (context != null && !StorageIndexHasContext(i, context))
                 continue;
@@ -857,20 +853,6 @@ public class InventoryTransactionBuilder<TKey>
 
         MergeAndApply(mapped);
         return true;
-    }
-
-    private static bool MatchesMetadata(
-        InstanceMetadata metadata,
-        InstanceMetadata? referenceMetadata,
-        InventoryItemDeltaMetadataMatch metadataMatch)
-    {
-        if (metadataMatch == InventoryItemDeltaMetadataMatch.Any)
-            return true;
-
-        if (referenceMetadata == null || referenceMetadata.IsEmpty)
-            return metadata.IsEmpty;
-
-        return metadata.StructuralEquals(referenceMetadata);
     }
 
     private bool StorageIndexHasContext(int storageIndex, ILayoutContext<TKey> context)

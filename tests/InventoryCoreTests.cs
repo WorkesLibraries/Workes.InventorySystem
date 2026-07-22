@@ -545,7 +545,7 @@ public class InventoryCoreTests
         manager.Catalog.Freeze();
         var inventory = manager.CreateInventory();
 
-        Assert.Throws<InventoryOperationException>(() => inventory.RemoveByDefinition(apple, amount: 1, ignoreMetadata: true));
+        Assert.Throws<InventoryOperationException>(() => inventory.RemoveByDefinition(apple, amount: 1, metadataMatch: ItemMetadataMatch.Any));
     }
 
     [Test]

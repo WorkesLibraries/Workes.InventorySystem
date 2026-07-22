@@ -733,7 +733,7 @@ public class InventoryPolicyParameterMutationTests
         var inventory = CreateInventory(new FixedSizeStackResolver<string>(20), new MaxTotalItemAmountCapacityPolicy<string>(10), new EntryLayout<string>(), coin);
 
         inventory.Add(coin, amount: 8);
-        inventory.RemoveByDefinition(coin, amount: 4, ignoreMetadata: true);
+        inventory.RemoveByDefinition(coin, amount: 4, metadataMatch: ItemMetadataMatch.Any);
 
         Assert.That(inventory.TrySetCapacityPolicyParameter("maxTotalItemAmount", 5, out var failure), Is.True);
         Assert.That(((MaxTotalItemAmountCapacityPolicy<string>)inventory.CapacityPolicy).MaxTotalItemAmount, Is.EqualTo(5));

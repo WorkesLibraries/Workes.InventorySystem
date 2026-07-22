@@ -634,8 +634,8 @@ public class SectionedLayoutTests
         source.TryAdd(apple, out _);
         source.TryAdd(sword, out _);
         var transfer = InventoryTransfer.From(source);
-        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(apple, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
         var context = SectionedLayoutContext<string>.Map()
             .Add(0, "bag", 0)
             .Add(1, "hotbar", 1)
@@ -659,8 +659,8 @@ public class SectionedLayoutTests
         source.TryAdd(apple, out _);
         source.TryAdd(sword, out _);
         var transfer = InventoryTransfer.From(source);
-        transfer.TryRemoveByDefinition(apple, 1, ignoreMetadata: true, out _);
-        transfer.TryRemoveByDefinition(sword, 1, ignoreMetadata: true, out _);
+        transfer.TryRemoveByDefinition(apple, 1, metadataMatch: ItemMetadataMatch.Any, out _);
+        transfer.TryRemoveByDefinition(sword, 1, metadataMatch: ItemMetadataMatch.Any, out _);
         var context = SectionedLayoutContext<string>.Map()
             .Add(0, "bag", 0)
             .Add(1, "bag", 0)
