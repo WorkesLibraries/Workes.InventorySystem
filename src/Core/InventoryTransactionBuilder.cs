@@ -5,7 +5,8 @@ namespace Workes.InventorySystem.Core;
 
 /// <summary>
 /// Builds a bulk structural transaction by operating on a simulated inventory state.
-/// Use <see cref="InventoryTransaction{TKey}.From"/> to create a builder, then commit it through the target inventory.
+/// Use <see cref="InventoryTransaction{TKey}.For(Inventory{TKey})"/> to create a local builder, then commit it through
+/// the builder or target inventory.
 /// </summary>
 /// <remarks>
 /// Transaction builders stage add/remove/amount-delta changes. Layout move and swap operations remain inventory-level
@@ -43,6 +44,124 @@ public class InventoryTransactionBuilder<TKey>
     /// Gets whether the staged operations would produce an empty transaction.
     /// </summary>
     public bool IsEmpty => Build().IsEmpty;
+
+    /// <summary>
+    /// Evaluates whether the currently staged transaction can be committed.
+    /// </summary>
+    /// <param name="failure">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the staged transaction can currently be committed; otherwise, <see langword="false"/>.</returns>
+    public bool Validate(out InventoryFailure? failure) =>
+        _targetInventory.CanCommitTransaction(Build(), out failure);
+
+    /// <summary>
+    /// Attempts to commit the currently staged transaction.
+    /// </summary>
+    /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the staged transaction commits; otherwise, <see langword="false"/>.</returns>
+    public bool TryCommit(out InventoryFailure? failure) =>
+        _targetInventory.TryCommitTransaction(this, out failure);
+
+    /// <summary>
+    /// Commits the currently staged transaction or throws when expected-success commit is rejected.
+    /// </summary>
+    /// <exception cref="InventoryOperationException">The staged transaction is rejected.</exception>
+    public void Commit() =>
+        _targetInventory.CommitTransaction(this);
+
+    /// <summary>
+    /// Creates a cross-inventory transaction from this source inventory to a target inventory.
+    /// </summary>
+    /// <param name="target">The second inventory participating in the transaction.</param>
+    /// <returns>A cross-inventory transaction.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This builder already contains staged local operations.</exception>
+    public InventoryTransaction<TKey> To(Inventory<TKey> target)
+    {
+        if (target == null)
+            throw new ArgumentNullException(nameof(target));
+        if (!IsEmpty)
+            throw new InvalidOperationException("Cross-inventory transactions must be created from a clean transaction builder.");
+
+        return InventoryTransaction<TKey>.CreateCross(_targetInventory, target);
+    }
+
+    /// <summary>
+    /// Applies a reusable item delta to this clean transaction builder.
+    /// </summary>
+    /// <param name="delta">The semantic one-inventory delta to apply.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="delta"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The builder already contains staged operations.</exception>
+    /// <exception cref="InventoryOperationException">The delta cannot be staged.</exception>
+    public InventoryTransactionBuilder<TKey> Apply(InventoryItemDelta<TKey> delta)
+    {
+        return Apply(delta, plan: null);
+    }
+
+    /// <summary>
+    /// Applies a reusable item delta to this clean transaction builder using an optional application plan.
+    /// </summary>
+    /// <param name="delta">The semantic one-inventory delta to apply.</param>
+    /// <param name="plan">Optional label-based application guidance.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="delta"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The builder already contains staged operations.</exception>
+    /// <exception cref="InventoryOperationException">The delta cannot be staged.</exception>
+    public InventoryTransactionBuilder<TKey> Apply(
+        InventoryItemDelta<TKey> delta,
+        InventoryDeltaApplicationPlan<TKey>? plan)
+    {
+        if (!TryApply(delta, plan, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Transaction("Delta application was rejected."));
+        return this;
+    }
+
+    /// <summary>
+    /// Attempts to apply a reusable item delta to this clean transaction builder.
+    /// </summary>
+    /// <param name="delta">The semantic one-inventory delta to apply.</param>
+    /// <param name="failure">A consumer-facing reason when staging is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the complete delta is staged; otherwise, <see langword="false"/>.</returns>
+    public bool TryApply(InventoryItemDelta<TKey> delta, out InventoryFailure? failure) =>
+        TryApply(delta, plan: null, out failure);
+
+    /// <summary>
+    /// Attempts to apply a reusable item delta to this clean transaction builder using an optional application plan.
+    /// </summary>
+    /// <param name="delta">The semantic one-inventory delta to apply.</param>
+    /// <param name="plan">Optional label-based application guidance.</param>
+    /// <param name="failure">A consumer-facing reason when staging is rejected; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the complete delta is staged; otherwise, <see langword="false"/>.</returns>
+    public bool TryApply(
+        InventoryItemDelta<TKey> delta,
+        InventoryDeltaApplicationPlan<TKey>? plan,
+        out InventoryFailure? failure)
+    {
+        if (delta == null)
+        {
+            failure = InventoryFailures.Transaction("Delta cannot be null.");
+            return false;
+        }
+        if (!IsEmpty)
+        {
+            failure = InventoryFailures.Transaction("Deltas can only be applied to a clean transaction builder.");
+            return false;
+        }
+
+        var proposed = InventoryTransaction<TKey>.For(_targetInventory);
+        foreach (var operation in delta.Operations)
+        {
+            if (!proposed.TryApplyOperation(operation, plan, out failure))
+                return false;
+        }
+
+        var transaction = proposed.Build();
+        if (!transaction.IsEmpty)
+            MergeAndApply(transaction.ForInventory(_simulation));
+
+        failure = null;
+        return true;
+    }
 
     /// <summary>
     /// Adds items to the simulated state.
@@ -188,8 +307,8 @@ public class InventoryTransactionBuilder<TKey>
     /// Builds an <see cref="InventoryTransaction{TKey}"/> targeting the original inventory.
     /// </summary>
     /// <remarks>
-    /// Most callers should commit the builder directly through <see cref="Inventory{TKey}.CommitTransaction(InventoryTransactionBuilder{TKey})"/>
-    /// or <see cref="Inventory{TKey}.TryCommitTransaction(InventoryTransactionBuilder{TKey}, out InventoryFailure?)"/>.
+    /// Most callers should commit the builder directly through <see cref="TryCommit(out InventoryFailure?)"/> or
+    /// <see cref="Commit"/>.
     /// Use this method when code needs to inspect or store the structural transaction before committing it.
     /// </remarks>
     /// <returns>A structural transaction that represents all successful simulated operations.</returns>
@@ -286,5 +405,105 @@ public class InventoryTransactionBuilder<TKey>
             _simulationEntries.Add(new SimulationEntry(null, context));
 
         _simulation.ApplyTransactionSilent(tx);
+    }
+
+    private bool TryApplyOperation(
+        InventoryItemDeltaOperation<TKey> operation,
+        InventoryDeltaApplicationPlan<TKey>? plan,
+        out InventoryFailure? failure)
+    {
+        if (operation == null)
+        {
+            failure = InventoryFailures.Transaction("Delta operation cannot be null.");
+            return false;
+        }
+
+        if (!_targetInventory.TryResolveRegisteredDefinitionId(operation.DefinitionId, out var definition, out failure) || definition == null)
+            return false;
+
+        if (operation.Kind == InventoryItemDeltaOperationKind.Add)
+        {
+            ILayoutContext<TKey>? context = null;
+            if (plan != null && !plan.TryResolvePlacement(_simulation, operation, out context, out failure))
+                return false;
+            return TryAdd(definition, operation.Amount, context, operation.Metadata, out failure);
+        }
+
+        return TryRemoveByDeltaOperation(definition, operation, plan, out failure);
+    }
+
+    private bool TryRemoveByDeltaOperation(
+        ItemDefinition<TKey> definition,
+        InventoryItemDeltaOperation<TKey> operation,
+        InventoryDeltaApplicationPlan<TKey>? plan,
+        out InventoryFailure? failure)
+    {
+        failure = null;
+        var amountDeltas = new List<(int index, int delta)>();
+        var removed = new List<(int index, ItemInstance<TKey> instance)>();
+        int remaining = operation.Amount;
+
+        for (int i = 0; i < _simulation.Items.Count && remaining > 0; i++)
+        {
+            var instance = _simulation.Items[i];
+            if (!EqualityComparer<TKey>.Default.Equals(instance.Definition.Id, definition.Id))
+                continue;
+            if (!MatchesDeltaMetadata(instance.Metadata, operation))
+                continue;
+            int take = Math.Min(remaining, instance.Amount);
+            if (plan != null)
+            {
+                var contexts = _simulation.Layout.GetContextsForStorageIndex(_simulation, i);
+                if (!plan.TryAcceptRemovalCandidate(
+                        _simulation,
+                        operation,
+                        instance,
+                        i,
+                        take,
+                        contexts,
+                        out var accepted,
+                        out failure))
+                    return false;
+                if (!accepted)
+                    continue;
+            }
+
+            remaining -= take;
+            if (take == instance.Amount)
+                removed.Add((i, instance));
+            else
+                amountDeltas.Add((i, -take));
+        }
+
+        if (remaining > 0)
+        {
+            failure = InventoryFailures.Validation("Not enough matching items to remove.");
+            return false;
+        }
+
+        var tx = new InventoryTransaction<TKey>(
+            _simulation,
+            amountDeltas,
+            removed,
+            new List<(ItemInstance<TKey> instance, ILayoutContext<TKey>? context)>());
+        if (!_simulation.TryPrepareTransaction(tx, null, out var mapped, out failure) || mapped == null)
+            return false;
+
+        MergeAndApply(mapped);
+        return true;
+    }
+
+    private static bool MatchesDeltaMetadata(
+        InstanceMetadata metadata,
+        InventoryItemDeltaOperation<TKey> operation)
+    {
+        if (operation.MetadataMatch == InventoryItemDeltaMetadataMatch.Any)
+            return true;
+
+        var operationMetadata = operation.Metadata;
+        if (operationMetadata == null || operationMetadata.IsEmpty)
+            return metadata.IsEmpty;
+
+        return metadata.StructuralEquals(operationMetadata);
     }
 }

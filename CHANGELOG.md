@@ -9,11 +9,19 @@ This file records notable changes to `Workes.InventorySystem`.
 - Removed the public `Inventory<TKey>.TryFormulateFromNormalized(...)` authoring API. `NormalizedInventoryTransaction<TKey>`
   remains extension-facing validation data for rules, capacity policies, layouts, and internal validation. User-authored
   changes should use direct inventory operations or the transaction/delta APIs.
+- Transactions now capture the inventory version they were built against and reject commit after participating
+  inventories have changed. Rebuild transactions against current state instead of caching them across mutations.
 
 ### Added
 
 - Added `InventoryItemDelta<TKey>` as a reusable, context-free semantic net-change model with add/remove operations,
   metadata-aware remove modes, unique operation labels, mirroring, and semantic prefixed combination.
+- Added transaction-owned validation and commit helpers on local builders, inspected structural transactions, and
+  cross-inventory transactions.
+- Added cross-inventory transaction application through `InventoryTransaction<TKey>.From(first).To(second)`,
+  inventory-local `InventoryTransactionEntry<TKey>` values, mirrored delta application, and atomic two-inventory commit.
+- Added `InventoryDeltaApplicationPlan<TKey>`, `InventoryPlacementDecision<TKey>`, and `InventoryRemovalDecision` for
+  insertion-ordered, label-based addition placement and removal candidate selection during delta application.
 
 ## [2.0.0] - 2026-07-21
 

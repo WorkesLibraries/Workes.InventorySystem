@@ -72,7 +72,7 @@ public class MaxTotalItemAmountCapacityPolicyTests
     }
 
     [Test]
-    public void TryCommitTransaction_RejectsStaleTransactionThatWouldExceedCapacityAndFiresNoEvent()
+    public void TryCommitTransaction_RejectsStaleTransactionBeforeCapacityValidationAndFiresNoEvent()
     {
         var apple = new ItemDefinition<string>("apple");
         var berry = new ItemDefinition<string>("berry");
@@ -88,7 +88,8 @@ public class MaxTotalItemAmountCapacityPolicyTests
         var result = inventory.TryCommitTransaction(transaction, out var failure);
 
         Assert.That(result, Is.False);
-        Assert.That(failure?.Message, Is.EqualTo("Capacity exceeded."));
+        Assert.That(failure?.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
+        Assert.That(failure?.Message, Does.Contain("Inventory changed after the transaction was created"));
         Assert.That(changed, Is.EqualTo(0));
         Assert.That(inventory.TotalItemCount, Is.EqualTo(5));
     }

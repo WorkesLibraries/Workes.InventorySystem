@@ -1,19 +1,19 @@
 # Transactions And Transfers
 
-Transactions combine several structural changes inside one inventory. Transfers coordinate structural changes between
-two inventories.
+Transactions combine several structural changes inside one inventory or across two inventories. Transfers remain a
+specialized API for same-item movement between inventories.
 
 Both features follow the same ownership rule:
 
 ```text
 Builder stages intent against a simulation
-  -> inventory validates the complete proposal
-  -> inventory commits accepted changes
-  -> inventory emits committed-change events
+  -> transaction validates the complete proposal
+  -> transaction commits accepted changes atomically
+  -> participating inventories emit committed-change events
 ```
 
-Builders do not commit live state. Inventories own commit because they coordinate canonical definitions, stack
-resolution, capacity, rules, and layout placement.
+Direct inventory methods remain the shortest route for simple changes. `InventoryTransaction` is the operation object for
+larger local changes and cross-inventory transformations.
 
 Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations and
 [Policies And Rules](POLICIES_AND_RULES.md) for the validation concerns applied during commit.
@@ -23,7 +23,9 @@ Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations an
 | Goal | Tool |
 |---|---|
 | Perform one ordinary add or removal | `Inventory<TKey>.TryAdd(...)`, `TryRemove(...)`, or another direct operation |
-| Combine several adds and removals atomically in one inventory | `InventoryTransactionBuilder<TKey>` |
+| Combine several adds and removals atomically in one inventory | `InventoryTransaction<TKey>.For(inventory)` |
+| Apply reusable semantic deltas locally | `InventoryTransaction<TKey>.For(inventory).Apply(delta)` |
+| Apply two inventory-local deltas atomically | `InventoryTransaction<TKey>.From(first).To(second)` |
 | Move one amount between inventories | `TryTransferTo(...)` |
 | Plan several outgoing entries and commit them later | `InventoryTransferBuilder<TKey>` |
 | Plan transfers against a known target with per-entry placement | `InventoryTransfer.From(source).To(target)` |
@@ -86,22 +88,29 @@ from combined parts are addressable by original label, prefix, or exact combined
 
 ## Inventory Transactions
 
-An `InventoryTransaction<TKey>` represents structural changes targeting exactly one inventory:
+`InventoryTransaction<TKey>` is the public transaction operation concept. It can represent:
+
+- a local transaction built from one inventory.
+- a cross-inventory transaction that applies one inventory-local delta per side.
+- an inspected low-level structural transaction produced by a manual local builder.
+
+Manual local builders can still materialize structural transaction details:
 
 - amount deltas for existing storage entries.
 - removed storage entries.
 - newly added item instances and their optional placement contexts.
 
-Transactions are normally produced by `InventoryTransaction<TKey>.From(inventory)`:
+Manual local transactions are normally started with `InventoryTransaction<TKey>.For(inventory)` or the compatibility
+alias `InventoryTransaction<TKey>.From(inventory)`:
 
 ```csharp
 var builder =
-    InventoryTransaction<string>.From(backpack);
+    InventoryTransaction<string>.For(backpack);
 ```
 
 This creates a builder seeded with a simulation of the inventory's current state.
 
-### Transaction Object Reference
+### Structural Transaction Reference
 
 | Member | Meaning |
 |---|---|
@@ -113,8 +122,9 @@ This creates a builder seeded with a simulation of the inventory's current state
 | `IsApplied` | Whether the transaction has already been committed |
 | `ForInventory(target)` | Copies the structural data with another target inventory |
 
-`ForInventory(...)` is a low-level structural-copy operation. It does not turn an inventory transaction into a safe
-cross-inventory transfer. Use the transfer APIs when ownership moves between inventories.
+These members describe inspected local structural transactions. They are not the general cross-inventory transaction
+model. `ForInventory(...)` is a low-level structural-copy operation and does not turn a local structural transaction
+into a safe cross-inventory operation.
 
 ## Stage A Transaction
 
@@ -136,7 +146,7 @@ Each successful call updates only the builder's simulation. Later calls see earl
 
 ```csharp
 var builder =
-    InventoryTransaction<string>.From(backpack);
+    InventoryTransaction<string>.For(backpack);
 
 if (!builder.TryAdd(
         "apple",
@@ -182,29 +192,33 @@ Most application code can commit the builder directly:
 
 ```csharp
 var committed =
-    backpack.TryCommitTransaction(
-        builder,
-        out var failure);
+    builder.TryCommit(out var failure);
 ```
 
 Commit APIs:
 
 | API | Use |
 |---|---|
-| `TryCommitTransaction(builder, out failure)` | Build and conditionally commit |
-| `TryCommitTransaction(builder, placementContext, out failure)` | Build and commit with transaction-level placement |
-| `TryCommitTransaction(transaction, out failure)` | Commit an inspected transaction |
-| `TryCommitTransaction(transaction, placementContext, out failure)` | Commit an inspected transaction with placement |
-| `CommitTransaction(...)` | Throwing wrappers when success is expected |
+| `builder.Validate(out failure)` | Validate the staged local transaction |
+| `builder.TryCommit(out failure)` | Build and conditionally commit |
+| `builder.Commit()` | Throwing wrapper when success is expected |
+| `transaction.Validate(out failure)` | Validate an inspected structural transaction |
+| `transaction.TryCommit(out failure)` | Commit an inspected structural transaction |
+| `transaction.Commit()` | Throwing wrapper when success is expected |
 
-At commit, the inventory validates the complete transaction against its current definitions, stack resolver, capacity
-policy, rules, and layout. A rejected commit leaves the live inventory unchanged and emits no event.
+The older inventory-owned commit methods remain as compatibility APIs while the 3.0 transaction model is being
+introduced, but transaction-owned commit is the preferred route for new code.
+
+At commit, the transaction validates the complete proposal against the current definitions, stack resolver, capacity
+policy, rules, and layout of each participating inventory. A rejected commit leaves live inventories unchanged and emits
+no event.
 
 An `InventoryTransaction<TKey>`:
 
 - belongs to the inventory it was built for.
 - can be applied only once.
-- should be committed while the inventory still represents the state against which it was built.
+- captures the inventory version it was built against.
+- is rejected if the inventory changed before commit; rebuild the transaction against the current state.
 
 The `Try...` commit methods report ownership, repeated-use, placement, or validation failures through `failure`.
 Throwing wrappers raise `InventoryOperationException` when commit is rejected. See [Failure Handling](FAILURES.md) for
@@ -216,7 +230,7 @@ Prefer giving each staged add its own direct context when the code adding the it
 
 ```csharp
 var builder =
-    InventoryTransaction<string>.From(backpack);
+    InventoryTransaction<string>.For(backpack);
 
 var staged = builder.TryAdd(
     apple,
@@ -253,7 +267,7 @@ A mapped context assigns positions by `InventoryTransaction<TKey>.Added` index:
 
 ```csharp
 var builder =
-    InventoryTransaction<string>.From(backpack);
+    InventoryTransaction<string>.For(backpack);
 
 builder.TryAdd(apple, out _, amount: 3);
 builder.TryAdd(sword, out _);
@@ -275,6 +289,9 @@ var committed =
         out var failure);
 ```
 
+This uses the compatibility inventory-owned commit overload because transaction-level mapped contexts are part of the
+older deferred-placement API. New delta application plans should prefer label-based placement rules.
+
 Mapped keys are added-entry indices, not:
 
 - inventory storage indices.
@@ -292,9 +309,91 @@ rejected with `Mapped added entry index out of range.` when no such added entry 
 Inspect `Build().Added` before constructing a dynamic mapping. Prefer per-add direct contexts when placement is part of
 the original add intent; use `.Map()` when deferred placement of the actual resulting additions is specifically useful.
 
+## Delta Application Plans
+
+`InventoryDeltaApplicationPlan<TKey>` provides optional label-based guidance when applying an
+`InventoryItemDelta<TKey>`. Plans are inventory-unbound; real validation happens when a transaction applies the delta to
+an inventory.
+
+Plan rules are evaluated in insertion order. The first matching rule handles the request. If no rule matches, the
+transaction uses default behavior:
+
+- removals use deterministic candidate selection.
+- additions use normal auto-placement.
+
+Addition rules return `InventoryPlacementDecision<TKey>`:
+
+- `Auto()` uses normal auto-placement.
+- `Place(context)` requires the added operation to fit through that strict context.
+- `Reject(failure)` rejects the operation.
+
+Removal rules return `InventoryRemovalDecision`:
+
+- `Allow()` lets the candidate stack satisfy the removal.
+- `Skip()` ignores that candidate and keeps looking.
+- `Reject(failure)` rejects the operation.
+
+For example, this places a purchased item in a specific slot:
+
+```csharp
+var plan = InventoryDeltaApplicationPlan<string>.Create()
+    .ForAdditionLabel("purchase-item", request =>
+        InventoryPlacementDecision<string>.Place(
+            SlotLayoutContext<string>.Single(2)));
+```
+
+And this only allows an auto-crafting removal to draw from a specific slot:
+
+```csharp
+var plan = InventoryDeltaApplicationPlan<string>.Create()
+    .ForRemovalLabel("input", candidate =>
+        candidate.Contexts.OfType<SlotLayoutContext<string>>()
+            .Any(context => context.SlotIndex == 1)
+            ? InventoryRemovalDecision.Allow()
+            : InventoryRemovalDecision.Skip());
+```
+
+Removal selection is a constraint, not a preference. If the selected candidates cannot satisfy the remove amount, the
+transaction is rejected even if matching items exist elsewhere. Addition requests expose the operation amount, and
+removal candidates expose both the full candidate stack and the planned amount that would be removed from it.
+
+## Cross-Inventory Transactions
+
+Cross-inventory transactions apply one inventory-local delta to each participating inventory and commit both sides
+atomically. This makes trade/shop/exchange workflows explicit without introducing a separate exchange concept.
+
+```csharp
+var playerDelta = InventoryItemDelta<string>.Create()
+    .Remove("silver_plate", amount: 1, label: "plate")
+    .Add("coin", amount: 4, label: "coins");
+
+var transaction = InventoryTransaction<string>
+    .From(playerInventory)
+    .To(npcInventory)
+    .ApplyMirrored(playerDelta);
+
+transaction.TryCommit(out var failure);
+```
+
+`ApplyMirrored(...)` applies the supplied delta to the first inventory and `InventoryItemDelta.Mirror(delta)` to the
+second. More complex workflows can provide both sides explicitly:
+
+```csharp
+var transaction = InventoryTransaction<string>
+    .From(new InventoryTransactionEntry<string>(
+        playerInventory,
+        playerDelta,
+        playerPlan))
+    .To(new InventoryTransactionEntry<string>(
+        npcInventory,
+        npcDelta));
+```
+
+No plan means default deterministic removals and normal auto-placement for that inventory.
+
 ## Transaction Atomicity And Events
 
-A transaction commit is one inventory-local operation:
+A local transaction commit is one inventory-local operation:
 
 - validation happens before live mutation.
 - rejection preserves live contents and placement.
@@ -305,6 +404,9 @@ The event groups additions, removals, modified amounts, and any final layout ref
 Layouts that support reconciliation compare surviving instances before the complete transaction with the final state,
 so one event reports final movement without exposing temporary shifts between staged operations. Empty transactions
 produce no structural change event.
+
+For cross-inventory transactions, both sides are prepared before either inventory mutates. On success, both inventories
+are mutated before either side publishes its event, so event handlers observe the final two-inventory state.
 
 ## Cross-Inventory Transfers
 

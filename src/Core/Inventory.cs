@@ -24,6 +24,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     private ICapacityPolicy<TKey> _capacityPolicy;
     private IInventoryLayout<TKey> _layout;
     private readonly RuleContainer<TKey> _rules;
+    private long _version;
+
+    internal long Version => _version;
 
     private sealed class ProposedItemState
     {
@@ -1112,6 +1115,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         if (tx.IsApplied)
         {
             failure = InventoryFailures.Transaction("Transaction has already been applied.");
+            return false;
+        }
+        if (tx.InventoryVersion != _version)
+        {
+            failure = InventoryFailures.Transaction("Inventory changed after the transaction was created. Rebuild the transaction against the current inventory state.");
             return false;
         }
 
@@ -2962,7 +2970,17 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
     private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)
     {
-        var args = ApplyPreparedTransactionCore(transaction, cleared);
+        var args = ApplyPreparedTransactionDeferred(transaction, cleared);
+        PublishChange(args);
+    }
+
+    internal InventoryChangedEventArgs<TKey>? ApplyPreparedTransactionDeferred(
+        InventoryTransaction<TKey> transaction,
+        bool cleared = false) =>
+        ApplyPreparedTransactionCore(transaction, cleared);
+
+    internal void PublishChange(InventoryChangedEventArgs<TKey>? args)
+    {
         if (args != null)
             Changed?.Invoke(this, args);
     }
@@ -3040,6 +3058,8 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
 
         bool hasChanges = transaction.AmountDeltas.Count > 0 || transaction.Removed.Count > 0 || transaction.Added.Count > 0;
         bool hasConfigurationChanges = configurationChanged != null && configurationChanged.Any();
+        if (hasChanges || cleared || hasConfigurationChanges)
+            _version++;
         if (!hasChanges && !cleared && !hasConfigurationChanges)
             return null;
 
