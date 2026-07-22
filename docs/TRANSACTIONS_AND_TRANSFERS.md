@@ -1,9 +1,10 @@
 # Transactions And Transfers
 
-Transactions combine several structural changes inside one inventory or across two inventories. Transfers remain a
-specialized API for same-item movement between inventories.
+Transactions combine several structural changes inside one inventory or across two inventories. Inventory-owned
+transfer helpers remain available for simple source-owned movement. The external transfer-builder API is deprecated and
+documented only for backwards compatibility.
 
-Both features follow the same ownership rule:
+The current transaction model follows this ownership rule:
 
 ```text
 Builder stages intent against a simulation
@@ -27,9 +28,8 @@ Read [Inventory Operations](INVENTORY_OPERATIONS.md) for individual mutations an
 | Apply reusable semantic deltas locally | `InventoryTransaction<TKey>.For(inventory).Apply(delta)` |
 | Apply two inventory-local deltas atomically | `InventoryTransaction<TKey>.From(first).To(second)` |
 | Stage one-off two-inventory changes manually | `InventoryTransaction<TKey>.From(first).To(second).FromSide` / `.ToSide` |
-| Move one amount between inventories | `TryTransferTo(...)` |
-| Plan several outgoing entries and commit them later | `InventoryTransferBuilder<TKey>` |
-| Plan transfers against a known target with per-entry placement | `InventoryTransfer.From(source).To(target)` |
+| Move one amount between inventories | `TryTransferTo(...)` or `InventoryTransaction<TKey>.From(source).To(target)` |
+| Plan several outgoing entries for another inventory | Cross-inventory transaction side builders or reusable per-side deltas |
 | Move all matching contents or fail without moving any | `TryMoveWhereTo(...)` and related bulk helpers |
 | Move as much as the target can currently accept | Maximum-transfer helpers |
 | Exchange contents between inventories | Cross-inventory swap helpers |
@@ -101,15 +101,15 @@ Manual local builders can still materialize structural transaction details:
 - removed storage entries.
 - newly added item instances and their optional placement contexts.
 
-Manual local transactions are normally started with `InventoryTransaction<TKey>.For(inventory)` or the compatibility
-alias `InventoryTransaction<TKey>.From(inventory)`:
+Manual local transactions are normally started with `InventoryTransaction<TKey>.For(inventory)`:
 
 ```csharp
 var builder =
     InventoryTransaction<string>.For(backpack);
 ```
 
-This creates a builder seeded with a simulation of the inventory's current state.
+This creates a builder seeded with a simulation of the inventory's current state. `From(source).To(target)` is reserved
+for the fluent cross-inventory form, so prefer `For(...)` when only one inventory participates.
 
 ### Structural Transaction Reference
 
@@ -252,8 +252,8 @@ Commit APIs:
 | `transaction.TryCommit(out failure)` | Commit an inspected structural transaction |
 | `transaction.Commit()` | Throwing wrapper when success is expected |
 
-The older inventory-owned commit methods remain as compatibility APIs while the 3.0 transaction model is being
-introduced, but transaction-owned commit is the preferred route for new code.
+In 3.0, transaction commits are transaction-owned. Inventory-owned transaction commit APIs were removed from the public
+surface so local and cross-inventory transactions use the same ownership model.
 
 At commit, the transaction validates the complete proposal against the current definitions, stack resolver, capacity
 policy, rules, and layout of each participating inventory. A rejected commit leaves live inventories unchanged and emits
@@ -306,8 +306,8 @@ builder.TryAdd(
 
 ### Deferred Mapped Placement
 
-A commit may instead receive one transaction-level mapped context. This is an advanced option for workflows where one
-layer stages structural changes and another layer chooses positions afterward.
+A builder may also produce a transaction with one transaction-level mapped context. This is an advanced option for
+workflows where one layer stages structural changes and another layer chooses positions afterward.
 
 A mapped context assigns positions by `InventoryTransaction<TKey>.Added` index:
 
@@ -318,9 +318,9 @@ var builder =
 builder.TryAdd(apple, out _, amount: 3);
 builder.TryAdd(sword, out _);
 
-var transaction = builder.Build();
+var preview = builder.Build();
 
-// After inspecting transaction.Added and confirming that it has
+// After inspecting preview.Added and confirming that it has
 // the two new instances the placement layer expects:
 var placement =
     SlotLayoutContext<string>.Map()
@@ -329,14 +329,17 @@ var placement =
         .Build();
 
 var committed =
-    backpack.TryCommitTransaction(
-        transaction,
+    builder.TryBuild(
         placement,
+        out var transaction,
         out var failure);
+
+if (committed)
+    committed = transaction!.TryCommit(out failure);
 ```
 
-This uses the compatibility inventory-owned commit overload because transaction-level mapped contexts are part of the
-older deferred-placement API. New delta application plans should prefer label-based placement rules.
+Transaction-level mapped contexts are part of the older deferred-placement API. They remain useful when placement is
+chosen after structural staging. New delta workflows should usually prefer label-based application plans.
 
 Mapped keys are added-entry indices, not:
 
@@ -422,7 +425,11 @@ transaction.TryCommit(out var failure);
 ```
 
 `ApplyMirrored(...)` applies the supplied delta to the first inventory and `InventoryItemDelta.Mirror(delta)` to the
-second. More complex workflows can provide both sides explicitly:
+second. This requires exact metadata semantics: `RemoveAnyMetadata(...)` cannot be mirrored because the opposite-side
+add would not know which metadata to recreate. Use exact-metadata removals, explicit per-side deltas, manual side
+staging, or transfer helpers when runtime-selected metadata must be preserved.
+
+More complex workflows can provide both sides explicitly:
 
 ```csharp
 var transaction = InventoryTransaction<string>
@@ -483,9 +490,32 @@ produce no structural change event.
 For cross-inventory transactions, both sides are prepared before either inventory mutates. On success, both inventories
 are mutated before either side publishes its event, so event handlers observe the final two-inventory state.
 
-## Cross-Inventory Transfers
+## Cross-Inventory Transfer Helpers
 
-A transfer moves item amounts and metadata between two distinct inventories.
+Inventory-owned transfer helpers remain first-class for simple source-owned movement. When movement needs custom
+multi-step staging, use a cross-inventory transaction:
+
+```csharp
+var transaction =
+    InventoryTransaction<string>
+        .From(backpack)
+        .To(chest);
+
+transaction.FromSide
+    .Remove(herbStack, amount: 3);
+
+transaction.ToSide
+    .Add(herbStack.Definition, amount: 3, context: null, metadata: herbStack.Metadata);
+
+transaction.TryCommit(out var failure);
+```
+
+Use exact metadata when preserving source item metadata manually. For simple movement, the inventory-owned transfer
+helpers below preserve source metadata automatically and stay first-class. For reusable one-way movement recipes, model
+the source side as a removal delta and the target side as an add delta, then apply both through the cross-inventory
+transaction.
+
+A transfer helper moves item amounts and metadata between two distinct inventories.
 
 Compatible inventories must share either:
 
@@ -500,7 +530,7 @@ validate their side of the proposed transfer.
 
 ## One-Shot Transfers
 
-Use source-owned helpers for a single item amount:
+Source-owned helpers can move a single item amount:
 
 ```csharp
 var herbStack =
@@ -527,9 +557,10 @@ The call belongs to the source inventory because the supplied `ItemInstance<TKey
 Transfers preserve structurally equal metadata in a separate metadata object on the target. Full-stack transfer removes
 the source instance; the target still owns its own resulting item instance.
 
-## Transfer Builders
+## Deprecated Transfer Builders
 
-Use a transfer builder when several source entries should move together:
+External transfer builders stage several source entries together, but are deprecated in 3.0. Prefer cross-inventory
+transactions when work needs staging beyond the inventory-owned helpers:
 
 ```csharp
 var transfer =
@@ -587,7 +618,7 @@ The builder must be committed through the same source inventory:
 
 An empty transfer is rejected. A builder created from another source is also rejected.
 
-### Target-Bound Transfer Builders
+### Deprecated Target-Bound Transfer Builders
 
 When the target is already known, bind the builder before staging removals:
 
@@ -612,9 +643,8 @@ var committed =
 removals are staged. Binding validates that the source and target can participate in transfers; same-inventory or
 different-catalog targets are setup errors.
 
-This path is the ergonomic choice for "move this source amount to this target position." Each staged item or storage
-index removal can carry its own direct target context, so the target layout can decide immediately whether the incoming
-entry merges with an existing compatible stack or creates a new item instance at that position.
+This path was the transfer API's ergonomic choice for "move this source amount to this target position." In new code,
+prefer a cross-inventory transaction with explicit `FromSide` removal and `ToSide` addition.
 
 Target-bound staging validates against simulated source and target transactions. If target placement, capacity, rules,
 or stacking reject a staged operation, that operation is not added to the builder and neither live inventory changes.
@@ -688,7 +718,7 @@ Target-bound builders can also be passed to the existing source-owned commit API
 commit-time context. Supplying a separate non-null commit context is rejected because target placement is already part of
 the staged plan.
 
-## How A Planned Transfer Commits
+## How A Deprecated Planned Transfer Commits
 
 The source inventory coordinates the operation:
 
@@ -701,30 +731,18 @@ Build source-removal transaction
   -> commit target addition
 ```
 
-If target capacity, rules, stacking, or placement reject the plan, neither inventory changes. Successful planned
+If target capacity, rules, stacking, or placement reject the plan, neither inventory changes. Successful legacy planned
 transfers normally emit one `Changed` event from the source and one from the target.
 
 Either event can also contain `Moved` survivors when its layout reflows around the transferred entries. Entry-layout
 source removals, for example, report every later entry that shifted.
 
-`CanTransferTo(...)` and `CanCommitTransfer(...)` run the planning and validation path without committing or emitting
-events.
+`CanCommitTransfer(...)` runs the deprecated builder validation path without committing or emitting events. Current
+source-owned helper validation uses `CanTransferTo(...)`, documented in one-shot transfers above.
 
-## Transfer Placement Contexts
+## Placement Contexts In Deprecated Transfer Builders
 
-For one incoming entry, a direct `targetContext` selects its target position:
-
-```csharp
-source.TryTransferTo(
-    target,
-    sourceItem,
-    amount: 1,
-    targetContext:
-        SlotLayoutContext<string>.Single(4),
-    out var failure);
-```
-
-For deferred placement of several incoming entries, use a mapped context keyed by
+For deferred placement of several incoming entries, deprecated transfer builders use a mapped context keyed by
 `InventoryTransferBuilder<TKey>.Entries` order:
 
 ```csharp
@@ -751,16 +769,16 @@ var moved =
 The context belongs to the target layout. Its mapped indices describe incoming transfer-entry order, not source storage
 indices.
 
-Prefer a target-bound builder when each staged removal already knows its own direct target context. Mapped transfer
-contexts remain useful for deferred placement, but they are less ergonomic for precise transfer planning because target
-stacking can merge incoming entries before a mapped added-entry index exists.
+Prefer inventory-owned transfer helpers or cross-inventory transaction side staging when each removal already knows its
+corresponding target addition. Mapped transfer contexts remain available for existing builder-based code, but new
+placement-sensitive staged code should use transaction side builders or delta application plans.
 
-Best-effort maximum helpers use simpler repeated-transfer placement. Use one of the builder workflows when precise
-multi-entry placement matters.
+Best-effort maximum helpers use simpler repeated-transfer placement. Existing code that needs precise multi-entry
+placement should use one of the deprecated builder workflows; new staged code should use cross-inventory transactions.
 
 ## All-Or-Nothing Bulk Moves
 
-Bulk move helpers create and commit one planned transfer:
+Bulk move helpers create and commit one all-or-nothing transfer-shaped operation:
 
 | API | Selected source contents |
 |---|---|
@@ -815,8 +833,8 @@ The multi-stack maximum helpers:
 - return `true` when at least one amount moved.
 
 They are best-effort, not one atomic bulk transfer. Each successful per-stack transfer commits immediately and may emit
-its own source and target events. Use the all-or-nothing helpers or a transfer builder when partial progress is not
-acceptable.
+its own source and target events. Use the all-or-nothing helpers or a cross-inventory transaction when partial progress
+is not acceptable.
 
 ## Cross-Inventory Swaps
 
@@ -865,10 +883,10 @@ Conditional APIs return `false` with a consumer-facing failure for expected reje
 - an amount is non-positive or exceeds the available amount.
 - the target rejects canonical definitions, capacity, rules, stacking, or placement.
 - a mapped context uses the wrong layout type, key, or position.
-- a transfer contains no entries.
+- a deprecated transfer builder contains no entries.
 
-For transactions, planned transfers, bulk moves, and swaps, rejection during validation preserves involved inventory
-state and emits no committed-change event.
+For transactions, inventory-owned all-or-nothing transfers, deprecated planned transfer builders, bulk moves, and swaps,
+rejection during validation preserves involved inventory state and emits no committed-change event.
 
 Maximum helpers are deliberately incremental. A later failure does not undo amounts already moved by earlier successful
 per-stack transfers.
@@ -879,11 +897,11 @@ per-stack transfers.
 - Ignoring a failed staging call and assuming the entire builder was discarded.
 - Committing a transaction through an inventory it does not belong to.
 - Reusing an already applied transaction.
-- Using `ForInventory(...)` instead of the transfer system.
+- Using `ForInventory(...)` instead of cross-inventory transactions.
 - Mapping transaction storage indices instead of `Added` indices.
-- Mapping transfer source indices instead of transfer-entry order.
-- Calling transfer commit on the target instead of the builder's source.
-- Assuming separate but equivalent catalogs are transfer-compatible.
+- In deprecated transfer-builder code, mapping transfer source indices instead of transfer-entry order.
+- In deprecated transfer-builder code, calling transfer commit on the target instead of the builder's source.
+- Assuming separate but equivalent catalogs are cross-inventory compatible.
 - Using a best-effort maximum helper when all-or-nothing behavior is required.
 - Expecting a multi-stack maximum move to emit only one event.
 - Confusing local `TryMove(...)` with cross-inventory `TryMoveAllTo(...)`.

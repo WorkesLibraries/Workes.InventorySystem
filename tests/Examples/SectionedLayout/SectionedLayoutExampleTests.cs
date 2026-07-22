@@ -46,7 +46,7 @@ public class SectionedLayoutExampleTests
             System.Array.Empty<string>(),
             potion,
             torch);
-        var builder = InventoryTransaction<string>.From(inventory);
+        var builder = InventoryTransaction<string>.For(inventory);
         builder.TryAdd(potion, out _, 3);
         builder.TryAdd(torch, out _, 2);
         var context = SectionedLayoutContext<string>.Map()
@@ -55,7 +55,7 @@ public class SectionedLayoutExampleTests
             .Build();
 
         var built = builder.TryBuild(context, out var transaction, out var failure);
-        var committed = built && inventory.TryCommitTransaction(transaction!, out failure);
+        var committed = built && transaction!.TryCommit(out failure);
 
         Assert.That(committed, Is.True);
         WriteOutput("MappedSectionedTransaction.txt", DescribeSections(inventory));

@@ -118,6 +118,21 @@ public class InventoryItemDeltaTests
     }
 
     [Test]
+    public void Mirror_RejectsWildcardMetadataRemovals()
+    {
+        var delta = InventoryItemDelta<string>.Create()
+            .RemoveAnyMetadata("gem", amount: 1, label: "runtime-selected-gem");
+
+        Assert.That(delta.TryMirror(out var mirrored, out var failure), Is.False);
+        Assert.That(mirrored, Is.Null);
+        Assert.That(failure?.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
+        Assert.That(failure?.Message, Does.Contain("Wildcard-metadata remove operations cannot be mirrored"));
+
+        var exception = Assert.Throws<InventoryOperationException>(() => InventoryItemDelta<string>.Mirror(delta));
+        Assert.That(exception!.Failure.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
+    }
+
+    [Test]
     public void Combine_MergesCompatibleOperationsAndPreservesCombinedLabelIdentity()
     {
         var bookPurchase = InventoryItemDelta<string>.Create()

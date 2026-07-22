@@ -11,6 +11,7 @@ namespace Workes.InventorySystem.Core;
 /// Use <see cref="From{TKey}(Inventory{TKey})"/> to create a transfer builder. Commit transfer builders and perform
 /// one-shot transfer actions through the source <see cref="Inventory{TKey}"/>.
 /// </remarks>
+[Obsolete("InventoryTransfer is retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
 public static class InventoryTransfer
 {
     private sealed class InventoryTransferPlan<TKey>

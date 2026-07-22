@@ -13,7 +13,7 @@ namespace Workes.InventorySystem.Tests.Examples.Transactions;
 public class TransactionBuilderCommitExampleTests
 {
     [Test]
-    public void BuilderStagesWorkAndInventoryCommitsIt()
+    public void BuilderStagesWorkAndCommitsIt()
     {
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
@@ -29,7 +29,7 @@ public class TransactionBuilderCommitExampleTests
         manager.Catalog.Freeze();
 
         var inventory = manager.CreateInventory();
-        var builder = InventoryTransaction<string>.From(inventory);
+        var builder = InventoryTransaction<string>.For(inventory);
         Assert.That(builder.TryAdd(apple, out var failure, 3), Is.True);
         Assert.That(builder.TryAdd(sword, out failure), Is.True);
 
@@ -37,7 +37,8 @@ public class TransactionBuilderCommitExampleTests
             .Add(0, 1)
             .Add(1, 3)
             .Build();
-        var committed = inventory.TryCommitTransaction(builder, placement, out failure);
+        var committed = builder.TryBuild(placement, out var transaction, out failure)
+            && transaction!.TryCommit(out failure);
 
         Assert.That(committed, Is.True);
         Assert.That(inventory.GetItemAt(SlotLayoutContext<string>.Single(1))!.Definition, Is.SameAs(apple));
@@ -58,7 +59,7 @@ public class TransactionBuilderCommitExampleTests
         builder.AppendLine("  apple x3");
         builder.AppendLine("  sword x1");
         builder.AppendLine();
-        builder.AppendLine($"Inventory commit with mapped slot context: {(committed ? "committed" : "rejected")}");
+        builder.AppendLine($"Transaction commit with mapped slot context: {(committed ? "committed" : "rejected")}");
         builder.AppendLine();
         builder.AppendLine("Slots");
         builder.AppendLine("-----");

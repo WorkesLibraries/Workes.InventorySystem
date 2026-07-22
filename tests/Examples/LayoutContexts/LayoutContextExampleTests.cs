@@ -32,7 +32,7 @@ public class LayoutContextExampleTests
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
         var inventory = CreateManager(new SlotLayout<string>(5), apple, sword).CreateInventory();
-        var builder = InventoryTransaction<string>.From(inventory);
+        var builder = InventoryTransaction<string>.For(inventory);
         builder.TryAdd(apple, out _, 5);
         builder.TryAdd(sword, out _, 2);
 
@@ -41,7 +41,7 @@ public class LayoutContextExampleTests
             .Add(1, 4)
             .Build();
         var built = builder.TryBuild(context, out var transaction, out var failure);
-        var committed = built && inventory.TryCommitTransaction(transaction!, out failure);
+        var committed = built && transaction!.TryCommit(out failure);
 
         Assert.That(committed, Is.True);
         WriteOutput("MappedMultiAddTransaction.txt", DescribeSlots(inventory, 5));

@@ -5,8 +5,7 @@ namespace Workes.InventorySystem.Core;
 
 /// <summary>
 /// Represents a structural change to an inventory (deltas, removals, additions).
-/// Transactions are formulated against an inventory state and can be committed through the transaction or compatibility
-/// inventory commit methods.
+/// Transactions are formulated against an inventory state and committed through the transaction itself.
 /// </summary>
 /// <remarks>
 /// Transactions do not represent layout move or swap operations. Use <see cref="Inventory{TKey}.Move"/> /
@@ -227,9 +226,24 @@ public class InventoryTransaction<TKey>
     /// <summary>Applies one delta to the first inventory and its mirror to the second inventory.</summary>
     public InventoryTransaction<TKey> ApplyMirrored(InventoryItemDelta<TKey> fromDelta)
     {
+        if (!TryApplyMirrored(fromDelta, out var failure))
+            throw new InventoryOperationException(failure ?? InventoryFailures.Transaction("Mirrored cross-inventory delta application was rejected."));
+        return this;
+    }
+
+    /// <summary>Attempts to apply one delta to the first inventory and its mirror to the second inventory.</summary>
+    public bool TryApplyMirrored(InventoryItemDelta<TKey> fromDelta, out InventoryFailure? failure)
+    {
         if (fromDelta == null)
-            throw new ArgumentNullException(nameof(fromDelta));
-        return Apply(fromDelta, InventoryItemDelta<TKey>.Mirror(fromDelta));
+        {
+            failure = InventoryFailures.Transaction("Delta cannot be null.");
+            return false;
+        }
+
+        if (!InventoryItemDelta<TKey>.TryMirror(fromDelta, out var mirrored, out failure) || mirrored == null)
+            return false;
+
+        return TryApply(fromDelta, mirrored, out failure);
     }
 
     /// <summary>Attempts to apply inventory-local deltas to a cross-inventory transaction.</summary>

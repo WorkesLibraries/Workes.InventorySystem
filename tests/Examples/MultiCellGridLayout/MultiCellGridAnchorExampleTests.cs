@@ -28,7 +28,7 @@ public class MultiCellGridAnchorExampleTests
 
         defaultAnchor.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(1, 0));
         explicitAnchor.TryAdd(table, out _, 1, MultiCellGridLayoutContext<string>.Single(2, 0, GridAnchor.TopRight));
-        var builder = InventoryTransaction<string>.From(mappedAnchors);
+        var builder = InventoryTransaction<string>.For(mappedAnchors);
         builder.TryAdd(table, out _);
         builder.TryAdd(chest, out _);
         var placement = MultiCellGridLayoutContext<string>.Map()
@@ -36,7 +36,7 @@ public class MultiCellGridAnchorExampleTests
             .Add(1, 3, 2, GridAnchor.BottomRight)
             .Build();
         Assert.That(builder.TryBuild(placement, out var transaction, out var failure), Is.True);
-        Assert.That(mappedAnchors.TryCommitTransaction(transaction!, out failure), Is.True);
+        Assert.That(transaction!.TryCommit(out failure), Is.True);
 
         var output = new StringBuilder();
         output.AppendLine("Default top-left anchor");

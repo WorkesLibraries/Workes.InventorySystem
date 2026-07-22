@@ -12,6 +12,7 @@ namespace Workes.InventorySystem.Core;
 /// Builders created with <see cref="InventoryTransfer.From{TKey}(Inventory{TKey})"/> stage outgoing removals only.
 /// Builders created through <see cref="To"/> also validate target additions while staging.
 /// </remarks>
+[Obsolete("InventoryTransferBuilder is retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
 public sealed class InventoryTransferBuilder<TKey>
 {
     private readonly List<PlannedOperation> _operations = new();

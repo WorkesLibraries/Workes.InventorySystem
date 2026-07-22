@@ -447,7 +447,7 @@ A successful non-empty transaction emits one grouped event from its inventory, e
 contributed to it. Reflow compares the state before the complete transaction with the final state, so temporary
 intermediate shifts are not reported. Surviving instances report only their final before/after movement.
 
-A successful planned transfer normally emits:
+Planned transfer helpers normally emit:
 
 - one event from the source for removed or reduced stacks.
 - one event from the target for added or increased stacks.

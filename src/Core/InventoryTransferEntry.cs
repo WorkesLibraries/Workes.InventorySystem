@@ -10,6 +10,7 @@ namespace Workes.InventorySystem.Core;
 /// transfers through <see cref="InventoryTransfer.From{TKey}(Inventory{TKey})"/> rather than constructing entries directly.
 /// </remarks>
 /// <typeparam name="TKey">The item definition identifier type.</typeparam>
+[Obsolete("InventoryTransferEntry is retained for backwards compatibility with deprecated transfer builders. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging.")]
 public sealed class InventoryTransferEntry<TKey>
 {
     /// <summary>

@@ -7,7 +7,7 @@ namespace Workes.InventorySystem.Core;
 /// <summary>
 /// Builds a bulk structural transaction by operating on a simulated inventory state.
 /// Use <see cref="InventoryTransaction{TKey}.For(Inventory{TKey})"/> to create a local builder, then commit it through
-/// the builder or target inventory.
+/// the builder.
 /// </summary>
 /// <remarks>
 /// Transaction builders stage add/remove/amount-delta changes. Layout move and swap operations remain inventory-level

@@ -52,7 +52,7 @@ public class GridLayoutExampleTests
         var apple = new ItemDefinition<string>("apple");
         var sword = new ItemDefinition<string>("sword");
         var inventory = CreateManager(new Workes.InventorySystem.Layout.GridLayout<string>(3, 2), apple, sword).CreateInventory();
-        var builder = InventoryTransaction<string>.From(inventory);
+        var builder = InventoryTransaction<string>.For(inventory);
         builder.TryAdd(apple, out _, 5);
         builder.TryAdd(sword, out _, 1);
         var context = GridLayoutContext<string>.Map()
@@ -61,7 +61,7 @@ public class GridLayoutExampleTests
             .Build();
 
         var built = builder.TryBuild(context, out var transaction, out var failure);
-        var committed = built && inventory.TryCommitTransaction(transaction!, out failure);
+        var committed = built && transaction!.TryCommit(out failure);
 
         Assert.That(committed, Is.True);
         WriteOutput("MappedGridTransaction.txt", DescribeGrid(inventory, 3, 2));

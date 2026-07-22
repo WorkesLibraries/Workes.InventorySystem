@@ -228,7 +228,7 @@ Normal operations include:
 - adding and removing amounts.
 - moving, swapping, merging, and splitting stacks.
 - committing transactions.
-- transferring items between inventories.
+- coordinating cross-inventory transactions.
 - changing inventory-owned rules or component parameters.
 - mutating metadata on owned instances.
 - applying portable snapshots.

@@ -83,7 +83,7 @@ Common project exception types include:
 | Exception | Meaning |
 |---|---|
 | `InventorySystemException` | Base class for project-owned expected-success failures. |
-| `InventoryOperationException` | Thrown by inventory operation wrappers such as `Add`, `Remove`, `Move`, `CommitTransaction`, snapshot application, and parameter mutation wrappers. |
+| `InventoryOperationException` | Thrown by inventory operation wrappers such as `Add`, `Remove`, `Move`, transaction `Commit`, snapshot application, and parameter mutation wrappers. |
 | `DefinitionValidationException` | Thrown when definition or schema validation fails in a package-owned validation path. |
 
 Standard `ArgumentException`, `ArgumentNullException`, `ArgumentOutOfRangeException`, and ordinary

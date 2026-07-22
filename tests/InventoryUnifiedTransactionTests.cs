@@ -45,6 +45,74 @@ public class InventoryUnifiedTransactionTests
     }
 
     [Test]
+    public void InventoryOwnedTransactionCommitMethods_AreNotPublicApi()
+    {
+        var publicMethods = typeof(Inventory<string>)
+            .GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+            .Select(method => method.Name)
+            .ToArray();
+
+        Assert.That(publicMethods, Does.Not.Contain("CommitTransaction"));
+        Assert.That(publicMethods, Does.Not.Contain("TryCommitTransaction"));
+        Assert.That(publicMethods, Does.Not.Contain("CanCommitTransaction"));
+    }
+
+    [Test]
+    public void TransferApiFamily_IsMarkedObsolete()
+    {
+        var assembly = typeof(Inventory<string>).Assembly;
+        AssertObsolete(assembly.GetType("Workes.InventorySystem.Core.InventoryTransfer"));
+        AssertObsolete(assembly.GetType("Workes.InventorySystem.Core.InventoryTransferBuilder`1"));
+        AssertObsolete(assembly.GetType("Workes.InventorySystem.Core.InventoryTransferEntry`1"));
+
+        var inventoryType = typeof(Inventory<string>);
+        foreach (var methodName in new[]
+        {
+            "CanCommitTransfer",
+            "TryCommitTransfer",
+            "CommitTransfer"
+        })
+        {
+            var methods = inventoryType
+                .GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                .Where(method => method.Name == methodName)
+                .ToArray();
+
+            Assert.That(methods, Is.Not.Empty, methodName);
+            Assert.That(methods.All(method => method.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).Any()), Is.True, methodName);
+        }
+
+        foreach (var methodName in new[]
+        {
+            "CanTransferTo",
+            "TryTransferTo",
+            "TransferTo",
+            "TryMoveAllTo",
+            "TryMoveWhereTo",
+            "TryMoveByTagTo",
+            "TryMoveAllTagsTo",
+            "TryTransferMaximumTo",
+            "TryMoveMaximumWhereTo",
+            "TryMoveMaximumByTagTo"
+        })
+        {
+            var methods = inventoryType
+                .GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                .Where(method => method.Name == methodName)
+                .ToArray();
+
+            Assert.That(methods, Is.Not.Empty, methodName);
+            Assert.That(methods.Any(method => method.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).Any()), Is.False, methodName);
+        }
+
+        static void AssertObsolete(Type? type)
+        {
+            Assert.That(type, Is.Not.Null);
+            Assert.That(type!.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false), Is.Not.Empty);
+        }
+    }
+
+    [Test]
     public void LocalTransaction_RejectsCommitWhenInventoryChangedAfterBuild()
     {
         var apple = new ItemDefinition<string>("apple");
@@ -87,6 +155,32 @@ public class InventoryUnifiedTransactionTests
         Assert.That(player.Count(coin), Is.EqualTo(4));
         Assert.That(npc.Count(plate), Is.EqualTo(1));
         Assert.That(npc.Count(coin), Is.EqualTo(68));
+    }
+
+    [Test]
+    public void CrossInventoryTransaction_ApplyMirroredRejectsWildcardMetadataRemovals()
+    {
+        var gem = new ItemDefinition<string>("gem");
+        var manager = CreateManager(new EntryLayout<string>(), maxStack: 99, gem);
+        var player = manager.CreateInventory();
+        var npc = manager.CreateInventory();
+        var metadata = new InstanceMetadata();
+        metadata.Set("quality", "rare");
+        InventoryTransaction<string>
+            .For(player)
+            .Add(gem, amount: 1, context: null, metadata: metadata)
+            .Commit();
+        var playerDelta = InventoryItemDelta<string>.Create()
+            .RemoveAnyMetadata("gem", amount: 1, label: "runtime-selected-gem");
+
+        var transaction = InventoryTransaction<string>
+            .From(player)
+            .To(npc);
+
+        Assert.That(transaction.TryApplyMirrored(playerDelta, out var failure), Is.False);
+        Assert.That(failure?.Kind, Is.EqualTo(InventoryFailureKind.Transaction));
+        Assert.That(failure?.Message, Does.Contain("Wildcard-metadata remove operations cannot be mirrored"));
+        Assert.Throws<InventoryOperationException>(() => transaction.ApplyMirrored(playerDelta));
     }
 
     [Test]

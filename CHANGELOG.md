@@ -11,6 +11,11 @@ This file records notable changes to `Workes.InventorySystem`.
   changes should use direct inventory operations or the transaction/delta APIs.
 - Transactions now capture the inventory version they were built against and reject commit after participating
   inventories have changed. Rebuild transactions against current state instead of caching them across mutations.
+- Removed public inventory-owned transaction commit APIs such as `CommitTransaction(...)` and
+  `TryCommitTransaction(...)`. Complex local and cross-inventory operations are committed through
+  `InventoryTransaction<TKey>`, `InventoryTransactionBuilder<TKey>`, or cross-inventory transaction side builders.
+- `InventoryItemDelta<TKey>.Mirror(...)` and mirrored cross-inventory application now reject deltas containing
+  `RemoveAnyMetadata(...)`, because wildcard-metadata removals cannot produce a precise opposite-side add.
 
 ### Added
 
@@ -26,6 +31,14 @@ This file records notable changes to `Workes.InventorySystem`.
   including remove-at-context, exact-metadata removal, and wildcard-metadata removal.
 - Added `InventoryTransaction<TKey>.FromSide` and `.ToSide` manual side builders for one-off cross-inventory
   transaction staging with immediate per-side validation and atomic two-inventory commit.
+- Added `InventoryItemDelta<TKey>.TryMirror(...)` and `InventoryTransaction<TKey>.TryApplyMirrored(...)` for
+  structured-failure handling when mirrored delta workflows are not valid.
+
+### Deprecated
+
+- Deprecated the external transfer-builder API family: `InventoryTransfer`, `InventoryTransferBuilder<TKey>`,
+  `InventoryTransferEntry<TKey>`, and source-owned transfer commit methods that accept a transfer builder. Inventory-
+  owned one-shot, bulk, and maximum transfer helpers remain first-class convenience APIs.
 
 ## [2.0.0] - 2026-07-21
 

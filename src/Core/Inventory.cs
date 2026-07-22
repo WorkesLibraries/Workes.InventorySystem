@@ -2403,11 +2403,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         return new InventoryTransaction<TKey>(first.Inventory, mergedDeltas, mergedRemoved, mergedAdded);
     }
 
-    /// <summary>Executes a transaction. Transaction must reference this inventory and must not already be applied. Fires a single Changed event.</summary>
+    /// <summary>Internal: executes a transaction. Transaction must reference this inventory and must not already be applied. Fires a single Changed event.</summary>
     /// <param name="transaction">The structural transaction to commit.</param>
     /// <exception cref="ArgumentNullException"><paramref name="transaction"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="transaction"/> targets another inventory or has already been applied.</exception>
-    public void CommitTransaction(InventoryTransaction<TKey> transaction)
+    internal void CommitTransaction(InventoryTransaction<TKey> transaction)
     {
         if (transaction == null)
             throw new ArgumentNullException(nameof(transaction));
@@ -2420,24 +2420,24 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
-    /// Builds and commits a transaction builder or throws when commit is rejected.
+    /// Internal: builds and commits a transaction builder or throws when commit is rejected.
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="InventoryOperationException">The built transaction is rejected.</exception>
-    public void CommitTransaction(InventoryTransactionBuilder<TKey> builder)
+    internal void CommitTransaction(InventoryTransactionBuilder<TKey> builder)
     {
         CommitTransaction(builder, null);
     }
 
     /// <summary>
-    /// Builds and commits a transaction builder after applying a transaction-level placement context.
+    /// Internal: builds and commits a transaction builder after applying a transaction-level placement context.
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="InventoryOperationException">The built transaction is rejected.</exception>
-    public void CommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext)
+    internal void CommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext)
     {
         if (builder == null)
             throw new ArgumentNullException(nameof(builder));
@@ -2447,12 +2447,12 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
-    /// Attempts to execute a transaction after validating all inventory constraints.
+    /// Internal: attempts to execute a transaction after validating all inventory constraints.
     /// </summary>
     /// <param name="transaction">The structural transaction to commit.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
+    internal bool TryCommitTransaction(InventoryTransaction<TKey> transaction, out InventoryFailure? failure)
     {
         return TryCommitTransaction(transaction, null, out failure);
     }
@@ -2463,24 +2463,24 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
-    /// Attempts to build and commit a transaction builder.
+    /// Internal: attempts to build and commit a transaction builder.
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out InventoryFailure? failure)
+    internal bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, out InventoryFailure? failure)
     {
         return TryCommitTransaction(builder, null, out failure);
     }
 
     /// <summary>
-    /// Attempts to build and commit a transaction builder after applying a transaction-level placement context.
+    /// Internal: attempts to build and commit a transaction builder after applying a transaction-level placement context.
     /// </summary>
     /// <param name="builder">The builder targeting this inventory.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the built transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out InventoryFailure? failure)
+    internal bool TryCommitTransaction(InventoryTransactionBuilder<TKey> builder, ILayoutContext<TKey>? placementContext, out InventoryFailure? failure)
     {
         if (builder == null)
         {
@@ -2495,13 +2495,13 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     }
 
     /// <summary>
-    /// Attempts to execute a transaction after applying a transaction-level placement context.
+    /// Internal: attempts to execute a transaction after applying a transaction-level placement context.
     /// </summary>
     /// <param name="transaction">The structural transaction to commit.</param>
     /// <param name="placementContext">Optional layout-specific transaction placement context.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transaction is committed; otherwise, <see langword="false"/>.</returns>
-    public bool TryCommitTransaction(
+    internal bool TryCommitTransaction(
         InventoryTransaction<TKey> transaction,
         ILayoutContext<TKey>? placementContext,
         out InventoryFailure? failure)
@@ -2520,6 +2520,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that would receive the transfer entries.</param>
     /// <param name="failure">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public bool CanCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? failure)
     {
         return CanCommitTransfer(builder, target, null, out failure);
@@ -2533,6 +2534,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
     /// <param name="failure">A consumer-facing reason when commit would be rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the transfer can be committed; otherwise, <see langword="false"/>.</returns>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public bool CanCommitTransfer(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
@@ -2560,6 +2562,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public bool TryCommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, out InventoryFailure? failure)
     {
         return TryCommitTransfer(builder, target, null, out failure);
@@ -2573,6 +2576,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
     /// <param name="failure">A consumer-facing reason when commit is rejected; otherwise, <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the full transfer is committed; otherwise, <see langword="false"/>.</returns>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public bool TryCommitTransfer(
         InventoryTransferBuilder<TKey> builder,
         Inventory<TKey> target,
@@ -2600,6 +2604,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="target">The target inventory that should receive the transfer entries.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
     /// <exception cref="InventoryOperationException">The transfer is rejected.</exception>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target)
     {
         CommitTransfer(builder, target, null);
@@ -2613,6 +2618,7 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
     /// <param name="targetContext">Optional target layout context for incoming entries.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> or <paramref name="target"/> is <see langword="null"/>.</exception>
     /// <exception cref="InventoryOperationException">The transfer is rejected.</exception>
+    [Obsolete("Transfer APIs are retained for backwards compatibility. Use InventoryTransaction<TKey>.From(source).To(target) with FromSide/ToSide staging for one-way cross-inventory movement.")]
     public void CommitTransfer(InventoryTransferBuilder<TKey> builder, Inventory<TKey> target, ILayoutContext<TKey>? targetContext)
     {
         if (builder == null)
@@ -2634,14 +2640,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ILayoutContext<TKey>? targetContext,
         out InventoryFailure? failure)
     {
-        if (!TryValidateOutgoingTransferItem(item, amount, out failure))
+        if (!TryBuildOneWayTransferTransaction(target, item, amount, targetContext, out var transaction, out failure)
+            || transaction == null)
             return false;
 
-        var builder = InventoryTransfer.From(this);
-        if (!builder.TryRemove(item, amount, out failure))
-            return false;
-
-        return CanCommitTransfer(builder, target, targetContext, out failure);
+        return transaction.Validate(out failure);
     }
 
     /// <summary>
@@ -2654,14 +2657,11 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ILayoutContext<TKey>? targetContext,
         out InventoryFailure? failure)
     {
-        if (!TryValidateOutgoingTransferItem(item, amount, out failure))
+        if (!TryBuildOneWayTransferTransaction(target, item, amount, targetContext, out var transaction, out failure)
+            || transaction == null)
             return false;
 
-        var builder = InventoryTransfer.From(this);
-        if (!builder.TryRemove(item, amount, out failure))
-            return false;
-
-        return TryCommitTransfer(builder, target, targetContext, out failure);
+        return transaction.TryCommit(out failure);
     }
 
     /// <summary>
@@ -2677,11 +2677,70 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             throw new InventoryOperationException(failure ?? InventoryFailures.Unknown());
     }
 
-    private bool TryValidateOutgoingTransferItem(ItemInstance<TKey> item, int amount, out InventoryFailure? failure)
+    private bool TryBuildOneWayTransferTransaction(
+        Inventory<TKey> target,
+        ItemInstance<TKey> item,
+        int amount,
+        ILayoutContext<TKey>? targetContext,
+        out InventoryTransaction<TKey>? transaction,
+        out InventoryFailure? failure)
     {
+        transaction = null;
+        if (!TryValidateOutgoingTransfer(target, item, amount, out failure))
+            return false;
+
+        try
+        {
+            var builder = InventoryTransaction<TKey>
+                .From(this)
+                .To(target);
+            if (!builder.FromSide.TryRemove(item, out failure, amount))
+                return false;
+
+            var metadata = item.Metadata.IsEmpty ? null : item.Metadata;
+            if (!builder.ToSide.TryAdd(item.Definition, amount, targetContext, metadata, out failure))
+                return false;
+
+            transaction = builder;
+            failure = null;
+            return true;
+        }
+        catch (InventorySystemException ex)
+        {
+            failure = InventoryFailure.Wrap(
+                InventoryFailureKind.Transfer,
+                InventoryFailureCodes.TransferRejected,
+                "Transfer was rejected.",
+                ex.Failure);
+            return false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            failure = InventoryFailures.Transfer(ex.Message);
+            return false;
+        }
+    }
+
+    private bool TryValidateOutgoingTransfer(Inventory<TKey> target, ItemInstance<TKey> item, int amount, out InventoryFailure? failure)
+    {
+        if (target == null)
+        {
+            failure = InventoryFailures.Transfer("Target inventory cannot be null.");
+            return false;
+        }
         if (item == null)
         {
             failure = InventoryFailures.Validation("Item cannot be null.");
+            return false;
+        }
+        if (ReferenceEquals(this, target))
+        {
+            failure = InventoryFailures.Transfer("Cannot transfer between the same inventory.");
+            return false;
+        }
+        if (!ReferenceEquals(Manager, target.Manager) && !ReferenceEquals(Catalog, target.Catalog))
+        {
+            failure = InventoryFailures.Definition("Inventories must share the same item catalog.");
             return false;
         }
         if (amount <= 0)
@@ -2738,14 +2797,57 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
             return false;
         }
 
-        var builder = InventoryTransfer.From(this);
+        if (target == null)
+        {
+            failure = InventoryFailures.Transfer("Target inventory cannot be null.");
+            return false;
+        }
+        if (ReferenceEquals(this, target))
+        {
+            failure = InventoryFailures.Transfer("Cannot transfer between the same inventory.");
+            return false;
+        }
+        if (!ReferenceEquals(Manager, target.Manager) && !ReferenceEquals(Catalog, target.Catalog))
+        {
+            failure = InventoryFailures.Definition("Inventories must share the same item catalog.");
+            return false;
+        }
+
+        InventoryTransaction<TKey> transaction;
+        try
+        {
+            transaction = InventoryTransaction<TKey>
+                .From(this)
+                .To(target);
+        }
+        catch (InvalidOperationException ex)
+        {
+            failure = InventoryFailures.Transfer(ex.Message);
+            return false;
+        }
+
+        var any = false;
         foreach (var item in new List<ItemInstance<TKey>>(Items))
         {
-            if (predicate(item) && !builder.TryRemove(item, item.Amount, out failure))
+            if (!predicate(item))
+                continue;
+
+            any = true;
+            if (!transaction.FromSide.TryRemove(item, out failure, item.Amount))
+                return false;
+
+            var metadata = item.Metadata.IsEmpty ? null : item.Metadata;
+            if (!transaction.ToSide.TryAdd(item.Definition, item.Amount, targetContext, metadata, out failure))
                 return false;
         }
 
-        return TryCommitTransfer(builder, target, targetContext, out failure);
+        if (!any)
+        {
+            failure = InventoryFailures.TransferEmpty("Transfer contains no items.");
+            return false;
+        }
+
+        return transaction.TryCommit(out failure);
     }
 
     /// <summary>
@@ -2953,7 +3055,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ILayoutContext<TKey>? otherTargetContext,
         out InventoryFailure? failure)
     {
+#pragma warning disable CS0618 // Swap currently reuses deprecated transfer internals for compatibility.
         return InventoryTransfer.TrySwap(this, other, sourceItem, sourceAmount, otherItem, otherAmount, sourceTargetContext, otherTargetContext, out failure);
+#pragma warning restore CS0618
     }
 
     /// <summary>
@@ -2965,7 +3069,9 @@ public partial class Inventory<TKey> : IInstanceMetadataOwner, IInventoryMetadat
         ILayoutContext<TKey>? otherTargetContext,
         out InventoryFailure? failure)
     {
+#pragma warning disable CS0618 // Swap currently reuses deprecated transfer internals for compatibility.
         return InventoryTransfer.TrySwapInventories(this, other, sourceTargetContext, otherTargetContext, out failure);
+#pragma warning restore CS0618
     }
 
     private void ApplyPreparedTransaction(InventoryTransaction<TKey> transaction, bool cleared = false)

@@ -119,7 +119,7 @@ Automatic placement can fail when no valid position exists.
 
 ## Mapped Contexts
 
-A mapped context assigns positions to multiple entries added by one transaction or transfer.
+A mapped context assigns positions to multiple entries added by one transaction or deprecated transfer builder.
 
 This section is easiest to understand after reading
 [Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md), because added-entry indices belong to the transaction being
@@ -128,12 +128,12 @@ committed rather than to permanent inventory storage.
 `IsMapped` is `true`, and the mapping keys refer to:
 
 - `InventoryTransaction<TKey>.Added` indices for transactions.
-- transfer-builder entry order for incoming transfer placement.
+- deprecated transfer-builder entry order for incoming transfer placement.
 
 Use a mapped context as a deferred-placement tool when the final resulting additions are known and another layer needs
-to assign each one a target. This is especially useful for transactions. For transfers where each staged source removal
-already knows its target position, prefer the target-bound form of `InventoryTransferBuilder<TKey>` documented in
-[Transactions And Transfers](TRANSACTIONS_AND_TRANSFERS.md#target-bound-transfer-builders).
+to assign each one a target. This is especially useful for transactions. Transfer-builder mapping remains documented
+only for deprecated compatibility APIs; new cross-inventory movement should use transaction side staging or delta
+application plans.
 
 ```csharp
 var placement = SlotLayoutContext<string>.Map()
@@ -145,11 +145,11 @@ var placement = SlotLayoutContext<string>.Map()
 The first number passed to each `.Add(...)` is an added-entry index, not a storage index or item ID. The second number is
 the layout destination position. Other layout context builders map the same added-entry indices to their own position types.
 
-Mapped contexts describe additions only. They are applied after stacking decisions, so an add or incoming transfer entry
-that merged completely into an existing stack has no added-entry index to map. Existing amount deltas and removals are
-simulated by the layout during validation but are not assigned mapping entries. The transactions guide explains when
-deferred mapping is useful, why per-add or per-removal direct contexts are normally more ergonomic, and how to inspect
-the resulting additions safely.
+Mapped contexts describe additions only. They are applied after stacking decisions, so an add or deprecated
+transfer-builder entry that merged completely into an existing stack has no added-entry index to map. Existing amount deltas and
+removals are simulated by the layout during validation but are not assigned mapping entries. The transactions guide
+explains when deferred mapping is useful, why per-add or per-removal direct contexts are normally more ergonomic, and
+how to inspect the resulting additions safely.
 
 ## Context Builder Reference
 

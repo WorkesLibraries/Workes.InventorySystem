@@ -15,7 +15,7 @@ and persistence so each concern can be configured or extended without replacing 
 - Configurable stack resolvers, capacity policies, and inventory rules.
 - Entry, slot, grid, multi-cell grid, equipment, and sectioned layouts.
 - Direct placement, automatic placement, movement, swapping, sorting, and repacking.
-- Atomic transactions, cross-inventory transfers, bulk moves, and swaps.
+- Atomic local and cross-inventory transactions, bulk transformations, and swaps.
 - Per-instance metadata with inventory-owned validation and events.
 - Structured change events for gameplay, auditing, and incremental UI synchronization.
 - Portable, serializer-friendly snapshots with exact restoration, reconciliation, and salvage workflows.

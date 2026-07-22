@@ -280,18 +280,60 @@ public sealed class InventoryItemDelta<TKey>
     }
 
     /// <summary>Creates a delta with add and remove operations inverted.</summary>
+    /// <exception cref="InventoryOperationException">
+    /// The delta contains a wildcard-metadata removal that cannot be mirrored into an exact add.
+    /// </exception>
     public InventoryItemDelta<TKey> Mirror() => Mirror(this);
 
+    /// <summary>Attempts to create a delta with add and remove operations inverted.</summary>
+    public bool TryMirror(out InventoryItemDelta<TKey>? mirrored, out InventoryFailure? failure) =>
+        TryMirror(this, out mirrored, out failure);
+
     /// <summary>Creates a delta with add and remove operations inverted.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="delta"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InventoryOperationException">
+    /// The delta contains a wildcard-metadata removal that cannot be mirrored into an exact add.
+    /// </exception>
     public static InventoryItemDelta<TKey> Mirror(InventoryItemDelta<TKey> delta)
     {
         if (delta == null)
             throw new ArgumentNullException(nameof(delta));
 
-        return new InventoryItemDelta<TKey>(delta._operations.Select(operation =>
-            operation.WithKind(operation.Kind == InventoryItemDeltaOperationKind.Add
+        if (!TryMirror(delta, out var mirrored, out var failure) || mirrored == null)
+            throw new InventoryOperationException(failure ?? InventoryFailures.Transaction("Delta mirroring was rejected."));
+
+        return mirrored;
+    }
+
+    /// <summary>Attempts to create a delta with add and remove operations inverted.</summary>
+    public static bool TryMirror(
+        InventoryItemDelta<TKey> delta,
+        out InventoryItemDelta<TKey>? mirrored,
+        out InventoryFailure? failure)
+    {
+        if (delta == null)
+            throw new ArgumentNullException(nameof(delta));
+
+        var mirroredOperations = new List<InventoryItemDeltaOperation<TKey>>(delta._operations.Count);
+        foreach (var operation in delta._operations)
+        {
+            if (operation.Kind == InventoryItemDeltaOperationKind.Remove
+                && operation.MetadataMatch == InventoryItemDeltaMetadataMatch.Any)
+            {
+                mirrored = null;
+                failure = InventoryFailures.Transaction(
+                    "Wildcard-metadata remove operations cannot be mirrored because the mirrored add metadata would be ambiguous. Use exact metadata, explicit per-side deltas, manual cross-inventory side staging, or transfer helpers when runtime-selected metadata must be preserved.");
+                return false;
+            }
+
+            mirroredOperations.Add(operation.WithKind(operation.Kind == InventoryItemDeltaOperationKind.Add
                 ? InventoryItemDeltaOperationKind.Remove
-                : InventoryItemDeltaOperationKind.Add)));
+                : InventoryItemDeltaOperationKind.Add));
+        }
+
+        mirrored = new InventoryItemDelta<TKey>(mirroredOperations);
+        failure = null;
+        return true;
     }
 
     /// <summary>Semantically combines prefixed deltas into one net delta.</summary>
